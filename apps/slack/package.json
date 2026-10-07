@@ -1,0 +1,21 @@
+{
+  "name": "@spinroom/slack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@slack/bolt": "^5.1.0",
+    "@spinroom/contracts": "workspace:*",
+    "@spinroom/db": "workspace:*",
+    "@spinroom/sdk": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": { "tsup": "^8.5.1" }
+}
