@@ -294,6 +294,8 @@ export const AvatarImportReportSchema = z.object({
   needsGrid: z.object({ cols: z.number().int(), rows: z.number().int() }).nullable(),
   frameCounts: z.record(z.string(), z.number().int()).nullable(),
   suggestedName: z.string().nullable(),
+  /** Built runtime sheet + thumbnail for the live preview (also on dry runs). */
+  preview: AvatarRefSchema.nullable(),
   issues: z.array(AvatarValidationIssueSchema),
 });
 export type AvatarImportReport = z.infer<typeof AvatarImportReportSchema>;

@@ -24,6 +24,8 @@ async function spotifyToken(): Promise<string> {
   return ((await r.json()) as { accessToken: string }).accessToken;
 }
 
+const OFF_VIEW: SpeakerView = { status: 'off', message: null, driftMs: null, volume: 1, muted: false };
+
 /** One speaker controller per room page. */
 export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' | 'fake' | undefined) {
   const controller = useMemo(() => {
@@ -44,15 +46,23 @@ export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' |
   }, [slug, roomName, spotifyMode]);
 
   const view = useSyncExternalStore<SpeakerView>(
-    (cb) => (controller ? controller.subscribe(cb) : () => {}),
-    () => controller?.view ?? { status: 'off', message: null, driftMs: null, volume: 1, muted: false },
+    (cb) => {
+      if (!controller) return () => {};
+      const off = controller.subscribe(cb);
+      return () => {
+        off();
+      };
+    },
+    () => controller?.view ?? OFF_VIEW,
   );
   const [needsTakeover, setNeedsTakeover] = useState(false);
 
   useEffect(() => {
     void syncClock().catch(() => {});
+    // Test hook (fake Spotify only): lets end-to-end tests read the simulated player.
+    if (controller && spotifyMode === 'fake') (window as unknown as { __speaker?: SpeakerController }).__speaker = controller;
     return () => void controller?.stop();
-  }, [controller]);
+  }, [controller, spotifyMode]);
 
   return {
     controller,

@@ -1,0 +1,94 @@
+.howto {
+  display: grid;
+  gap: 10px;
+  padding-left: 20px;
+}
+.mock {
+  margin-top: 6px;
+  display: inline-block;
+  background: #212121;
+  color: #ececec;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.mockChat::before {
+  content: '💬 ';
+}
+.mockMenu {
+  font-family: ui-monospace, monospace;
+}
+.drop {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: center;
+  padding: 16px;
+  background: var(--charcoal);
+}
+.dragging,
+.drop:focus-within {
+  border-color: var(--cyan);
+}
+.warn {
+  color: var(--amber);
+  margin: 0;
+}
+.scene {
+  position: relative;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  background:
+    url(/art/back.webp) center top / 960px 540px no-repeat,
+    var(--night);
+  image-rendering: pixelated;
+}
+.sceneBooth {
+  position: absolute;
+  left: 24px;
+  bottom: 40px;
+  width: 140px;
+}
+.lap {
+  position: absolute;
+  left: 46px;
+  top: 70px;
+  width: 48px;
+  image-rendering: pixelated;
+}
+.boothFront {
+  position: absolute;
+  left: 0;
+  top: 96px;
+  width: 140px;
+  height: 64px;
+  background: var(--booth);
+  border-top: 6px solid #3a4560;
+}
+.sceneFloor {
+  position: absolute;
+  right: 24px;
+  bottom: 0;
+  display: flex;
+  gap: 12px;
+}
+.states {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+.state {
+  margin: 0;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: var(--charcoal);
+  border-radius: 8px;
+  font-size: 13px;
+  text-align: center;
+}

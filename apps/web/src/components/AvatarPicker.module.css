@@ -1,0 +1,23 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+.opt {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 8px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--charcoal);
+  cursor: pointer;
+}
+.opt[aria-checked='true'] {
+  border-color: var(--cyan);
+  background: #182040;
+}
+.name {
+  font-family: var(--font-pixel);
+  font-size: 13px;
+}

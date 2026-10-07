@@ -15,10 +15,12 @@ import { Jwt } from './lib/jwt.js';
 import { FsStorage, S3Storage, type Storage } from './lib/storage.js';
 import { registerAssetRoutes } from './routes/assets.js';
 import { authHandlers } from './routes/auth.js';
+import { avatarHandlers } from './routes/avatars.js';
 import { meHandlers } from './routes/me.js';
 import { playHandlers } from './routes/play.js';
 import { registerLive } from './routes/live.js';
 import { roomHandlers } from './routes/rooms.js';
+import { tokenHandlers } from './routes/tokens.js';
 import { createServices } from './services/index.js';
 import { FakeSpotifyGateway } from './spotify/fake.js';
 import type { SpotifyGateway } from './spotify/gateway.js';
@@ -68,7 +70,7 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
     spotify:
       o.spotify ??
       (o.cfg.SPOTIFY_MODE === 'fake'
-        ? new FakeSpotifyGateway()
+        ? new FakeSpotifyGateway(o.redis)
         : new RealSpotifyGateway({ accountsUrl: o.cfg.SPOTIFY_ACCOUNTS_URL, apiUrl: o.cfg.SPOTIFY_API_URL })),
     storage: o.storage ?? createStorage(o.cfg),
     log: app.log,
@@ -87,7 +89,7 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
   });
 
   registerErrorHandling(app);
-  registerRoutes(app, ctx, { ...authHandlers, ...meHandlers, ...roomHandlers, ...playHandlers });
+  registerRoutes(app, ctx, { ...authHandlers, ...meHandlers, ...roomHandlers, ...playHandlers, ...avatarHandlers, ...tokenHandlers });
   registerLive(app, ctx);
   registerAssetRoutes(app, ctx);
   app.get('/healthz', async () => ({ ok: true }));

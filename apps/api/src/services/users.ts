@@ -1,6 +1,7 @@
 import {
   AVATAR_COLORS,
   DEFAULT_PRESET_ID,
+  PRESET_AVATARS,
   RUNTIME_SHEET,
   type AvatarRef,
   type Avatar,
@@ -95,6 +96,7 @@ export function createUserService(ctx: AppContext) {
         return { user: user!, created: false };
       }
       const color = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!;
+      const preset = PRESET_AVATARS[Math.floor(Math.random() * PRESET_AVATARS.length)]!.id;
       const [user] = await ctx.db
         .insert(users)
         .values({
@@ -104,6 +106,8 @@ export function createUserService(ctx: AppContext) {
           displayName: profile.displayName.slice(0, 40) || profile.id,
           email: profile.email,
           avatarColor: color,
+          avatarId: preset,
+          presetAvatarId: preset,
           isPremium,
           isAdmin,
           createdAt: now,

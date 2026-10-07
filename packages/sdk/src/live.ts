@@ -92,6 +92,16 @@ export class LiveRoom {
     this.send({ type: 'resync' });
   }
 
+  /**
+   * Apply a local change the server confirmed but doesn't broadcast (e.g. my own vote:
+   * `votes.changed` carries only aggregates, FR-V6).
+   */
+  patch(fn: (s: RoomSnapshot) => RoomSnapshot) {
+    if (!this.snapshot) return;
+    this.snapshot = fn(this.snapshot);
+    this.o.onSnapshot?.(this.snapshot);
+  }
+
   private handle(raw: string) {
     let msg: { type?: string; t?: number; serverNow?: number; seq?: number };
     try {

@@ -1,0 +1,113 @@
+.panel {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  gap: 16px;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--indigo);
+  border-top: 2px solid var(--border);
+}
+@media (max-width: 720px) {
+  .panel {
+    grid-template-columns: 64px 1fr;
+  }
+  .controls {
+    grid-column: 1 / -1;
+  }
+  .art img,
+  .noArt {
+    width: 64px !important;
+    height: 64px !important;
+  }
+}
+.art img {
+  display: block;
+  border-radius: 4px;
+  object-fit: cover;
+}
+.noArt {
+  width: 96px;
+  height: 96px;
+  border-radius: 4px;
+  background: var(--charcoal);
+}
+.meta {
+  min-width: 0;
+}
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.artist {
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sub {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+  margin-top: 4px;
+}
+.spotify {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+.progress {
+  height: 4px;
+  background: var(--charcoal);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.progress span {
+  display: block;
+  height: 100%;
+  background: var(--text);
+  transform-origin: 0 50%;
+}
+.times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.idleText {
+  color: var(--text-dim);
+}
+.controls {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+.votes {
+  display: flex;
+  gap: 8px;
+}
+.vote {
+  min-width: 112px;
+  min-height: 48px;
+  font-size: 18px;
+}
+.count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.volume {
+  width: 120px;
+  accent-color: var(--cyan);
+}

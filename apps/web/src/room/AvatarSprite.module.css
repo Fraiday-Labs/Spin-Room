@@ -1,0 +1,20 @@
+.sprite {
+  background-repeat: no-repeat;
+  background-position-x: 0;
+  animation-name: frames;
+  animation-timing-function: steps(var(--frames));
+  animation-iteration-count: infinite;
+}
+@keyframes frames {
+  to {
+    background-position-x: var(--strip);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sprite {
+    animation: none;
+  }
+}
+:global(.scene-paused) .sprite {
+  animation-play-state: paused;
+}

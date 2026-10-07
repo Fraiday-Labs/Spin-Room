@@ -1,0 +1,106 @@
+import { expect, test } from '@playwright/test';
+import { addTrack, newUserPage, signInViaUi, uid } from './helpers';
+
+test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
+  test('host creates an invite-only room, a friend joins by link, hears the live position and DJs', async ({ page, browser }) => {
+    // ---- Journey 1: sign in, create room, copy invite, start speaker
+    const host = uid('host');
+    await signInViaUi(page, host);
+    await expect(page).toHaveURL(/\/lobby/);
+    await page.getByTestId('room-name').fill(`Friday ${host}`);
+    await page.getByLabel('Who can join').selectOption('invite_only');
+    await page.getByTestId('create-room').click();
+    await expect(page).toHaveURL(/\/r\/friday-/);
+    await page.getByRole('button', { name: 'Invite' }).click();
+    const inviteUrl = (await page.locator('code', { hasText: '/invite/' }).textContent())!;
+    expect(inviteUrl).toMatch(/\/invite\/inv_/);
+    await page.getByTestId('start-speaker').click();
+    await expect(page.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+
+    // Host adds two tracks and steps up; the first plays.
+    await addTrack(page, 'Neon Tide');
+    await addTrack(page, 'Booth Lights');
+    await page.getByRole('tab', { name: 'DJ queue' }).click();
+    await page.getByTestId('queue-toggle').click();
+    await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
+    await expect(page.getByTestId('marquee')).toContainText('Neon Tide');
+    await expect(page.getByTestId('dj-slot-0')).toBeVisible();
+
+    // ---- Journey 2: friend opens the invite link and signs in
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const friend = await ctx.newPage();
+    const path = new URL(inviteUrl).pathname;
+    await friend.goto(path);
+    await friend.getByRole('link', { name: /Sign in with Spotify to join/ }).click();
+    await friend.getByRole('button', { name: 'Continue to test sign-in' }).click();
+    await friend.getByLabel('Spotify user ID').fill(uid('friend'));
+    await friend.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(friend).toHaveURL(new RegExp(path));
+    await friend.getByTestId('accept-invite').click();
+    await expect(friend.getByTestId('stage')).toBeVisible();
+    await expect(friend.getByTestId('np-title')).toHaveText('Neon Tide');
+
+    // Late join: audio starts at the live position.
+    await friend.waitForTimeout(2000);
+    await friend.getByTestId('start-speaker').click();
+    await expect(friend.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+    const pos = await friend.evaluate(async () => {
+      const sp = (window as unknown as { __speaker: { player: { getState(): Promise<{ positionMs: number; uri: string } | null> } } }).__speaker;
+      return sp.player.getState();
+    });
+    expect(pos?.uri).toMatch(/^spotify:track:/);
+    expect(pos!.positionMs).toBeGreaterThan(1500);
+
+    // Friend joins the DJ queue: empty set → My set tab, search, add, then join.
+    await friend.getByRole('tab', { name: 'DJ queue' }).click();
+    await friend.getByTestId('queue-toggle').click();
+    await expect(friend.getByRole('tab', { name: 'My set' })).toHaveAttribute('aria-selected', 'true');
+    await addTrack(friend, 'Pixel Rain');
+    await friend.getByRole('tab', { name: 'DJ queue' }).click();
+    await friend.getByTestId('queue-toggle').click();
+    await expect(friend.getByTestId('dj-slot-1')).toBeVisible();
+
+    // Friend votes Hype on the host's spin; the host sees it within a second.
+    await friend.getByTestId('vote-hype').click();
+    await expect(friend.getByTestId('vote-hype')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('vote-hype')).toContainText('1', { timeout: 2000 });
+
+    // Host skips their own spin → the friend's turn: their track plays.
+    await page.getByTestId('skip-spin').click();
+    await expect(friend.getByTestId('np-title')).toHaveText('Pixel Rain');
+    await expect(page.getByTestId('announcer')).toContainText('Now playing Pixel Rain');
+    await ctx.close();
+  });
+
+  test('Free accounts are remote-only and get told why', async ({ page }) => {
+    await signInViaUi(page, uid('free'), { premium: false });
+    await expect(page.getByText(/you’re a/i)).toBeVisible();
+    await expect(page.getByText('Remote only')).toBeVisible();
+  });
+});
+
+test('reduced motion freezes the scene', async ({ browser }) => {
+  const p = await newUserPage(browser, uid('calm'), undefined, { reducedMotion: 'reduce' });
+  await p.goto('/lobby');
+  await p.getByTestId('room-name').fill(`Calm ${uid('r')}`);
+  await p.getByTestId('create-room').click();
+  await expect(p.getByTestId('stage')).toBeVisible();
+  const anims = await p.evaluate(() => [...document.querySelectorAll('[data-testid=stage] img')].map((el) => getComputedStyle(el).animationName));
+  expect(anims.every((a) => a === 'none')).toBe(true);
+});
+
+test('a hidden tab pauses scene animation but keeps the speaker live', async ({ browser }) => {
+  const p = await newUserPage(browser, uid('bg'));
+  await p.goto('/lobby');
+  await p.getByTestId('room-name').fill(`Bg ${uid('r')}`);
+  await p.getByTestId('create-room').click();
+  await p.getByTestId('start-speaker').click();
+  await expect(p.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  await p.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(p.locator('.scene-paused')).toHaveCount(1);
+  await p.waitForTimeout(16_000); // one heartbeat interval
+  await expect(p.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+});

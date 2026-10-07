@@ -9,3 +9,5 @@ apps/web/test-results
 apps/web/playwright-report
 .vite
 *.tsbuildinfo
+apps/api/.data
+apps/web/.data

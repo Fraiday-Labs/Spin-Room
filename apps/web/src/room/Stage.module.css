@@ -1,0 +1,344 @@
+.wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 135px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--night);
+}
+.box {
+  position: relative;
+  overflow: hidden;
+}
+.scene {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 480px;
+  height: 270px;
+  transform-origin: 0 0;
+  image-rendering: pixelated;
+  overflow: hidden;
+}
+.scene img {
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 480px;
+  height: 270px;
+}
+
+/* Spotlight beams sweep slowly; the active DJ's beam brightens. */
+.beam {
+  position: absolute;
+  top: 30px;
+  width: 72px;
+  height: 200px;
+  transform-origin: 50% 0;
+  opacity: 0.45;
+  animation: sweep 7s ease-in-out infinite alternate;
+  transition: opacity 400ms;
+}
+.beamActive {
+  opacity: 1;
+}
+.idle .beam {
+  opacity: 0.25;
+}
+@keyframes sweep {
+  from {
+    transform: rotate(-7deg);
+  }
+  to {
+    transform: rotate(7deg);
+  }
+}
+
+/* LED strips pulse on a synthetic beat (≤ 3 flashes per second). */
+.led {
+  position: absolute;
+  width: 3px;
+  height: 132px;
+  animation: pulse 1.6s steps(2, jump-none) infinite;
+}
+@keyframes pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+.idle .led {
+  animation: none;
+  opacity: 0.3;
+}
+
+/* Equalizer: a synthetic loop — browsers get no access to Spotify's audio. */
+.eq span {
+  position: absolute;
+  bottom: calc(270px - 140px);
+  width: 6px;
+  height: 44px;
+  opacity: 0.6;
+  transform-origin: 50% 100%;
+  animation: eq 1s steps(4) infinite alternate;
+}
+.idle .eq span {
+  animation: none;
+  transform: scaleY(0.12);
+  opacity: 0.25;
+}
+@keyframes eq {
+  from {
+    transform: scaleY(0.2);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.dj {
+  position: absolute;
+  width: 48px;
+  height: 52px;
+}
+.label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  line-height: 1;
+  padding-bottom: 2px;
+  text-shadow:
+    1px 0 #000,
+    -1px 0 #000,
+    0 1px #000,
+    0 -1px #000;
+}
+.laptop {
+  position: absolute;
+  width: 24px;
+  height: 15px;
+}
+.glow {
+  position: absolute;
+  left: 122px;
+  top: 142px;
+  width: 236px;
+  height: 78px;
+  outline: 2px solid var(--pink);
+  outline-offset: -1px;
+  box-shadow:
+    0 0 0 2px rgb(255 79 163 / 0.35),
+    0 0 0 4px rgb(255 79 163 / 0.18);
+  animation: glow 1.2s steps(2, jump-none) infinite alternate;
+  pointer-events: none;
+}
+@keyframes glow {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.55;
+  }
+}
+
+.marquee {
+  position: absolute;
+  left: 152px;
+  top: 169px;
+  width: 176px;
+  height: 28px;
+  color: var(--amber);
+  font-family: var(--font-marquee);
+  text-shadow: 0 0 0 var(--amber);
+}
+.marqueeLine {
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 15px;
+  height: 16px;
+}
+.marqueeLine span {
+  display: inline-block;
+}
+.scroll {
+  animation: scroll 10s linear infinite;
+}
+@keyframes scroll {
+  from {
+    transform: translateX(var(--from));
+  }
+  to {
+    transform: translateX(var(--dist));
+  }
+}
+.times {
+  display: flex;
+  justify-content: space-between;
+  color: var(--yellow);
+  font-size: 11px;
+  line-height: 11px;
+  margin-top: 1px;
+}
+.floor {
+  position: absolute;
+  left: 0;
+  top: 214px;
+  width: 480px;
+  height: 56px;
+}
+
+/* Crowd: 16×20 back-view sprites at 2×, tinted with each member's color via a mask. */
+.crowd {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.fig {
+  position: absolute;
+  width: 32px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.figBase,
+.figTint {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: 160px 320px;
+}
+.figBase {
+  background-image: url(/art/crowd.png);
+  background-position: 0 var(--vy);
+}
+.figTint {
+  background-color: var(--tint);
+  -webkit-mask-image: url(/art/crowd-mask.png);
+  mask-image: url(/art/crowd-mask.png);
+  -webkit-mask-size: 160px 320px;
+  mask-size: 160px 320px;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 0 var(--vy);
+  mask-position: 0 var(--vy);
+}
+.idle .figBase,
+.fig.idle .figBase {
+  animation: crowdIdle 1.4s steps(1) infinite;
+}
+.fig.idle .figTint {
+  animation: crowdIdleMask 1.4s steps(1) infinite;
+}
+.fig.hype .figBase {
+  animation: crowdHype 0.7s steps(1) infinite;
+}
+.fig.hype .figTint {
+  animation: crowdHypeMask 0.7s steps(1) infinite;
+}
+.fig.skip .figBase {
+  background-position: -128px var(--vy);
+}
+.fig.skip .figTint {
+  -webkit-mask-position: -128px var(--vy);
+  mask-position: -128px var(--vy);
+}
+@keyframes crowdIdle {
+  0% {
+    background-position: 0 var(--vy);
+  }
+  50% {
+    background-position: -32px var(--vy);
+  }
+}
+@keyframes crowdIdleMask {
+  0% {
+    -webkit-mask-position: 0 var(--vy);
+    mask-position: 0 var(--vy);
+  }
+  50% {
+    -webkit-mask-position: -32px var(--vy);
+    mask-position: -32px var(--vy);
+  }
+}
+@keyframes crowdHype {
+  0% {
+    background-position: -64px var(--vy);
+  }
+  50% {
+    background-position: -96px var(--vy);
+  }
+}
+@keyframes crowdHypeMask {
+  0% {
+    -webkit-mask-position: -64px var(--vy);
+    mask-position: -64px var(--vy);
+  }
+  50% {
+    -webkit-mask-position: -96px var(--vy);
+    mask-position: -96px var(--vy);
+  }
+}
+.remote {
+  opacity: 0.45;
+}
+.noPhones {
+  position: absolute;
+  left: 11px;
+  top: -6px;
+  width: 10px;
+  height: 7px;
+  background:
+    linear-gradient(var(--text-dim), var(--text-dim)) 1px 0 / 8px 1px no-repeat,
+    linear-gradient(var(--text-dim), var(--text-dim)) 0 1px / 1px 5px no-repeat,
+    linear-gradient(var(--text-dim), var(--text-dim)) 9px 1px / 1px 5px no-repeat,
+    linear-gradient(var(--danger), var(--danger)) 0 0 / 10px 1px no-repeat;
+  transform: none;
+}
+.me::after {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: -5px;
+  width: 6px;
+  height: 3px;
+  background: var(--yellow);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
+/* Paused tab or reduced motion: freeze everything. */
+:global(.scene-paused) .scene *,
+:global(.scene-paused) .scene {
+  animation-play-state: paused !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll {
+    animation: none !important;
+    transform: none;
+    text-overflow: ellipsis;
+  }
+  .beam,
+  .led,
+  .eq span,
+  .glow,
+  .scroll,
+  .fig .figBase,
+  .fig .figTint {
+    animation: none !important;
+  }
+}

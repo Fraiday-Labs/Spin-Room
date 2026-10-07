@@ -82,6 +82,10 @@ function route<
 }
 
 const Slug = z.object({ slug: z.string().min(1).max(64) });
+/** Query-string boolean: accepts true/false and "true"/"false"/"1"/"0" (never `Boolean("false")`). */
+const QueryBool = z
+  .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+  .transform((v) => v === true || v === 'true' || v === '1');
 const Ok = z.object({ ok: z.literal(true) });
 const SlugRe = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -595,11 +599,11 @@ export const routes = {
     auth: 'user',
     summary: 'Import a ChatGPT pet (sprite kit zip, single sheet, or pet.json + sheet). Multipart.',
     query: z.object({
-      dryRun: z.coerce.boolean().default(false),
+      dryRun: QueryBool.default(false),
       cols: z.coerce.number().int().optional(),
       rows: z.coerce.number().int().optional(),
       name: z.string().max(32).optional(),
-      rightsConfirmed: z.coerce.boolean().default(false),
+      rightsConfirmed: QueryBool.default(false),
     }),
     response: AvatarImportReportSchema,
     kind: 'multipart',

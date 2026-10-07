@@ -46,7 +46,7 @@ export class SpeakerController {
   private busy = false;
 
   constructor(
-    private readonly player: PlayerAdapter,
+    readonly player: PlayerAdapter,
     private readonly clock: ServerClock,
     private readonly api: SpeakerApi,
     private readonly opts: { deviceName: string; timers?: Timers; localNow?: () => number } = { deviceName: 'Spinroom' },

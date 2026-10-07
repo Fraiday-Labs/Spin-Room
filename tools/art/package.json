@@ -1,0 +1,8 @@
+{
+  "name": "@spinroom/art",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "tsx build.ts", "typecheck": "tsc -p tsconfig.json" },
+  "dependencies": { "@spinroom/contracts": "workspace:*", "sharp": "^0.35.5" }
+}

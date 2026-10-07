@@ -70,6 +70,7 @@ export function fakeCoverSvg(id: string): string {
 }
 
 interface FakePlaylist {
+  createdAt?: number;
   id: string;
   name: string;
   owner: string;
@@ -88,12 +89,40 @@ function parseFake(token: string): { id: string; premium: boolean } {
   return { id, premium: product === 'premium' };
 }
 
+/** Where fake playlists live: in memory (tests) or Redis (dev, shared across processes). */
+export interface FakeStore {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string): Promise<unknown>;
+  smembers(key: string): Promise<string[]>;
+  sadd(key: string, member: string): Promise<unknown>;
+}
+
+function memoryStore(): FakeStore {
+  const kv = new Map<string, string>();
+  const sets = new Map<string, Set<string>>();
+  return {
+    async get(k) {
+      return kv.get(k) ?? null;
+    },
+    async set(k, v) {
+      kv.set(k, v);
+    },
+    async smembers(k) {
+      return [...(sets.get(k) ?? [])];
+    },
+    async sadd(k, m) {
+      const s = sets.get(k) ?? new Set();
+      s.add(m);
+      sets.set(k, s);
+    },
+  };
+}
+
 export class FakeSpotifyGateway implements SpotifyGateway {
   readonly mode = 'fake' as const;
-  private playlists = new Map<string, FakePlaylist>();
-  private counter = 0;
   /** Simulate dev-mode playlist write lockout for tests. */
   playlistWritesBlocked = false;
+  constructor(private readonly store: FakeStore = memoryStore()) {}
 
   authorizeUrl(p: { state: string }) {
     return `/dev-login?state=${encodeURIComponent(p.state)}`;
@@ -129,44 +158,54 @@ export class FakeSpotifyGateway implements SpotifyGateway {
     return FAKE_CATALOG.find((t) => t.uri === uri) ?? null;
   }
 
-  private ensureDefaults(owner: string) {
-    if ([...this.playlists.values()].some((p) => p.owner === owner)) return;
+  private async ensureDefaults(owner: string) {
+    if ((await this.store.smembers(`fakesp:owner:${owner}`)).length) return;
     const pick = (start: number, n: number) => Array.from({ length: n }, (_, i) => FAKE_CATALOG[(start + i) % 30]!.uri);
     const seed = owner.length % 10;
-    this.make(owner, 'Late Night Grooves', pick(seed, 8));
-    this.make(owner, 'Coding Flow', pick(seed + 12, 6));
+    await this.make(owner, 'Late Night Grooves', pick(seed, 8));
+    await this.make(owner, 'Coding Flow', pick(seed + 12, 6));
   }
 
-  private make(owner: string, name: string, uris: string[]): FakePlaylist {
-    const id = `fakepl${(++this.counter).toString().padStart(6, '0')}${owner.replace(/[^A-Za-z0-9]/g, '').slice(0, 10)}`;
-    const p = { id, name, owner, snapshot: 1, uris };
-    this.playlists.set(id, p);
+  private async make(owner: string, name: string, uris: string[]): Promise<FakePlaylist> {
+    const rand = createHash('sha1').update(`${owner}:${name}:${Date.now()}:${Math.random()}`).digest('hex').slice(0, 12);
+    const id = `fakepl${rand}${owner.replace(/[^A-Za-z0-9]/g, '').slice(0, 10)}`;
+    const p = { id, name, owner, snapshot: 1, uris, createdAt: Date.now() + Math.random() };
+    await this.save(p);
+    await this.store.sadd(`fakesp:owner:${owner}`, id);
     return p;
   }
 
-  private get(id: string): FakePlaylist {
-    const p = this.playlists.get(id);
-    if (!p) throw new SpotifyApiError(404, 'not_found', 'Playlist not found');
-    return p;
+  private async save(p: FakePlaylist) {
+    await this.store.set(`fakesp:pl:${p.id}`, JSON.stringify(p));
   }
 
-  private write(p: FakePlaylist) {
+  private async get(id: string): Promise<FakePlaylist> {
+    const raw = await this.store.get(`fakesp:pl:${id}`);
+    if (!raw) throw new SpotifyApiError(404, 'not_found', 'Playlist not found');
+    return JSON.parse(raw) as FakePlaylist;
+  }
+
+  private async write(p: FakePlaylist, fn: (uris: string[]) => void) {
     if (this.playlistWritesBlocked) throw new SpotifyApiError(403, 'forbidden', 'Playlist writes are not available to this app');
+    fn(p.uris);
     p.snapshot++;
+    await this.save(p);
     return `snap${p.snapshot}`;
   }
 
   async listMyPlaylists(token: string): Promise<PlaylistSummary[]> {
     const { id } = parseFake(token);
-    this.ensureDefaults(id);
-    return [...this.playlists.values()]
-      .filter((p) => p.owner === id)
+    await this.ensureDefaults(id);
+    const ids = await this.store.smembers(`fakesp:owner:${id}`);
+    const lists = await Promise.all(ids.map((pid) => this.get(pid)));
+    return lists
+      .sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
       .map((p) => ({ id: p.id, name: p.name, trackCount: p.uris.length, imageUrl: null, ownedByMe: true }));
   }
 
   async getPlaylist(token: string, playlistId: string): Promise<PlaylistDetail> {
     parseFake(token);
-    const p = this.get(playlistId);
+    const p = await this.get(playlistId);
     return {
       id: p.id,
       name: p.name,
@@ -179,49 +218,45 @@ export class FakeSpotifyGateway implements SpotifyGateway {
 
   async getPlaylistSnapshot(token: string, playlistId: string) {
     parseFake(token);
-    return `snap${this.get(playlistId).snapshot}`;
+    return `snap${(await this.get(playlistId)).snapshot}`;
   }
 
   async createPlaylist(token: string, name: string) {
     const { id } = parseFake(token);
     if (this.playlistWritesBlocked) throw new SpotifyApiError(403, 'forbidden', 'Playlist writes are not available to this app');
-    const p = this.make(id, name, []);
+    const p = await this.make(id, name, []);
     return { id: p.id, name: p.name, url: `https://open.spotify.com/playlist/${p.id}`, snapshotId: 'snap1' };
   }
 
   async addToPlaylist(token: string, playlistId: string, uris: string[]) {
     parseFake(token);
-    const p = this.get(playlistId);
-    const snap = this.write(p);
-    p.uris.push(...uris);
-    return snap;
+    return this.write(await this.get(playlistId), (list) => list.push(...uris));
   }
 
   async removeFromPlaylist(token: string, playlistId: string, uri: string, position: number) {
     parseFake(token);
-    const p = this.get(playlistId);
-    const snap = this.write(p);
-    if (p.uris[position] === uri) p.uris.splice(position, 1);
-    else {
-      const i = p.uris.indexOf(uri);
-      if (i >= 0) p.uris.splice(i, 1);
-    }
-    return snap;
+    return this.write(await this.get(playlistId), (list) => {
+      if (list[position] === uri) list.splice(position, 1);
+      else {
+        const i = list.indexOf(uri);
+        if (i >= 0) list.splice(i, 1);
+      }
+    });
   }
 
   async reorderPlaylist(token: string, playlistId: string, from: number, insertBefore: number) {
     parseFake(token);
-    const p = this.get(playlistId);
-    const snap = this.write(p);
-    const [u] = p.uris.splice(from, 1);
-    if (u) p.uris.splice(insertBefore > from ? insertBefore - 1 : insertBefore, 0, u);
-    return snap;
+    return this.write(await this.get(playlistId), (list) => {
+      const [u] = list.splice(from, 1);
+      if (u) list.splice(insertBefore > from ? insertBefore - 1 : insertBefore, 0, u);
+    });
   }
 
   /** Test helper: edit a playlist "in the Spotify app". */
-  externalEdit(playlistId: string, fn: (uris: string[]) => void) {
-    const p = this.get(playlistId);
+  async externalEdit(playlistId: string, fn: (uris: string[]) => void) {
+    const p = await this.get(playlistId);
     fn(p.uris);
     p.snapshot++;
+    await this.save(p);
   }
 }

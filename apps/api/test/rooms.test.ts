@@ -88,7 +88,7 @@ describe('sets (My set)', () => {
     expect(pl.trackCount).toBe(1);
     await alice.req('POST', `/v1/rooms/${room.slug}/crate`, { trackUri: track('Booth Lights').uri });
     // Edit in "the Spotify app": add a track at the top.
-    spotify.externalEdit(pl.id, (uris) => uris.unshift(track('Pixel Rain').uri));
+    await spotify.externalEdit(pl.id, (uris) => uris.unshift(track('Pixel Rain').uri));
     await t.ctx.services.rooms.sets.refresh(room.id, alice.id);
     const c2 = (await alice.req('GET', `/v1/rooms/${room.slug}/crate`)).json();
     expect(c2.items.map((i: { track: { title: string } }) => i.track.title)).toEqual(['Pixel Rain', 'Neon Tide', 'Booth Lights']);
@@ -111,7 +111,7 @@ describe('sets (My set)', () => {
     expect(c.items).toHaveLength(1);
     // Read-only import still works.
     const pls = await spotify.listMyPlaylists('fake.alice.premium');
-    const imp = (await alice.req('POST', `/v1/rooms/${room.slug}/crate/import`, { mode: 'copy', playlist: `https://open.spotify.com/playlist/${pls[0]!.id}` })).json();
+    const imp = (await alice.req('POST', `/v1/rooms/${room.slug}/crate/import`, { mode: 'copy', playlist: `https://open.spotify.com/playlist/${pls.find((p) => p.name === 'Late Night Grooves')!.id}` })).json();
     expect(imp.mode).toBe('local');
     expect(imp.items.length).toBe(8);
   });

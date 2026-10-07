@@ -37,6 +37,8 @@ export const ConfigSchema = z.object({
   /** Comma-separated Spotify user IDs that are Spinroom admins. */
   ADMIN_SPOTIFY_IDS: z.string().default(''),
   COOKIE_SECURE: bool.default(false),
+  /** Image-safety check for custom avatars: manual review queue, or auto-approve (dev only). */
+  AVATAR_SAFETY: z.enum(['manual', 'auto_approve']).default('manual'),
   /** Run the room runtime timers in this process (disable for read-only replicas). */
   RUN_ROOM_ENGINE: bool.default(true),
   LOG_LEVEL: z.string().default('info'),
@@ -50,6 +52,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     if (cfg.SESSION_SECRET.startsWith('dev-')) throw new Error('SESSION_SECRET must be set in production');
     if (cfg.ENCRYPTION_KEY === ConfigSchema.shape.ENCRYPTION_KEY.parse(undefined)) throw new Error('ENCRYPTION_KEY must be set in production');
     if (cfg.SPOTIFY_MODE === 'fake') throw new Error('SPOTIFY_MODE=fake is not allowed in production');
+    if (cfg.AVATAR_SAFETY === 'auto_approve') throw new Error('AVATAR_SAFETY=auto_approve is not allowed in production');
   }
   return cfg;
 }

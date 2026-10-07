@@ -25,6 +25,12 @@ describe('contracts', () => {
     expect(buildPath('/v1/rooms/{slug}/crate/{itemId}', { slug: 'a b', itemId: 'x' })).toBe('/v1/rooms/a%20b/crate/x');
   });
 
+  it('parses query booleans without Boolean("false") surprises', () => {
+    const q = routes['avatars.create'].query;
+    expect(q.parse({ dryRun: 'false', rightsConfirmed: 'true' })).toMatchObject({ dryRun: false, rightsConfirmed: true });
+    expect(q.parse({})).toMatchObject({ dryRun: false, rightsConfirmed: false });
+  });
+
   it('validates events', () => {
     const ok = RoomEventSchema.safeParse({ type: 'dj.bounced', seq: 1, roomId: 'r', at: 1, userId: 'u', cooldownUntil: 5 });
     expect(ok.success).toBe(true);
