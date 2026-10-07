@@ -32,6 +32,12 @@ export async function seedPresetAvatars(db: Db): Promise<void> {
     createdAt: 0,
   }));
   for (const row of rows) {
-    await db.insert(avatars).values(row).onConflictDoUpdate({ target: avatars.id, set: { name: row.name, sheetUrl: row.sheetUrl, thumbUrl: row.thumbUrl, rows: row.rows, frameCounts: row.frameCounts } });
+    await db
+      .insert(avatars)
+      .values(row)
+      .onConflictDoUpdate({
+        target: avatars.id,
+        set: { name: row.name, sheetUrl: row.sheetUrl, thumbUrl: row.thumbUrl, rows: row.rows, frameCounts: row.frameCounts },
+      });
   }
 }

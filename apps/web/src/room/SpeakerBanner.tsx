@@ -11,7 +11,15 @@ const LABEL: Record<SpeakerView['status'], string> = {
 };
 
 /** Inline speaker status: off, starting, live, paused elsewhere, error. */
-export function SpeakerBanner(props: { me: Me | null; view: SpeakerView; needsTakeover: boolean; onStart: (takeover?: boolean) => void; onStop: () => void; onReclaim: () => void; autoFocus?: boolean }) {
+export function SpeakerBanner(props: {
+  me: Me | null;
+  view: SpeakerView;
+  needsTakeover: boolean;
+  onStart: (takeover?: boolean) => void;
+  onStop: () => void;
+  onReclaim: () => void;
+  autoFocus?: boolean;
+}) {
   const { me, view } = props;
   if (!me) return null;
   if (me.remoteOnly) {

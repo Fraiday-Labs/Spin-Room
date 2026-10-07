@@ -45,7 +45,11 @@ const RAW: [string, string, string, number, boolean?, boolean?][] = [
 ];
 
 function idFor(title: string): string {
-  return createHash('sha1').update(title).digest('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 22);
+  return createHash('sha1')
+    .update(title)
+    .digest('base64')
+    .replace(/[^A-Za-z0-9]/g, '')
+    .slice(0, 22);
 }
 
 export const FAKE_CATALOG: Track[] = RAW.map(([title, artist, album, durationMs, explicit, unplayable]) => {
@@ -143,7 +147,13 @@ export class FakeSpotifyGateway implements SpotifyGateway {
 
   async getMe(token: string): Promise<SpotifyProfile> {
     const { id, premium } = parseFake(token);
-    return { id, displayName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()), email: `${id}@example.test`, product: premium ? 'premium' : 'free', country: 'US' };
+    return {
+      id,
+      displayName: id.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      email: `${id}@example.test`,
+      product: premium ? 'premium' : 'free',
+      country: 'US',
+    };
   }
 
   async searchTracks(token: string, q: string, limit: number): Promise<Track[]> {

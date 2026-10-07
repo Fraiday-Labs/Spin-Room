@@ -48,23 +48,35 @@ export function createLinkStore(db: Db) {
     },
     async link(p: { teamId: string; channelId: string; roomId: string; linkedByUserId: string; linkedBySlackUser: string }) {
       const row = { ...p, cardMessageTs: null, messagesSinceCard: 0, createdAt: Date.now() };
-      await db.insert(slackLinks).values(row).onConflictDoUpdate({ target: [slackLinks.teamId, slackLinks.channelId], set: row });
+      await db
+        .insert(slackLinks)
+        .values(row)
+        .onConflictDoUpdate({ target: [slackLinks.teamId, slackLinks.channelId], set: row });
     },
     async unlink(teamId: string, channelId: string) {
       await db.delete(slackLinks).where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
     },
     async setCard(teamId: string, channelId: string, ts: string) {
-      await db.update(slackLinks).set({ cardMessageTs: ts, messagesSinceCard: 0 }).where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
+      await db
+        .update(slackLinks)
+        .set({ cardMessageTs: ts, messagesSinceCard: 0 })
+        .where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
     },
     async bumpMessages(teamId: string, channelId: string) {
       const l = await this.forChannel(teamId, channelId);
       if (!l) return null;
-      await db.update(slackLinks).set({ messagesSinceCard: l.messagesSinceCard + 1 }).where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
+      await db
+        .update(slackLinks)
+        .set({ messagesSinceCard: l.messagesSinceCard + 1 })
+        .where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
       return l.messagesSinceCard + 1;
     },
     /** Slack identities of a Spinroom user (for up-next DMs). */
     async slackIdentities(userId: string) {
-      return db.select().from(identityLinks).where(and(eq(identityLinks.userId, userId), eq(identityLinks.provider, 'slack')));
+      return db
+        .select()
+        .from(identityLinks)
+        .where(and(eq(identityLinks.userId, userId), eq(identityLinks.provider, 'slack')));
     },
     async touchSurface(teamId: string, slackUserId: string) {
       await db

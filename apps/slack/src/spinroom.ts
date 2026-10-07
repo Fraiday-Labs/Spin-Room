@@ -30,7 +30,10 @@ export function createSpinroomAccess(cfg: SlackConfig) {
     async client(teamId: string, slackUserId: string): Promise<{ client: SpinroomClient; userId: string } | null> {
       const t = await tokenFor(teamId, slackUserId);
       if (!t) return null;
-      return { client: new SpinroomClient({ baseUrl: cfg.apiUrl, surface: 'slack', getToken: async () => (await tokenFor(teamId, slackUserId))?.token ?? null }), userId: t.userId };
+      return {
+        client: new SpinroomClient({ baseUrl: cfg.apiUrl, surface: 'slack', getToken: async () => (await tokenFor(teamId, slackUserId))?.token ?? null }),
+        userId: t.userId,
+      };
     },
     /** Signed "Connect Spinroom" link (verified by the API, valid 15 minutes). */
     connectUrl(teamId: string, slackUserId: string) {

@@ -24,7 +24,8 @@ function csp(): Plugin {
   return {
     name: 'spinroom-csp',
     apply: 'build',
-    transformIndexHtml: (html) => html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`),
+    transformIndexHtml: (html) =>
+      html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${policy}" />`),
   };
 }
 

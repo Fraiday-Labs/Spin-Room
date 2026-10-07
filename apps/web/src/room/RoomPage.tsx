@@ -88,7 +88,11 @@ export default function RoomPage({ slug }: { slug: string }) {
     async (value: VoteValue | null) => {
       if (!snap?.currentSpin) return;
       try {
-        const res = await api.call('spins.vote', { params: { slug, spinId: snap.currentSpin.id }, body: { value } }, { idempotencyKey: `${snap.currentSpin.id}:${value}:${Date.now() >> 10}` });
+        const res = await api.call(
+          'spins.vote',
+          { params: { slug, spinId: snap.currentSpin.id }, body: { value } },
+          { idempotencyKey: `${snap.currentSpin.id}:${value}:${Date.now() >> 10}` },
+        );
         live.patch((cur) => (cur.currentSpin?.id === res.spinId && cur.me ? { ...cur, me: { ...cur.me, vote: res.myVote } } : cur));
       } catch (e) {
         notify(errorMessage(e));
@@ -261,7 +265,15 @@ export default function RoomPage({ slug }: { slug: string }) {
           </div>
         ))}
       </div>
-      {selected && <MemberCard member={snap.members.find((m) => m.user.id === selected.user.id) ?? selected} snap={snap} me={me.data ?? null} onClose={() => setSelected(null)} notify={notify} />}
+      {selected && (
+        <MemberCard
+          member={snap.members.find((m) => m.user.id === selected.user.id) ?? selected}
+          snap={snap}
+          me={me.data ?? null}
+          onClose={() => setSelected(null)}
+          notify={notify}
+        />
+      )}
       {showKeys && (
         <div className={s.keys} role="dialog" aria-label="Keyboard shortcuts">
           <h2>Shortcuts</h2>

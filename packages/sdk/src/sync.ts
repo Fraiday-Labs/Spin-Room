@@ -1,9 +1,7 @@
 import { TIMING } from '@spinroom/contracts';
 
 export type SyncAction =
-  | { kind: 'none'; driftMs: number }
-  | { kind: 'seek'; positionMs: number; driftMs: number }
-  | { kind: 'reload'; positionMs: number; driftMs: number };
+  { kind: 'none'; driftMs: number } | { kind: 'seek'; positionMs: number; driftMs: number } | { kind: 'reload'; positionMs: number; driftMs: number };
 
 /**
  * Drift correction (PRD sync step 4): every 5 s compare the player position with the

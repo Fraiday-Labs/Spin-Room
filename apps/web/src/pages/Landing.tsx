@@ -31,7 +31,13 @@ export function Landing() {
             <li>Bring your own avatar — design a pet in ChatGPT and drop it in.</li>
           </ul>
         </div>
-        <img className={s.preview} src="/art/stage-preview.webp" alt="Pixel art nightclub stage with three DJs behind a booth and an LED marquee" width={480} height={270} />
+        <img
+          className={s.preview}
+          src="/art/stage-preview.webp"
+          alt="Pixel art nightclub stage with three DJs behind a booth and an LED marquee"
+          width={480}
+          height={270}
+        />
       </section>
 
       <section id="rooms" className="stack">

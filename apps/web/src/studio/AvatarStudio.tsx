@@ -7,7 +7,15 @@ import { api, errorMessage } from '../lib/api';
 import { AvatarSprite } from '../room/AvatarSprite';
 import s from './AvatarStudio.module.css';
 
-const STATE_LABEL: Record<string, string> = { idle: 'On the dance floor', hype: 'Hype', skip: 'Skip', dj: 'DJing', walk: 'Walking in', wave: 'Waving hello', away: 'Away / remote' };
+const STATE_LABEL: Record<string, string> = {
+  idle: 'On the dance floor',
+  hype: 'Hype',
+  skip: 'Skip',
+  dj: 'DJing',
+  walk: 'Walking in',
+  wave: 'Waving hello',
+  away: 'Away / remote',
+};
 
 /** Avatar studio (FR-A9–A12): import a ChatGPT pet, preview every state, confirm rights, save. */
 export function AvatarStudio({ me }: { me: Me }) {
@@ -58,7 +66,9 @@ export function AvatarStudio({ me }: { me: Me }) {
         await api.call('me.setAvatar', { body: { avatarId: r.avatar.id } });
         await qc.invalidateQueries({ queryKey: ['avatars'] });
         await qc.invalidateQueries({ queryKey: ['me'] });
-        setMsg(r.avatar.status === 'approved' ? 'Saved and in use.' : 'Saved! Others will see it after a quick safety review — until then they see your preset.');
+        setMsg(
+          r.avatar.status === 'approved' ? 'Saved and in use.' : 'Saved! Others will see it after a quick safety review — until then they see your preset.',
+        );
         setReport(null);
         setFiles([]);
         setRights(false);
@@ -186,7 +196,13 @@ export function AvatarStudio({ me }: { me: Me }) {
               <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} data-testid="rights" />
               <span>I have the right to use this art, and it doesn’t depict a copyrighted or trademarked character.</span>
             </label>
-            <button className="btn btn-primary" disabled={!rights || busy} onClick={() => void save()} style={{ justifySelf: 'start' }} data-testid="save-avatar">
+            <button
+              className="btn btn-primary"
+              disabled={!rights || busy}
+              onClick={() => void save()}
+              style={{ justifySelf: 'start' }}
+              data-testid="save-avatar"
+            >
               Save avatar
             </button>
           </div>

@@ -106,7 +106,14 @@ export function Stage({ snap, myId, onSelectMember }: { snap: RoomSnapshot; myId
             {Array.from({ length: 24 }, (_, i) => (
               <span
                 key={i}
-                style={{ left: 132 + i * 9, background: EQ_COLORS[i % EQ_COLORS.length], animationDuration: `${0.9 + ((i * 7) % 5) * 0.17}s`, animationDelay: `${-((i * 13) % 10) * 0.11}s` } as CSSProperties}
+                style={
+                  {
+                    left: 132 + i * 9,
+                    background: EQ_COLORS[i % EQ_COLORS.length],
+                    animationDuration: `${0.9 + ((i * 7) % 5) * 0.17}s`,
+                    animationDelay: `${-((i * 13) % 10) * 0.11}s`,
+                  } as CSSProperties
+                }
               />
             ))}
           </div>
@@ -125,7 +132,11 @@ export function Stage({ snap, myId, onSelectMember }: { snap: RoomSnapshot; myId
             );
           })}
           <img className={s.layer} src="/art/booth.webp" alt="" />
-          {snap.booth.map((b) => (b.userId ? <img key={b.slot} className={s.laptop} src="/art/laptop.webp" alt="" style={{ left: (SLOT_X[b.slot] ?? 240) - 12, top: BOOTH_Y - 16 }} /> : null))}
+          {snap.booth.map((b) =>
+            b.userId ? (
+              <img key={b.slot} className={s.laptop} src="/art/laptop.webp" alt="" style={{ left: (SLOT_X[b.slot] ?? 240) - 12, top: BOOTH_Y - 16 }} />
+            ) : null,
+          )}
           {hypeHeavy && <div className={s.glow} />}
           <Marquee snap={snap} />
           <img className={s.floor} src="/art/floor.webp" alt="" />
@@ -178,7 +189,15 @@ function Marquee({ snap }: { snap: RoomSnapshot }) {
         <span
           ref={textRef}
           className={scroll ? s.scroll : undefined}
-          style={scroll ? ({ '--from': `${scroll.from}px`, '--dist': `${scroll.dist}px`, animationDuration: `${Math.max(6, (scroll.from - scroll.dist) / 30)}s` } as CSSProperties) : undefined}
+          style={
+            scroll
+              ? ({
+                  '--from': `${scroll.from}px`,
+                  '--dist': `${scroll.dist}px`,
+                  animationDuration: `${Math.max(6, (scroll.from - scroll.dist) / 30)}s`,
+                } as CSSProperties)
+              : undefined
+          }
         >
           {text}
         </span>

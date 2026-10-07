@@ -13,7 +13,12 @@ export default function Profile({ tab }: { tab?: string }) {
   const [name, setName] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   if (me.isLoading) return <div className="page muted">Loading…</div>;
-  if (!me.data) return <a className="page btn btn-spotify" href={signInUrl()}>Sign in</a>;
+  if (!me.data)
+    return (
+      <a className="page btn btn-spotify" href={signInUrl()}>
+        Sign in
+      </a>
+    );
   const u = me.data;
   return (
     <div className="page stack">
@@ -71,7 +76,14 @@ export default function Profile({ tab }: { tab?: string }) {
                     aria-checked={u.avatarColor.toUpperCase() === c.toUpperCase()}
                     aria-label={c}
                     onClick={async () => qc.setQueryData(['me'], await api.call('me.patch', { body: { avatarColor: c } }))}
-                    style={{ width: 32, height: 32, borderRadius: 6, background: c, border: u.avatarColor.toUpperCase() === c.toUpperCase() ? '3px solid white' : '2px solid var(--border)', cursor: 'pointer' }}
+                    style={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: 6,
+                      background: c,
+                      border: u.avatarColor.toUpperCase() === c.toUpperCase() ? '3px solid white' : '2px solid var(--border)',
+                      cursor: 'pointer',
+                    }}
                   />
                 ))}
               </div>

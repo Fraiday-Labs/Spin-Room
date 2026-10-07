@@ -11,3 +11,4 @@ apps/web/test-results
 coverage
 dist
 node_modules
+dump.rdb

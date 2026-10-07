@@ -4,7 +4,17 @@ import type { Command, Effect, RoomState } from './types.js';
 
 export function makeTrack(n: number, extra: Partial<Track> = {}): Track {
   const id = `t${String(n).padStart(6, '0')}`;
-  return { uri: `spotify:track:${id}`, title: `Track ${n}`, artists: [`Artist ${n % 7}`], album: 'A', artUrl: null, durationMs: 180_000, explicit: false, playable: true, ...extra };
+  return {
+    uri: `spotify:track:${id}`,
+    title: `Track ${n}`,
+    artists: [`Artist ${n % 7}`],
+    album: 'A',
+    artUrl: null,
+    durationMs: 180_000,
+    explicit: false,
+    playable: true,
+    ...extra,
+  };
 }
 
 /**
@@ -132,7 +142,8 @@ export class EngineHarness {
       // allowed transiently only if booth empty
       if (s.booth.some((b) => b.userId)) throw new Error('playing without a current spin');
     }
-    for (let i = Math.max(1, this.checkedEvents); i < this.events.length; i++) if (this.events[i]!.seq !== this.events[i - 1]!.seq + 1) throw new Error('seq gap');
+    for (let i = Math.max(1, this.checkedEvents); i < this.events.length; i++)
+      if (this.events[i]!.seq !== this.events[i - 1]!.seq + 1) throw new Error('seq gap');
     this.checkedEvents = this.events.length;
   }
 }
@@ -184,7 +195,13 @@ export function simulate(opts: { bots: number; spins: number; seed?: number; set
       else if (r < 0.7) {
         if (h.state.current) {
           const v = rand();
-          h.run({ type: 'vote', userId: u, spinId: 'current', value: v < skipBias ? 'skip' : v < 0.95 ? 'hype' : null, surface: rand() < 0.8 ? 'web' : rand() < 0.5 ? 'slack' : 'mcp' });
+          h.run({
+            type: 'vote',
+            userId: u,
+            spinId: 'current',
+            value: v < skipBias ? 'skip' : v < 0.95 ? 'hype' : null,
+            surface: rand() < 0.8 ? 'web' : rand() < 0.5 ? 'slack' : 'mcp',
+          });
         } else h.advance(5000);
       } else if (r < 0.71) h.run({ type: 'leave', userId: u });
       else if (r < 0.56) {
@@ -194,8 +211,7 @@ export function simulate(opts: { bots: number; spins: number; seed?: number; set
       } else if (r < 0.745) h.run({ type: 'disconnect', userId: u });
       else if (r < 0.75) {
         if (h.state.current) h.run({ type: 'skip', userId: h.state.current.djUserId, by: 'dj' });
-      }
-      else if (r < 0.752) h.run({ type: 'skip', userId: u, by: 'mod' });
+      } else if (r < 0.752) h.run({ type: 'skip', userId: u, by: 'mod' });
       else h.advance(1000 + Math.floor(rand() * 20_000));
     } catch (e) {
       if (!(e instanceof SpinroomError)) throw e;

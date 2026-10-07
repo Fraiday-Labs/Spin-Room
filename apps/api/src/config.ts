@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-const bool = z
-  .union([z.boolean(), z.string()])
-  .transform((v) => (typeof v === 'boolean' ? v : ['1', 'true', 'yes'].includes(v.toLowerCase())));
+const bool = z.union([z.boolean(), z.string()]).transform((v) => (typeof v === 'boolean' ? v : ['1', 'true', 'yes'].includes(v.toLowerCase())));
 
 export const ConfigSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -47,7 +45,9 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 
 export function loadConfig(env: Record<string, string | undefined> = process.env, overrides: Partial<Config> = {}): Config {
-  const cfg = ConfigSchema.parse({ ...env, ...overrides });
+  // Empty values (e.g. `SESSION_SECRET=` copied from .env.example) mean "use the default".
+  const set = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ''));
+  const cfg = ConfigSchema.parse({ ...set, ...overrides });
   if (cfg.NODE_ENV === 'production') {
     if (cfg.SESSION_SECRET.startsWith('dev-')) throw new Error('SESSION_SECRET must be set in production');
     if (cfg.ENCRYPTION_KEY === ConfigSchema.shape.ENCRYPTION_KEY.parse(undefined)) throw new Error('ENCRYPTION_KEY must be set in production');

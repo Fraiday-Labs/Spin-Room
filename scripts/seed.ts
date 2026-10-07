@@ -17,7 +17,12 @@ const { app } = await buildApp({ cfg, db, redis, sub });
 await app.ready();
 
 async function call(token: string | null, method: string, url: string, payload?: unknown) {
-  const res = await app.inject({ method: method as 'GET', url, headers: token ? { authorization: `Bearer ${token}` } : {}, ...(payload ? { payload: payload as object } : {}) });
+  const res = await app.inject({
+    method: method as 'GET',
+    url,
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+    ...(payload ? { payload: payload as object } : {}),
+  });
   if (res.statusCode >= 400 && res.json().code !== 'slug_taken') throw new Error(`${method} ${url}: ${res.body}`);
   return res.json();
 }
@@ -33,8 +38,17 @@ for (const p of people) {
   tokens[p.id] = r.accessToken;
 }
 
-const lounge = await call(tokens.alice!, 'POST', '/v1/rooms', { name: 'Late Night Lounge', slug: 'late-night-lounge', description: 'Synths, neon and slow grooves.' });
-const chill = await call(tokens.bob!, 'POST', '/v1/rooms', { name: 'Code & Chill', slug: 'code-and-chill', description: 'Focus music for the team.', visibility: 'invite_only' });
+const lounge = await call(tokens.alice!, 'POST', '/v1/rooms', {
+  name: 'Late Night Lounge',
+  slug: 'late-night-lounge',
+  description: 'Synths, neon and slow grooves.',
+});
+const chill = await call(tokens.bob!, 'POST', '/v1/rooms', {
+  name: 'Code & Chill',
+  slug: 'code-and-chill',
+  description: 'Focus music for the team.',
+  visibility: 'invite_only',
+});
 for (const p of people) {
   await call(tokens[p.id]!, 'POST', '/v1/rooms/late-night-lounge/join');
   for (const t of p.tracks) await call(tokens[p.id]!, 'POST', '/v1/rooms/late-night-lounge/crate', { query: t });

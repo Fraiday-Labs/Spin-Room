@@ -366,7 +366,15 @@ function startNext(tx: Tx, afterFade: boolean) {
     const upNext = computeUpNext(s);
     tx.emit({
       type: 'spin.started',
-      spin: { id: spin.id, djUserId: dj, track: chosen, startedAtServerMs: spin.startedAtServerMs, durationMs: spin.durationMs, endedAt: null, endReason: null },
+      spin: {
+        id: spin.id,
+        djUserId: dj,
+        track: chosen,
+        startedAtServerMs: spin.startedAtServerMs,
+        durationMs: spin.durationMs,
+        endedAt: null,
+        endReason: null,
+      },
       upNext,
     });
     tx.upNextDirty = false;
@@ -489,7 +497,11 @@ function endSpin(tx: Tx, reason: EndReason, opts: { refill?: boolean } = {}) {
       tx.queueDirty = true;
       tx.emit({ type: 'dj.bounced', userId: cur.djUserId, cooldownUntil: until });
       tx.notice(cur.djUserId, 'bounced', 'The crowd skipped your last spins, so you’re back in the queue for a few minutes.');
-    } else if (s.settings.turnLimit && slot.spinsThisTurn >= s.settings.turnLimit && s.queue.some((q) => (q.cooldownUntil ?? 0) <= tx.now && q.userId !== cur.djUserId)) {
+    } else if (
+      s.settings.turnLimit &&
+      slot.spinsThisTurn >= s.settings.turnLimit &&
+      s.queue.some((q) => (q.cooldownUntil ?? 0) <= tx.now && q.userId !== cur.djUserId)
+    ) {
       // FR-D5: turn limit returns the DJ to the back of the queue when others are waiting.
       s.booth[cur.slot] = emptySlot();
       s.queue.push({ userId: cur.djUserId, joinedAt: tx.now, cooldownUntil: null });

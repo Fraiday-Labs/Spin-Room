@@ -1,11 +1,4 @@
-import {
-  SpinroomError,
-  routes,
-  toFastifyPath,
-  type RouteName,
-  type RouteResponse,
-  type Routes,
-} from '@spinroom/contracts';
+import { SpinroomError, routes, toFastifyPath, type RouteName, type RouteResponse, type Routes } from '@spinroom/contracts';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
@@ -84,7 +77,9 @@ export function registerRoutes(app: FastifyInstance, ctx: AppContext, handlers: 
           if (auth?.via === 'cookie') checkCsrf(req);
           const ipWait = await hitRateLimit(ctx.redis, `ip:${req.ip}`, RATE.ipWrites.limit, RATE.ipWrites.windowMs, ctx.clock.now());
           const r = auth?.surface === 'mcp' ? RATE.mcpWrites : RATE.userWrites;
-          const userWait = auth ? await hitRateLimit(ctx.redis, `u:${auth.userId}:${auth.surface === 'mcp' ? 'mcp' : 'w'}`, r.limit, r.windowMs, ctx.clock.now()) : 0;
+          const userWait = auth
+            ? await hitRateLimit(ctx.redis, `u:${auth.userId}:${auth.surface === 'mcp' ? 'mcp' : 'w'}`, r.limit, r.windowMs, ctx.clock.now())
+            : 0;
           const wait = Math.max(ipWait, userWait);
           if (wait > 0) {
             reply.header('retry-after', Math.ceil(wait / 1000));

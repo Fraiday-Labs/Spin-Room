@@ -5,7 +5,19 @@ import { AvatarSprite } from './AvatarSprite';
 import s from './MemberCard.module.css';
 
 /** Hover/click card: front-facing avatar, points, presence, report and moderation. */
-export function MemberCard({ member, snap, me, onClose, notify }: { member: Member; snap: RoomSnapshot; me: Me | null; onClose: () => void; notify: (m: string) => void }) {
+export function MemberCard({
+  member,
+  snap,
+  me,
+  onClose,
+  notify,
+}: {
+  member: Member;
+  snap: RoomSnapshot;
+  me: Me | null;
+  onClose: () => void;
+  notify: (m: string) => void;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState('');

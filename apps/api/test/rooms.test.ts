@@ -111,7 +111,12 @@ describe('sets (My set)', () => {
     expect(c.items).toHaveLength(1);
     // Read-only import still works.
     const pls = await spotify.listMyPlaylists('fake.alice.premium');
-    const imp = (await alice.req('POST', `/v1/rooms/${room.slug}/crate/import`, { mode: 'copy', playlist: `https://open.spotify.com/playlist/${pls.find((p) => p.name === 'Late Night Grooves')!.id}` })).json();
+    const imp = (
+      await alice.req('POST', `/v1/rooms/${room.slug}/crate/import`, {
+        mode: 'copy',
+        playlist: `https://open.spotify.com/playlist/${pls.find((p) => p.name === 'Late Night Grooves')!.id}`,
+      })
+    ).json();
     expect(imp.mode).toBe('local');
     expect(imp.items.length).toBe(8);
   });
@@ -175,7 +180,12 @@ describe('DJ queue, spins and votes', () => {
     await dee.req('PUT', `/v1/rooms/${room.slug}/spins/current/vote`, { value: 'hype' });
     expect((await bob.req('GET', `/v1/rooms/${room.slug}/spins/current/votes`)).json().code).toBe('forbidden');
     const who = (await alice.req('GET', `/v1/rooms/${room.slug}/spins/current/votes`)).json();
-    expect(who).toEqual(expect.arrayContaining([{ userId: dee.id, value: 'hype', surface: 'mcp' }, { userId: bob.id, value: 'hype', surface: 'mcp' }]));
+    expect(who).toEqual(
+      expect.arrayContaining([
+        { userId: dee.id, value: 'hype', surface: 'mcp' },
+        { userId: bob.id, value: 'hype', surface: 'mcp' },
+      ]),
+    );
 
     // Let the spin finish via the tick safety net.
     clock.advance(snap.currentSpin.durationMs + 3000 + 3000);

@@ -16,7 +16,10 @@ export default function Lobby() {
     return () => clearTimeout(h);
   }, [q]);
   const mine = useQuery({ queryKey: ['rooms', 'mine'], queryFn: () => api.call('rooms.list', { query: { filter: 'mine', limit: 50 } }), enabled: !!me.data });
-  const pub = useQuery({ queryKey: ['rooms', 'public', debounced], queryFn: () => api.call('rooms.list', { query: { filter: 'public', q: debounced || undefined, limit: 30 } }) });
+  const pub = useQuery({
+    queryKey: ['rooms', 'public', debounced],
+    queryFn: () => api.call('rooms.list', { query: { filter: 'public', q: debounced || undefined, limit: 30 } }),
+  });
   const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'invite_only'>('public');
   const [skipRatio, setSkipRatio] = useState(0.5);
@@ -39,7 +42,8 @@ export default function Lobby() {
     <div className="page stack">
       {(remoteOnly || me.data.remoteOnly) && (
         <div className="notice">
-          Your Spotify account isn’t Premium, so you’re a <b>remote</b>: you can browse, chat and vote, but Spotify only lets Premium accounts play in a speaker tab or DJ.
+          Your Spotify account isn’t Premium, so you’re a <b>remote</b>: you can browse, chat and vote, but Spotify only lets Premium accounts play in a speaker
+          tab or DJ.
         </div>
       )}
       <div className="row" style={{ justifyContent: 'space-between' }}>
@@ -75,7 +79,16 @@ export default function Lobby() {
         >
           <label className="field">
             Room name
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} minLength={2} maxLength={60} required placeholder="Friday Night Spins" data-testid="room-name" />
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              minLength={2}
+              maxLength={60}
+              required
+              placeholder="Friday Night Spins"
+              data-testid="room-name"
+            />
           </label>
           <div className="row">
             <label className="field">
@@ -112,7 +125,14 @@ export default function Lobby() {
       <section className="stack">
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h2 style={{ margin: 0 }}>Public rooms</h2>
-          <input className="input" style={{ maxWidth: 280 }} placeholder="Search rooms" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search public rooms" />
+          <input
+            className="input"
+            style={{ maxWidth: 280 }}
+            placeholder="Search rooms"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search public rooms"
+          />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
           {pub.data?.rooms.map((r) => (

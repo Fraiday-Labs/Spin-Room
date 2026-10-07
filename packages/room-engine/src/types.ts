@@ -1,15 +1,4 @@
-import type {
-  EndReason,
-  PresenceState,
-  QueueEntry,
-  Role,
-  RoomEventBody,
-  RoomSettings,
-  RoomStatus,
-  Surface,
-  Track,
-  VoteValue,
-} from '@spinroom/contracts';
+import type { EndReason, PresenceState, QueueEntry, Role, RoomEventBody, RoomSettings, RoomStatus, Surface, Track, VoteValue } from '@spinroom/contracts';
 
 export interface MemberState {
   userId: string;

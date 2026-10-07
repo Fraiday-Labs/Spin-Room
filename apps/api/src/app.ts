@@ -39,7 +39,8 @@ export interface BuildOptions {
 
 export function createStorage(cfg: Config): Storage {
   if (cfg.STORAGE_DRIVER === 's3') {
-    if (!cfg.S3_ENDPOINT || !cfg.S3_BUCKET || !cfg.S3_ACCESS_KEY_ID || !cfg.S3_SECRET_ACCESS_KEY) throw new Error('S3_* settings are required for STORAGE_DRIVER=s3');
+    if (!cfg.S3_ENDPOINT || !cfg.S3_BUCKET || !cfg.S3_ACCESS_KEY_ID || !cfg.S3_SECRET_ACCESS_KEY)
+      throw new Error('S3_* settings are required for STORAGE_DRIVER=s3');
     return new S3Storage({
       endpoint: cfg.S3_ENDPOINT,
       region: cfg.S3_REGION,

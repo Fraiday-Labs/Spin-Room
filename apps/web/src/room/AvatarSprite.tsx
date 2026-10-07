@@ -6,8 +6,25 @@ import s from './AvatarSprite.module.css';
  * Plays one row of a runtime sheet (96×104 cells) with CSS `steps()` — no JS timers.
  * `width` is the displayed width; height follows the 96:104 cell ratio.
  */
-export function AvatarSprite({ avatar, state, width, paused, title, className }: { avatar: AvatarRef; state: AvatarState; width: number; paused?: boolean; title?: string; className?: string }) {
-  const idx = Math.max(0, avatar.rows.findIndex((r) => r.state === state));
+export function AvatarSprite({
+  avatar,
+  state,
+  width,
+  paused,
+  title,
+  className,
+}: {
+  avatar: AvatarRef;
+  state: AvatarState;
+  width: number;
+  paused?: boolean;
+  title?: string;
+  className?: string;
+}) {
+  const idx = Math.max(
+    0,
+    avatar.rows.findIndex((r) => r.state === state),
+  );
   const row = avatar.rows[idx] ?? avatar.rows[0]!;
   const cols = Math.max(...avatar.rows.map((r) => r.frames));
   const k = width / avatar.cell.w;

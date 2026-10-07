@@ -10,7 +10,13 @@ export function SpotifyMark() {
     <span className={s.spotify} aria-label="Spotify">
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <circle cx="12" cy="12" r="12" fill="#1ED760" />
-        <path d="M6 9.2c4-1.2 8.6-.8 12 1.2M6.8 12.4c3.2-.9 6.8-.6 9.6 1M7.6 15.4c2.6-.6 5.2-.4 7.4.8" stroke="#000" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+        <path
+          d="M6 9.2c4-1.2 8.6-.8 12 1.2M6.8 12.4c3.2-.9 6.8-.6 9.6 1M7.6 15.4c2.6-.6 5.2-.4 7.4.8"
+          stroke="#000"
+          strokeWidth="1.6"
+          fill="none"
+          strokeLinecap="round"
+        />
       </svg>
       Spotify
     </span>
@@ -37,7 +43,11 @@ export function PlayerPanel(props: {
   return (
     <section className={s.panel} aria-label="Now playing">
       <div className={s.art}>
-        {spin?.track.artUrl ? <img src={spin.track.artUrl} alt={`Album art for ${spin.track.album || spin.track.title}`} width={96} height={96} /> : <div className={s.noArt} />}
+        {spin?.track.artUrl ? (
+          <img src={spin.track.artUrl} alt={`Album art for ${spin.track.album || spin.track.title}`} width={96} height={96} />
+        ) : (
+          <div className={s.noArt} />
+        )}
       </div>
       <div className={s.meta}>
         {spin ? (
@@ -53,7 +63,15 @@ export function PlayerPanel(props: {
                 Open in Spotify
               </a>
             </div>
-            <div className={s.progress} role="progressbar" aria-label="Track progress" aria-valuemin={0} aria-valuemax={spin.durationMs} aria-valuenow={elapsed} aria-valuetext={`${formatMs(elapsed)} of ${formatMs(spin.durationMs)}`}>
+            <div
+              className={s.progress}
+              role="progressbar"
+              aria-label="Track progress"
+              aria-valuemin={0}
+              aria-valuemax={spin.durationMs}
+              aria-valuenow={elapsed}
+              aria-valuetext={`${formatMs(elapsed)} of ${formatMs(spin.durationMs)}`}
+            >
               <span style={{ transform: `scaleX(${elapsed / spin.durationMs})` }} />
             </div>
             <div className={s.times}>
@@ -62,7 +80,9 @@ export function PlayerPanel(props: {
             </div>
           </>
         ) : (
-          <div className={s.idleText}>{snap.status === 'paused' ? 'Paused — nobody has a speaker on. Start yours to resume.' : 'Booth open — step up and play something.'}</div>
+          <div className={s.idleText}>
+            {snap.status === 'paused' ? 'Paused — nobody has a speaker on. Start yours to resume.' : 'Booth open — step up and play something.'}
+          </div>
         )}
       </div>
       <div className={s.controls}>
@@ -99,7 +119,12 @@ export function PlayerPanel(props: {
           )}
         </div>
         <div className={s.row}>
-          <button className="btn btn-ghost" aria-pressed={props.muted} onClick={() => props.onVolume(props.volume, !props.muted)} aria-label={props.muted ? 'Unmute' : 'Mute'}>
+          <button
+            className="btn btn-ghost"
+            aria-pressed={props.muted}
+            onClick={() => props.onVolume(props.volume, !props.muted)}
+            aria-label={props.muted ? 'Unmute' : 'Mute'}
+          >
             {props.muted ? '🔇' : '🔊'}
           </button>
           <input

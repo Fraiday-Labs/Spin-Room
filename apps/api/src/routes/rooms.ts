@@ -1,10 +1,4 @@
-import {
-  DEFAULT_ROOM_SETTINGS,
-  RoomSettingsSchema,
-  SpinroomError,
-  type Invite,
-  type RoomSummary,
-} from '@spinroom/contracts';
+import { DEFAULT_ROOM_SETTINGS, RoomSettingsSchema, SpinroomError, type Invite, type RoomSummary } from '@spinroom/contracts';
 import { and, desc, eq, ilike, inArray, isNull, or } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
 import { invites, roomMembers, rooms, spins, users } from '../db/schema.js';
@@ -81,7 +75,10 @@ async function acceptInvite(ctx: AppContext, token: string, userId: string): Pro
   if (existing?.banned) throw new SpinroomError('banned', 'You were banned from this room');
   if (!existing) {
     await ctx.db.insert(roomMembers).values({ roomId: room.id, userId, role: 'member', joinedAt: ctx.clock.now() }).onConflictDoNothing();
-    await ctx.db.update(invites).set({ uses: inv.uses + 1 }).where(eq(invites.id, inv.id));
+    await ctx.db
+      .update(invites)
+      .set({ uses: inv.uses + 1 })
+      .where(eq(invites.id, inv.id));
   }
   return room;
 }
@@ -108,15 +105,44 @@ export const roomHandlers: Handlers = {
     const roles = new Map<string, RoomSummary['myRole']>();
     if (query.filter === 'mine') {
       const { userId } = requireUser({ auth });
-      const ms = await ctx.db.select().from(roomMembers).where(and(eq(roomMembers.userId, userId), eq(roomMembers.banned, false)));
+      const ms = await ctx.db
+        .select()
+        .from(roomMembers)
+        .where(and(eq(roomMembers.userId, userId), eq(roomMembers.banned, false)));
       for (const m of ms) roles.set(m.roomId, m.role);
-      rows = ms.length ? await ctx.db.select().from(rooms).where(inArray(rooms.id, ms.map((m) => m.roomId))) : [];
+      rows = ms.length
+        ? await ctx.db
+            .select()
+            .from(rooms)
+            .where(
+              inArray(
+                rooms.id,
+                ms.map((m) => m.roomId),
+              ),
+            )
+        : [];
     } else {
       const conds = [eq(rooms.visibility, 'public' as const)];
       if (query.q) conds.push(or(ilike(rooms.name, `%${query.q}%`), ilike(rooms.description, `%${query.q}%`))!);
-      rows = await ctx.db.select().from(rooms).where(and(...conds)).orderBy(desc(rooms.createdAt)).limit(500);
+      rows = await ctx.db
+        .select()
+        .from(rooms)
+        .where(and(...conds))
+        .orderBy(desc(rooms.createdAt))
+        .limit(500);
       if (auth && rows.length) {
-        const ms = await ctx.db.select().from(roomMembers).where(and(eq(roomMembers.userId, auth.userId), inArray(roomMembers.roomId, rows.map((r) => r.id))));
+        const ms = await ctx.db
+          .select()
+          .from(roomMembers)
+          .where(
+            and(
+              eq(roomMembers.userId, auth.userId),
+              inArray(
+                roomMembers.roomId,
+                rows.map((r) => r.id),
+              ),
+            ),
+          );
         for (const m of ms) roles.set(m.roomId, m.role);
       }
     }
@@ -142,7 +168,16 @@ export const roomHandlers: Handlers = {
     const now = ctx.clock.now();
     const [room] = await ctx.db
       .insert(rooms)
-      .values({ id: newId(), slug, name: body.name, description: body.description, ownerId: userId, visibility: body.visibility, settingsJson: settings, createdAt: now })
+      .values({
+        id: newId(),
+        slug,
+        name: body.name,
+        description: body.description,
+        ownerId: userId,
+        visibility: body.visibility,
+        settingsJson: settings,
+        createdAt: now,
+      })
       .returning();
     await ctx.db.insert(roomMembers).values({ roomId: room!.id, userId, role: 'owner', joinedAt: now });
     ctx.services.analytics.track('room_created', { userId, roomId: room!.id, props: { visibility: body.visibility } });
@@ -223,7 +258,16 @@ export const roomHandlers: Handlers = {
       id: s.id,
       djUserId: s.djUserId,
       djName: name ?? 'Unknown',
-      track: { uri: s.trackUri, title: s.title, artists: s.artists, album: s.album, artUrl: s.artUrl, durationMs: s.durationMs, explicit: s.explicit, playable: true },
+      track: {
+        uri: s.trackUri,
+        title: s.title,
+        artists: s.artists,
+        album: s.album,
+        artUrl: s.artUrl,
+        durationMs: s.durationMs,
+        explicit: s.explicit,
+        playable: true,
+      },
       startedAtServerMs: s.startedAt,
       durationMs: s.durationMs,
       endedAt: s.endedAt,
@@ -248,7 +292,11 @@ export const roomHandlers: Handlers = {
     const { userId } = requireUser(c);
     const room = await roomBySlug(c.ctx, c.params.slug);
     await assertMod(c.ctx, room, userId);
-    const rows = await c.ctx.db.select().from(invites).where(and(eq(invites.roomId, room.id), isNull(invites.revokedAt))).orderBy(desc(invites.createdAt));
+    const rows = await c.ctx.db
+      .select()
+      .from(invites)
+      .where(and(eq(invites.roomId, room.id), isNull(invites.revokedAt)))
+      .orderBy(desc(invites.createdAt));
     const now = c.ctx.clock.now();
     // Only token hashes are stored, so listed invites can be revoked but not re-shared.
     return rows

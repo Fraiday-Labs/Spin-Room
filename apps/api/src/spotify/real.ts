@@ -1,11 +1,5 @@
 import type { PlaylistSummary, Track } from '@spinroom/contracts';
-import {
-  SpotifyApiError,
-  type PlaylistDetail,
-  type SpotifyGateway,
-  type SpotifyProfile,
-  type SpotifyTokenSet,
-} from './gateway.js';
+import { SpotifyApiError, type PlaylistDetail, type SpotifyGateway, type SpotifyProfile, type SpotifyTokenSet } from './gateway.js';
 
 interface Opts {
   accountsUrl: string;

@@ -61,7 +61,15 @@ export function createMcpHttpServer(cfg: McpConfig = mcpConfig()) {
 
     if (url.pathname === '/.well-known/oauth-protected-resource' || url.pathname === '/.well-known/oauth-protected-resource/mcp') {
       res.writeHead(200, { 'content-type': 'application/json' });
-      return void res.end(JSON.stringify({ resource: cfg.resourceUrl, authorization_servers: [cfg.issuer], bearer_methods_supported: ['header'], scopes_supported: ['rooms'], resource_name: 'Spinroom' }));
+      return void res.end(
+        JSON.stringify({
+          resource: cfg.resourceUrl,
+          authorization_servers: [cfg.issuer],
+          bearer_methods_supported: ['header'],
+          scopes_supported: ['rooms'],
+          resource_name: 'Spinroom',
+        }),
+      );
     }
     if (url.pathname === '/healthz') return void res.writeHead(200).end('ok');
     if (url.pathname !== '/mcp') return void res.writeHead(404).end();

@@ -6,7 +6,15 @@ export interface SpeakerApi {
   register(takeover: boolean, deviceId: string | null): Promise<{ id: string }>;
   heartbeat(
     id: string,
-    body: { status: SpeakerStatus; positionMs: number | null; driftMs: number | null; spinId: string | null; audible: boolean; spotifyDeviceId: string | null; joinToAudioMs: number | null },
+    body: {
+      status: SpeakerStatus;
+      positionMs: number | null;
+      driftMs: number | null;
+      spinId: string | null;
+      audible: boolean;
+      spotifyDeviceId: string | null;
+      joinToAudioMs: number | null;
+    },
   ): Promise<{ superseded: boolean }>;
   close(id: string): Promise<void>;
 }

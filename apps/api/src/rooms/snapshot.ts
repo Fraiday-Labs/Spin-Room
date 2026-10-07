@@ -14,7 +14,10 @@ export async function membersView(ctx: AppContext, roomId: string, state: RoomSt
   if (!userIds.length) return [];
   const [users, rows] = await Promise.all([
     ctx.services.users.getMany(userIds),
-    ctx.db.select().from(roomMembers).where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, userIds))),
+    ctx.db
+      .select()
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), inArray(roomMembers.userId, userIds))),
   ]);
   const byUser = new Map(rows.map((r) => [r.userId, r]));
   const now = ctx.clock.now();
@@ -86,7 +89,15 @@ export async function buildSnapshot(ctx: AppContext, room: RoomRow, state: RoomS
     activeSlot: state.activeSlot,
     queue: state.queue.map((q) => ({ ...q })),
     currentSpin: cur
-      ? { id: cur.id, djUserId: cur.djUserId, track: cur.track, startedAtServerMs: cur.startedAtServerMs, durationMs: cur.durationMs, endedAt: null, endReason: null }
+      ? {
+          id: cur.id,
+          djUserId: cur.djUserId,
+          track: cur.track,
+          startedAtServerMs: cur.startedAtServerMs,
+          durationMs: cur.durationMs,
+          endedAt: null,
+          endReason: null,
+        }
       : null,
     tally: { hype: t.hype, skip: t.skip, eligibleVoters: t.eligibleVoters },
     upNext: computeUpNext(state),

@@ -13,7 +13,10 @@ export class FakePlayer implements PlayerAdapter {
   private lost: (() => void) | null = null;
   volume = 1;
   /** Simulated clock skew (ms per second of playback). */
-  constructor(private readonly driftPerSec = 0, private readonly now: () => number = () => performance.now()) {}
+  constructor(
+    private readonly driftPerSec = 0,
+    private readonly now: () => number = () => performance.now(),
+  ) {}
 
   async connect() {
     return { deviceId: 'fake-device' };

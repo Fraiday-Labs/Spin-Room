@@ -33,12 +33,7 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
  */
 export type AuthLevel = 'none' | 'optional' | 'user' | 'service' | 'admin';
 
-export interface RouteDef<
-  P extends z.ZodType = z.ZodType,
-  Q extends z.ZodType = z.ZodType,
-  B extends z.ZodType = z.ZodType,
-  R extends z.ZodType = z.ZodType,
-> {
+export interface RouteDef<P extends z.ZodType = z.ZodType, Q extends z.ZodType = z.ZodType, B extends z.ZodType = z.ZodType, R extends z.ZodType = z.ZodType> {
   method: HttpMethod;
   path: string;
   auth: AuthLevel;
@@ -56,12 +51,7 @@ export interface RouteDef<
 const None = z.object({}).strict();
 type NoneT = typeof None;
 
-function route<
-  P extends z.ZodType = NoneT,
-  Q extends z.ZodType = NoneT,
-  B extends z.ZodType = NoneT,
-  R extends z.ZodType = z.ZodType,
->(def: {
+function route<P extends z.ZodType = NoneT, Q extends z.ZodType = NoneT, B extends z.ZodType = NoneT, R extends z.ZodType = z.ZodType>(def: {
   method: HttpMethod;
   path: string;
   auth: AuthLevel;
@@ -83,9 +73,7 @@ function route<
 
 const Slug = z.object({ slug: z.string().min(1).max(64) });
 /** Query-string boolean: accepts true/false and "true"/"false"/"1"/"0" (never `Boolean("false")`). */
-const QueryBool = z
-  .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
-  .transform((v) => v === true || v === 'true' || v === '1');
+const QueryBool = z.union([z.boolean(), z.enum(['true', 'false', '1', '0'])]).transform((v) => v === true || v === 'true' || v === '1');
 const Ok = z.object({ ok: z.literal(true) });
 const SlugRe = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
@@ -191,7 +179,10 @@ export const routes = {
     summary: 'Update profile.',
     body: z.object({
       displayName: z.string().trim().min(1).max(40).optional(),
-      avatarColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      avatarColor: z
+        .string()
+        .regex(/^#[0-9A-Fa-f]{6}$/)
+        .optional(),
     }),
     response: MeSchema,
   }),
@@ -321,7 +312,14 @@ export const routes = {
     summary: 'All members including away ones (moderators).',
     params: Slug,
     response: z.array(
-      z.object({ userId: IdSchema, displayName: z.string(), role: RoleSchema, banned: z.boolean(), muted: z.boolean(), lastSeenAt: TimestampSchema.nullable() }),
+      z.object({
+        userId: IdSchema,
+        displayName: z.string(),
+        role: RoleSchema,
+        banned: z.boolean(),
+        muted: z.boolean(),
+        lastSeenAt: TimestampSchema.nullable(),
+      }),
     ),
   }),
 
@@ -332,7 +330,15 @@ export const routes = {
     auth: 'user',
     summary: 'Create an invite link.',
     params: Slug,
-    body: z.object({ expiresInMs: z.number().int().min(60_000).max(90 * 86_400_000).nullable().optional() }),
+    body: z.object({
+      expiresInMs: z
+        .number()
+        .int()
+        .min(60_000)
+        .max(90 * 86_400_000)
+        .nullable()
+        .optional(),
+    }),
     response: InviteSchema,
   }),
   'invites.list': route({
@@ -383,7 +389,9 @@ export const routes = {
     auth: 'user',
     summary: 'Add a track by URI or by search query (first result). Appends to the linked playlist.',
     params: Slug,
-    body: z.object({ trackUri: z.string().optional(), query: z.string().max(200).optional() }).refine((b) => b.trackUri || b.query, 'trackUri or query required'),
+    body: z
+      .object({ trackUri: z.string().optional(), query: z.string().max(200).optional() })
+      .refine((b) => b.trackUri || b.query, 'trackUri or query required'),
     response: CrateSchema,
   }),
   'crate.move': route({

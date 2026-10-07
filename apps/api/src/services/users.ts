@@ -1,13 +1,4 @@
-import {
-  AVATAR_COLORS,
-  DEFAULT_PRESET_ID,
-  PRESET_AVATARS,
-  RUNTIME_SHEET,
-  type AvatarRef,
-  type Avatar,
-  type Me,
-  type PublicUser,
-} from '@spinroom/contracts';
+import { AVATAR_COLORS, DEFAULT_PRESET_ID, PRESET_AVATARS, RUNTIME_SHEET, type AvatarRef, type Avatar, type Me, type PublicUser } from '@spinroom/contracts';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
 import { apiTokens, avatars, identityLinks, users } from '../db/schema.js';
@@ -72,14 +63,20 @@ export function createUserService(ctx: AppContext) {
 
     async getMany(ids: string[]): Promise<Map<string, UserRow>> {
       if (!ids.length) return new Map();
-      const rows = await ctx.db.select().from(users).where(inArray(users.id, [...new Set(ids)]));
+      const rows = await ctx.db
+        .select()
+        .from(users)
+        .where(inArray(users.id, [...new Set(ids)]));
       return new Map(rows.map((r) => [r.id, r]));
     },
 
     async upsertFromSpotify(profile: SpotifyProfile, clientId: string | null): Promise<{ user: UserRow; created: boolean }> {
       const now = ctx.clock.now();
       const isPremium = profile.product === 'premium';
-      const isAdmin = ctx.cfg.ADMIN_SPOTIFY_IDS.split(',').map((s) => s.trim()).filter(Boolean).includes(profile.id);
+      const isAdmin = ctx.cfg.ADMIN_SPOTIFY_IDS.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .includes(profile.id);
       const existing = await ctx.db.query.users.findFirst({ where: eq(users.spotifyUserId, profile.id) });
       if (existing) {
         const [user] = await ctx.db

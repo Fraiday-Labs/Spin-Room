@@ -21,13 +21,19 @@ async function syncSet(ctx: AppContext, room: RoomRow, userId: string) {
 async function publishMember(ctx: AppContext, roomId: string, userId: string) {
   const state = await ctx.services.rooms.load(roomId);
   const [view] = await membersView(ctx, roomId, state, [userId]);
-  if (view) await ctx.services.rooms.publish(roomId, [{ type: 'presence.changed', userId, state: view.presence, eligible: view.eligible, member: view, avatar: view.user.avatar }]);
+  if (view)
+    await ctx.services.rooms.publish(roomId, [
+      { type: 'presence.changed', userId, state: view.presence, eligible: view.eligible, member: view, avatar: view.user.avatar },
+    ]);
 }
+
+/** Control and bidi-override characters stripped from chat. */
+// eslint-disable-next-line no-control-regex
+const CHAT_STRIP = /[\u0000-\u0008\u000B-\u001F\u007F\u202A-\u202E\u2066-\u2069]/g;
 
 /** Strip control characters (chat is plain text; clients never render it as HTML). */
 export function cleanChat(text: string): string {
-  // eslint-disable-next-line no-control-regex
-  return text.replace(/[\u0000-\u0008\u000B-\u001F\u007F‪-‮⁦-⁩]/g, '').trim().slice(0, TIMING.chatMaxLength);
+  return text.replace(CHAT_STRIP, '').trim().slice(0, TIMING.chatMaxLength);
 }
 
 const SEARCH_TTL_SEC = 600;
@@ -213,7 +219,10 @@ export const playHandlers: Handlers = {
     if (target.role === 'owner') throw new SpinroomError('forbidden', 'The room owner can’t be moderated');
     if (target.role === 'moderator' && me.role !== 'owner') throw new SpinroomError('forbidden', 'Only the owner can moderate moderators');
     const set = (patch: Partial<typeof roomMembers.$inferInsert>) =>
-      ctx.db.update(roomMembers).set(patch).where(and(eq(roomMembers.roomId, room.id), eq(roomMembers.userId, body.userId!)));
+      ctx.db
+        .update(roomMembers)
+        .set(patch)
+        .where(and(eq(roomMembers.roomId, room.id), eq(roomMembers.userId, body.userId!)));
     switch (body.action) {
       case 'kick':
         await rooms.exec(room.id, { type: 'leave', userId: body.userId, kicked: true });
@@ -271,14 +280,21 @@ export const playHandlers: Handlers = {
     const u = await ctx.services.users.get(userId);
     if (!u?.isPremium) throw new SpinroomError('not_premium', 'A speaker needs Spotify Premium. Free accounts can listen in as remotes.');
     const now = ctx.clock.now();
-    const open = await ctx.db.select().from(speakers).where(and(eq(speakers.roomId, room.id), eq(speakers.userId, userId), isNull(speakers.closedAt)));
+    const open = await ctx.db
+      .select()
+      .from(speakers)
+      .where(and(eq(speakers.roomId, room.id), eq(speakers.userId, userId), isNull(speakers.closedAt)));
     const live = open.filter((s) => s.lastHeartbeatAt && now - s.lastHeartbeatAt <= TIMING.speakerLiveMs);
     if (live.length && !body.takeover) {
       throw new SpinroomError('speaker_exists', 'You already have a speaker playing this room — move it here?', { speakerId: live[0]!.id });
     }
     if (open.length) {
-      await ctx.db.update(speakers).set({ closedAt: now, status: 'off' }).where(and(eq(speakers.roomId, room.id), eq(speakers.userId, userId), isNull(speakers.closedAt)));
-      if (live.length) await ctx.services.rooms.publish(room.id, [{ type: 'user.notice', userId, kind: 'speaker_moved', message: 'Your speaker moved to another tab.' }]);
+      await ctx.db
+        .update(speakers)
+        .set({ closedAt: now, status: 'off' })
+        .where(and(eq(speakers.roomId, room.id), eq(speakers.userId, userId), isNull(speakers.closedAt)));
+      if (live.length)
+        await ctx.services.rooms.publish(room.id, [{ type: 'user.notice', userId, kind: 'speaker_moved', message: 'Your speaker moved to another tab.' }]);
     }
     const [row] = await ctx.db
       .insert(speakers)
@@ -306,9 +322,14 @@ export const playHandlers: Handlers = {
       .where(eq(speakers.id, sp.id));
     const m = await memberRow(ctx, sp.roomId, userId);
     await ctx.services.rooms.exec(sp.roomId, { type: 'speakerHeartbeat', userId, live: body.status === 'live', audible, role: m?.role ?? 'member' });
-    await ctx.db.update(roomMembers).set({ lastSeenAt: now }).where(and(eq(roomMembers.roomId, sp.roomId), eq(roomMembers.userId, userId)));
-    if (typeof body.driftMs === 'number') ctx.services.analytics.track('drift_sample', { userId, roomId: sp.roomId, props: { driftMs: Math.round(body.driftMs), spinId: body.spinId } });
-    if (typeof body.joinToAudioMs === 'number') ctx.services.analytics.track('join_to_audio', { userId, roomId: sp.roomId, props: { ms: Math.round(body.joinToAudioMs) } });
+    await ctx.db
+      .update(roomMembers)
+      .set({ lastSeenAt: now })
+      .where(and(eq(roomMembers.roomId, sp.roomId), eq(roomMembers.userId, userId)));
+    if (typeof body.driftMs === 'number')
+      ctx.services.analytics.track('drift_sample', { userId, roomId: sp.roomId, props: { driftMs: Math.round(body.driftMs), spinId: body.spinId } });
+    if (typeof body.joinToAudioMs === 'number')
+      ctx.services.analytics.track('join_to_audio', { userId, roomId: sp.roomId, props: { ms: Math.round(body.joinToAudioMs) } });
     return { ok: true as const, serverNow: now, superseded: false };
   },
   'speakers.close': async (c) => {
@@ -323,4 +344,3 @@ export const playHandlers: Handlers = {
     return { ok: true as const };
   },
 };
-

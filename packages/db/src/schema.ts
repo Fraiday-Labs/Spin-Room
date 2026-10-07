@@ -1,15 +1,4 @@
-
-import {
-  bigint,
-  boolean,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  primaryKey,
-  text,
-  uniqueIndex,
-} from 'drizzle-orm/pg-core';
+import { bigint, boolean, index, integer, jsonb, pgTable, primaryKey, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 /** All times are UTC milliseconds (PRD data model). */
 const ms = (name: string) => bigint(name, { mode: 'number' });
@@ -99,7 +88,9 @@ export const roomMembers = pgTable(
     banned: boolean('banned').notNull().default(false),
     muted: boolean('muted').notNull().default(false),
     avatarHidden: boolean('avatar_hidden').notNull().default(false),
-    setMode: text('set_mode', { enum: ['playlist', 'local'] }).notNull().default('local'),
+    setMode: text('set_mode', { enum: ['playlist', 'local'] })
+      .notNull()
+      .default('local'),
     setPlaylistId: text('set_playlist_id'),
     setPlaylistName: text('set_playlist_name'),
     setSnapshotId: text('set_snapshot_id'),
@@ -252,10 +243,7 @@ export const identityLinks = pgTable(
     createdAt: ms('created_at').notNull(),
     lastSurfaceAt: ms('last_surface_at'),
   },
-  (t) => [
-    primaryKey({ columns: [t.provider, t.teamId, t.externalId] }),
-    index('identity_links_user_idx').on(t.userId),
-  ],
+  (t) => [primaryKey({ columns: [t.provider, t.teamId, t.externalId] }), index('identity_links_user_idx').on(t.userId)],
 );
 
 export const apiTokens = pgTable(
@@ -264,7 +252,9 @@ export const apiTokens = pgTable(
     id: text('id').primaryKey(),
     userId: text('user_id').notNull(),
     tokenHash: text('token_hash').notNull(),
-    kind: text('kind', { enum: ['pat', 'mcp_oauth'] }).notNull().default('pat'),
+    kind: text('kind', { enum: ['pat', 'mcp_oauth'] })
+      .notNull()
+      .default('pat'),
     label: text('label').notNull(),
     scopes: jsonb('scopes').$type<string[]>().notNull().default(['rooms']),
     clientId: text('client_id'),
@@ -341,4 +331,3 @@ export const deletionRequests = pgTable('deletion_requests', {
   requestedAt: ms('requested_at').notNull(),
   completedAt: ms('completed_at'),
 });
-

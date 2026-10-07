@@ -61,7 +61,14 @@ const snap = (): RoomSnapshot => ({
 describe('applyEvent', () => {
   it('starts and ends spins, resets my vote', () => {
     const track = { uri: 'spotify:track:abc', title: 't', artists: ['a'], album: '', artUrl: null, durationMs: 1000, explicit: false, playable: true };
-    let s = applyEvent(snap(), { type: 'spin.started', seq: 2, roomId: 'r', at: 0, spin: { id: 'x', djUserId: 'd', track, startedAtServerMs: 0, durationMs: 1000, endedAt: null, endReason: null }, upNext: [] });
+    let s = applyEvent(snap(), {
+      type: 'spin.started',
+      seq: 2,
+      roomId: 'r',
+      at: 0,
+      spin: { id: 'x', djUserId: 'd', track, startedAtServerMs: 0, durationMs: 1000, endedAt: null, endReason: null },
+      upNext: [],
+    });
     expect(s.currentSpin?.id).toBe('x');
     expect(s.me?.vote).toBeNull();
     s = applyEvent(s, { type: 'votes.changed', seq: 3, roomId: 'r', at: 0, spinId: 'x', tally: { hype: 2, skip: 1, eligibleVoters: 4 } });

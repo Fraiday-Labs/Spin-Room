@@ -44,7 +44,9 @@ export default function OAuthConsent() {
           <li>join rooms, vote, chat and manage your DJ set and queue</li>
           <li>create rooms and invite links</li>
         </ul>
-        <p className="muted">It will never see your Spotify login. After approving you’ll return to {req.data.redirectHost}. Revoke access any time on your Profile.</p>
+        <p className="muted">
+          It will never see your Spotify login. After approving you’ll return to {req.data.redirectHost}. Revoke access any time on your Profile.
+        </p>
         <div className="row">
           <button className="btn btn-primary" disabled={busy} onClick={() => void decide(true)}>
             Allow

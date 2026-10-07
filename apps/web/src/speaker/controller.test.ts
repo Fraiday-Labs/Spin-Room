@@ -28,7 +28,10 @@ function setup(opts: { offset?: number; driftPerSec?: number } = {}) {
     }),
     close: vi.fn(async () => {}),
   };
-  const c = new SpeakerController(player, clock, api, { deviceName: 'Spinroom — test', timers: { setTimeout, clearTimeout, setInterval, clearInterval } as never });
+  const c = new SpeakerController(player, clock, api, {
+    deviceName: 'Spinroom — test',
+    timers: { setTimeout, clearTimeout, setInterval, clearInterval } as never,
+  });
   return { c, player, api, beats, supersede: () => (superseded = true) };
 }
 

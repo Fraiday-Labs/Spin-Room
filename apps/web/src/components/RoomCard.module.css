@@ -7,7 +7,9 @@
   border: 2px solid var(--border);
   color: var(--text);
   text-decoration: none;
-  transition: border-color 120ms ease, transform 120ms ease;
+  transition:
+    border-color 120ms ease,
+    transform 120ms ease;
 }
 .card:hover {
   border-color: var(--cyan);

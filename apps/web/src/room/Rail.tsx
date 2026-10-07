@@ -32,7 +32,15 @@ export function Rail(props: {
     <aside className={s.rail} aria-label="Room panels">
       <div className={s.tabs} role="tablist">
         {TABS.map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={tab === id} aria-controls={`panel-${id}`} id={`tab-${id}`} className={s.tab} onClick={() => props.setTab(id)}>
+          <button
+            key={id}
+            role="tab"
+            aria-selected={tab === id}
+            aria-controls={`panel-${id}`}
+            id={`tab-${id}`}
+            className={s.tab}
+            onClick={() => props.setTab(id)}
+          >
             {label}
             {id === 'queue' && snap.queue.length > 0 && <span className={s.pill}>{snap.queue.length}</span>}
           </button>
@@ -70,7 +78,19 @@ function UpNext({ snap, names }: { snap: RoomSnapshot; names: Map<string, string
 
 const QUICK = ['🔥', '❤️', '😂', '👏', '🎉'];
 
-function Chat({ snap, me, names, inputRef, notify }: { snap: RoomSnapshot; me: Me | null; names: Map<string, string>; inputRef: RefObject<HTMLInputElement | null>; notify: (m: string) => void }) {
+function Chat({
+  snap,
+  me,
+  names,
+  inputRef,
+  notify,
+}: {
+  snap: RoomSnapshot;
+  me: Me | null;
+  names: Map<string, string>;
+  inputRef: RefObject<HTMLInputElement | null>;
+  notify: (m: string) => void;
+}) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
@@ -97,7 +117,12 @@ function Chat({ snap, me, names, inputRef, notify }: { snap: RoomSnapshot; me: M
             <span className={s.who}>{names.get(m.userId) ?? 'Someone'}</span> <span className={s.text}>{m.text}</span>
             <div className={s.reactions}>
               {Object.entries(m.reactions).map(([emoji, who]) => (
-                <button key={emoji} className={s.react} aria-pressed={me ? who.includes(me.id) : false} onClick={() => react(snap.room.slug, m.id, emoji, notify)}>
+                <button
+                  key={emoji}
+                  className={s.react}
+                  aria-pressed={me ? who.includes(me.id) : false}
+                  onClick={() => react(snap.room.slug, m.id, emoji, notify)}
+                >
                   {emoji} {who.length}
                 </button>
               ))}
@@ -123,7 +148,15 @@ function Chat({ snap, me, names, inputRef, notify }: { snap: RoomSnapshot; me: M
             void send();
           }}
         >
-          <input ref={inputRef} className="input" value={text} maxLength={500} onChange={(e) => setText(e.target.value)} placeholder="Message the room (press / to focus)" aria-label="Chat message" />
+          <input
+            ref={inputRef}
+            className="input"
+            value={text}
+            maxLength={500}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Message the room (press / to focus)"
+            aria-label="Chat message"
+          />
           <button className="btn" type="submit" disabled={busy || !text.trim()}>
             Send
           </button>
@@ -143,7 +176,14 @@ async function react(slug: string, messageId: string, emoji: string, notify: (m:
   }
 }
 
-function Queue(props: { snap: RoomSnapshot; me: Me | null; names: Map<string, string>; onQueueToggle: () => void; queueBusy: boolean; onSelectMember: (m: Member) => void }) {
+function Queue(props: {
+  snap: RoomSnapshot;
+  me: Me | null;
+  names: Map<string, string>;
+  onQueueToggle: () => void;
+  queueBusy: boolean;
+  onSelectMember: (m: Member) => void;
+}) {
   const { snap, me, names } = props;
   const now = useNow(1000, !!snap.me?.cooldownUntil);
   const inBooth = snap.me?.boothSlot !== null && snap.me?.boothSlot !== undefined;
@@ -152,7 +192,12 @@ function Queue(props: { snap: RoomSnapshot; me: Me | null; names: Map<string, st
     <div className="stack">
       {me && (
         <div className={s.queueAction}>
-          <button className={`btn ${inBooth || snap.me?.inQueue ? '' : 'btn-primary'}`} onClick={props.onQueueToggle} disabled={props.queueBusy || (!inBooth && !snap.me?.inQueue && cooldown > 0)} data-testid="queue-toggle">
+          <button
+            className={`btn ${inBooth || snap.me?.inQueue ? '' : 'btn-primary'}`}
+            onClick={props.onQueueToggle}
+            disabled={props.queueBusy || (!inBooth && !snap.me?.inQueue && cooldown > 0)}
+            data-testid="queue-toggle"
+          >
             {inBooth ? 'Step down from the booth' : snap.me?.inQueue ? 'Leave DJ queue' : 'Join DJ queue'}
           </button>
           <span className="muted">Q</span>
@@ -221,7 +266,11 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
     const h = setTimeout(() => setDebounced(q.trim()), 300);
     return () => clearTimeout(h);
   }, [q]);
-  const results = useQuery({ queryKey: ['search', debounced], queryFn: () => api.call('search.tracks', { query: { q: debounced, limit: 8 } }), enabled: debounced.length > 1 });
+  const results = useQuery({
+    queryKey: ['search', debounced],
+    queryFn: () => api.call('search.tracks', { query: { q: debounced, limit: 8 } }),
+    enabled: debounced.length > 1,
+  });
   const [linking, setLinking] = useState(false);
   const playlists = useQuery({ queryKey: ['playlists'], queryFn: () => api.call('me.playlists'), enabled: linking });
 
@@ -257,7 +306,9 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
       </div>
       {linking && (
         <div className="card stack">
-          <p className="muted">Pick one of your Spotify playlists as your set. Spinroom plays it top to bottom; edits you make in Spotify show up before your next turn.</p>
+          <p className="muted">
+            Pick one of your Spotify playlists as your set. Spinroom plays it top to bottom; edits you make in Spotify show up before your next turn.
+          </p>
           {playlists.isLoading && <p className="muted">Loading playlists…</p>}
           {playlists.error && <p className="error">{errorMessage(playlists.error)}</p>}
           <ul className={s.list}>
@@ -267,17 +318,30 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
                   {p.name} <span className="muted">· {p.trackCount} tracks</span>
                 </span>
                 {p.ownedByMe && (
-                  <button className="btn" onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'link', playlist: p.id } })).then(() => setLinking(false))}>
+                  <button
+                    className="btn"
+                    onClick={() =>
+                      run(() => api.call('crate.import', { params: { slug }, body: { mode: 'link', playlist: p.id } })).then(() => setLinking(false))
+                    }
+                  >
                     Link
                   </button>
                 )}
-                <button className="btn btn-ghost" onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'copy', playlist: p.id } })).then(() => setLinking(false))}>
+                <button
+                  className="btn btn-ghost"
+                  onClick={() =>
+                    run(() => api.call('crate.import', { params: { slug }, body: { mode: 'copy', playlist: p.id } })).then(() => setLinking(false))
+                  }
+                >
                   Copy
                 </button>
               </li>
             ))}
           </ul>
-          <button className="btn" onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'create' } })).then(() => setLinking(false))}>
+          <button
+            className="btn"
+            onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'create' } })).then(() => setLinking(false))}
+          >
             Create “Spinroom – {snap.room.name}” playlist
           </button>
         </div>
@@ -321,13 +385,27 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
               ))}
               {i === c.position && <span className="badge badge-ok">next</span>}
             </span>
-            <button className="btn btn-ghost" disabled={i === 0} aria-label="Move up" onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i - 1 } }))}>
+            <button
+              className="btn btn-ghost"
+              disabled={i === 0}
+              aria-label="Move up"
+              onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i - 1 } }))}
+            >
               ↑
             </button>
-            <button className="btn btn-ghost" disabled={i === c.items.length - 1} aria-label="Move down" onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i + 1 } }))}>
+            <button
+              className="btn btn-ghost"
+              disabled={i === c.items.length - 1}
+              aria-label="Move down"
+              onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i + 1 } }))}
+            >
               ↓
             </button>
-            <button className="btn btn-ghost" aria-label={`Remove ${it.track.title}`} onClick={() => run(() => api.call('crate.remove', { params: { slug, itemId: it.id } }))}>
+            <button
+              className="btn btn-ghost"
+              aria-label={`Remove ${it.track.title}`}
+              onClick={() => run(() => api.call('crate.remove', { params: { slug, itemId: it.id } }))}
+            >
               ✕
             </button>
           </li>

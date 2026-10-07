@@ -21,8 +21,14 @@ const FAILURES: Record<string, { title: string; fix: string }> = {
   },
   access_denied: { title: 'Spotify sign-in was cancelled', fix: 'Try again and press Agree on the Spotify screen.' },
   state_expired: { title: 'The sign-in link expired', fix: 'Start again — sign-in links last 10 minutes.' },
-  quota_exceeded: { title: 'This Spotify app is over its quota', fix: 'Spotify limits requests per developer account. Wait a little, or use your own Client ID.' },
-  spotify_error: { title: 'Spotify returned an error', fix: 'Try again in a moment. If it keeps happening, check that Web API and Web Playback SDK are selected for your app.' },
+  quota_exceeded: {
+    title: 'This Spotify app is over its quota',
+    fix: 'Spotify limits requests per developer account. Wait a little, or use your own Client ID.',
+  },
+  spotify_error: {
+    title: 'Spotify returned an error',
+    fix: 'Try again in a moment. If it keeps happening, check that Web API and Web Playback SDK are selected for your app.',
+  },
 };
 
 export function Connect() {
@@ -54,8 +60,8 @@ export function Connect() {
     <div className="page stack" style={{ maxWidth: 760 }}>
       <h1>Connect Spotify</h1>
       <p className="muted">
-        Spinroom plays music through your own Spotify Premium account. Spotify limits each developer app to a handful of users, so every listener brings
-        their own free Spotify developer app. It takes about five minutes, once.
+        Spinroom plays music through your own Spotify Premium account. Spotify limits each developer app to a handful of users, so every listener brings their
+        own free Spotify developer app. It takes about five minutes, once.
       </p>
 
       {failure && (
@@ -147,8 +153,8 @@ export function Connect() {
             </summary>
             <div className="stack" style={{ marginTop: 12 }}>
               <p>
-                A friend can let up to 4 people sign in through their Spotify app. Ask them to open <b>User Management</b> in their app’s dashboard and add
-                your name and the email on your Spotify account. Then paste <i>their</i> Client ID above.
+                A friend can let up to 4 people sign in through their Spotify app. Ask them to open <b>User Management</b> in their app’s dashboard and add your
+                name and the email on your Spotify account. Then paste <i>their</i> Client ID above.
               </p>
               <p className="muted">Guests share the host’s Spotify API quota.</p>
             </div>

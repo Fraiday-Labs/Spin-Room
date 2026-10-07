@@ -15,7 +15,10 @@ export interface AccessClaims extends JWTPayload {
 
 export class Jwt {
   private readonly key: Uint8Array;
-  constructor(secret: string, private readonly issuer = 'spinroom') {
+  constructor(
+    secret: string,
+    private readonly issuer = 'spinroom',
+  ) {
     this.key = new TextEncoder().encode(secret);
   }
 

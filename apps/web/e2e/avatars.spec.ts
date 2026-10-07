@@ -19,7 +19,9 @@ async function sheet(w: number, h: number, rows: number[]) {
           raw[i + 3] = 255;
         }
   });
-  return sharp(raw, { raw: { width: w, height: h, channels: 4 } }).png().toBuffer();
+  return sharp(raw, { raw: { width: w, height: h, channels: 4 } })
+    .png()
+    .toBuffer();
 }
 
 test('import a ChatGPT pet sheet, preview every state, confirm rights and use it', async ({ browser }) => {
@@ -37,5 +39,7 @@ test('invalid sheets get a named error and fix', async ({ browser }) => {
   const p = await newUserPage(browser, uid('badpet'));
   await p.goto('/profile/avatar');
   await p.getByTestId('avatar-file').setInputFiles({ name: 'square.png', mimeType: 'image/png', buffer: await sheet(1024, 1024, [1]) });
-  await expect(p.getByTestId('avatar-error')).toContainText('This image is 1024 × 1024. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT.');
+  await expect(p.getByTestId('avatar-error')).toContainText(
+    'This image is 1024 × 1024. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT.',
+  );
 });

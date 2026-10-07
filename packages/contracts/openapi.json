@@ -319,13 +319,17 @@
                       "items": {
                         "type": "string"
                       }
+                    },
+                    "mcpUrl": {
+                      "type": "string"
                     }
                   },
                   "required": [
                     "spotifyMode",
                     "callbackUrl",
                     "rememberedClientId",
-                    "scopes"
+                    "scopes",
+                    "mcpUrl"
                   ]
                 }
               }
@@ -12099,6 +12103,299 @@
         }
       }
     },
+    "/v1/oauth/requests/{id}": {
+      "get": {
+        "operationId": "oauth.request",
+        "summary": "A pending MCP authorization request, shown on the consent screen.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "clientName": {
+                      "type": "string"
+                    },
+                    "redirectHost": {
+                      "type": "string"
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "clientName",
+                    "redirectHost",
+                    "scopes"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "bad_request",
+                        "validation_failed",
+                        "invalid_client_id",
+                        "unauthenticated",
+                        "session_expired",
+                        "csrf_failed",
+                        "forbidden",
+                        "not_premium",
+                        "banned",
+                        "muted",
+                        "not_member",
+                        "origin_rejected",
+                        "upload_revoked",
+                        "not_found",
+                        "room_not_found",
+                        "spin_not_current",
+                        "conflict",
+                        "slug_taken",
+                        "already_in_queue",
+                        "speaker_exists",
+                        "invalid_invite",
+                        "room_full",
+                        "crate_empty",
+                        "on_cooldown",
+                        "speaker_missing",
+                        "track_too_long",
+                        "track_unplayable",
+                        "track_explicit",
+                        "cannot_vote_own_spin",
+                        "not_present",
+                        "avatar_invalid",
+                        "avatar_limit",
+                        "rights_not_confirmed",
+                        "payload_too_large",
+                        "rate_limited",
+                        "quota_exceeded",
+                        "spotify_error",
+                        "spotify_auth_failed",
+                        "internal"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          }
+        ]
+      }
+    },
+    "/v1/oauth/requests/{id}/approve": {
+      "post": {
+        "operationId": "oauth.approve",
+        "summary": "Approve or deny an MCP authorization request.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "redirectTo": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "redirectTo"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "bad_request",
+                        "validation_failed",
+                        "invalid_client_id",
+                        "unauthenticated",
+                        "session_expired",
+                        "csrf_failed",
+                        "forbidden",
+                        "not_premium",
+                        "banned",
+                        "muted",
+                        "not_member",
+                        "origin_rejected",
+                        "upload_revoked",
+                        "not_found",
+                        "room_not_found",
+                        "spin_not_current",
+                        "conflict",
+                        "slug_taken",
+                        "already_in_queue",
+                        "speaker_exists",
+                        "invalid_invite",
+                        "room_full",
+                        "crate_empty",
+                        "on_cooldown",
+                        "speaker_missing",
+                        "track_too_long",
+                        "track_unplayable",
+                        "track_explicit",
+                        "cannot_vote_own_spin",
+                        "not_present",
+                        "avatar_invalid",
+                        "avatar_limit",
+                        "rights_not_confirmed",
+                        "payload_too_large",
+                        "rate_limited",
+                        "quota_exceeded",
+                        "spotify_error",
+                        "spotify_auth_failed",
+                        "internal"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "type": "object",
+                "properties": {
+                  "approve": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "approve"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/avatars": {
       "post": {
         "operationId": "avatars.create",
@@ -12110,8 +12407,20 @@
             "required": false,
             "schema": {
               "$schema": "https://json-schema.org/draft/2020-12/schema",
-              "default": false,
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "0",
+                    "1",
+                    "true",
+                    "false"
+                  ]
+                }
+              ]
             }
           },
           {
@@ -12152,8 +12461,20 @@
             "required": false,
             "schema": {
               "$schema": "https://json-schema.org/draft/2020-12/schema",
-              "default": false,
-              "type": "boolean"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "string",
+                  "enum": [
+                    "0",
+                    "1",
+                    "true",
+                    "false"
+                  ]
+                }
+              ]
             }
           }
         ],
@@ -12393,6 +12714,99 @@
                         "null"
                       ]
                     },
+                    "preview": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 64
+                            },
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "preset",
+                                "custom"
+                              ]
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "sheetUrl": {
+                              "type": "string"
+                            },
+                            "thumbUrl": {
+                              "type": "string"
+                            },
+                            "rows": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "idle",
+                                      "hype",
+                                      "skip",
+                                      "dj",
+                                      "walk",
+                                      "wave",
+                                      "away"
+                                    ]
+                                  },
+                                  "frames": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "dimmed": {
+                                    "type": "boolean"
+                                  }
+                                },
+                                "required": [
+                                  "state",
+                                  "frames"
+                                ]
+                              }
+                            },
+                            "cell": {
+                              "type": "object",
+                              "properties": {
+                                "w": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "h": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "w",
+                                "h"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "kind",
+                            "name",
+                            "sheetUrl",
+                            "thumbUrl",
+                            "rows",
+                            "cell"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "issues": {
                       "type": "array",
                       "items": {
@@ -12428,6 +12842,7 @@
                     "needsGrid",
                     "frameCounts",
                     "suggestedName",
+                    "preview",
                     "issues"
                   ]
                 }

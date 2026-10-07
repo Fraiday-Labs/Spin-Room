@@ -28,7 +28,11 @@ async function startApi(cfg: Record<string, unknown> = {}) {
 
 async function mcpFor(base: string, pat: string) {
   const client = new SpinroomClient({ baseUrl: base, surface: 'mcp', getToken: () => pat });
-  const { server, close } = createSpinroomServer({ client, publicUrl: 'https://spinroom.test', connectLive: (u) => new WebSocket(u, { headers: { authorization: `Bearer ${pat}` } }) as unknown as WsLike });
+  const { server, close } = createSpinroomServer({
+    client,
+    publicUrl: 'https://spinroom.test',
+    connectLive: (u) => new WebSocket(u, { headers: { authorization: `Bearer ${pat}` } }) as unknown as WsLike,
+  });
   const [a, b] = InMemoryTransport.createLinkedPair();
   const mcp = new Client({ name: 'test', version: '1' });
   await Promise.all([server.connect(a), mcp.connect(b)]);
@@ -56,7 +60,25 @@ describe('MCP tools (Journey 3)', () => {
     const mcp = await mcpFor(base, await pat(alice));
     const tools = (await mcp.listTools()).tools.map((x) => x.name).sort();
     expect(tools).toEqual(
-      ['chat_send', 'crate_add', 'crate_list', 'crate_move', 'crate_remove', 'create_room', 'dj_queue_join', 'dj_queue_leave', 'invite', 'join_room', 'leave_room', 'list_rooms', 'now_playing', 'room_history', 'search_tracks', 'skip_my_spin', 'vote'].sort(),
+      [
+        'chat_send',
+        'crate_add',
+        'crate_list',
+        'crate_move',
+        'crate_remove',
+        'create_room',
+        'dj_queue_join',
+        'dj_queue_leave',
+        'invite',
+        'join_room',
+        'leave_room',
+        'list_rooms',
+        'now_playing',
+        'room_history',
+        'search_tracks',
+        'skip_my_spin',
+        'vote',
+      ].sort(),
     );
     const vote = (await mcp.listTools()).tools.find((x) => x.name === 'vote')!;
     expect(vote.description).toContain('visible to other room members');
@@ -177,7 +199,13 @@ describe('remote MCP over HTTP with OAuth 2.1', () => {
     expect(as.code_challenge_methods_supported).toEqual(['S256']);
 
     // 2. Dynamic client registration.
-    const reg = (await (await fetch(as.registration_endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ client_name: 'Claude Code', redirect_uris: ['http://127.0.0.1:33418/callback'] }) })).json()) as J;
+    const reg = (await (
+      await fetch(as.registration_endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ client_name: 'Claude Code', redirect_uris: ['http://127.0.0.1:33418/callback'] }),
+      })
+    ).json()) as J;
     expect(reg.client_id).toMatch(/^mcpc_/);
 
     // 3. Authorize with PKCE → consent screen (user signed in with Spotify) → code.
@@ -200,7 +228,13 @@ describe('remote MCP over HTTP with OAuth 2.1', () => {
       fetch(as.token_endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ grant_type: 'authorization_code', code, code_verifier: v, client_id: reg.client_id, redirect_uri: 'http://127.0.0.1:33418/callback' }),
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code,
+          code_verifier: v,
+          client_id: reg.client_id,
+          redirect_uri: 'http://127.0.0.1:33418/callback',
+        }),
       });
     expect((await tokenReq('wrong')).status).toBe(400);
     // The code was consumed by the failed attempt; get a fresh one.
@@ -211,7 +245,13 @@ describe('remote MCP over HTTP with OAuth 2.1', () => {
       await fetch(as.token_endpoint, {
         method: 'POST',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ grant_type: 'authorization_code', code: code2, code_verifier: verifier, client_id: reg.client_id, redirect_uri: 'http://127.0.0.1:33418/callback' }),
+        body: new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: code2,
+          code_verifier: verifier,
+          client_id: reg.client_id,
+          redirect_uri: 'http://127.0.0.1:33418/callback',
+        }),
       })
     ).json()) as J;
     expect(tok.token_type).toBe('Bearer');
@@ -230,13 +270,26 @@ describe('remote MCP over HTTP with OAuth 2.1', () => {
 
     // 6. Refresh rotates; revoking the connection kills it.
     const refreshed = (await (
-      await fetch(as.token_endpoint, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tok.refresh_token, client_id: reg.client_id }) })
+      await fetch(as.token_endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: tok.refresh_token, client_id: reg.client_id }),
+      })
     ).json()) as J;
     expect(refreshed.refresh_token).not.toBe(tok.refresh_token);
     const conn = (await alice.req('GET', '/v1/tokens')).json().find((x: { label: string }) => x.label === 'Claude Code');
     const del = await alice.req('DELETE', `/v1/tokens/${conn.id}`);
     expect(del.statusCode, del.body).toBe(200);
-    const after = await fetch(mcpUrl, { method: 'POST', headers: { authorization: `Bearer ${refreshed.access_token}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'x', version: '1' } } }) });
+    const after = await fetch(mcpUrl, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${refreshed.access_token}`, 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'x', version: '1' } },
+      }),
+    });
     expect(after.status).toBe(401);
   });
 });

@@ -20,9 +20,28 @@ export interface TestApp {
 }
 
 const TABLES = [
-  'users', 'spotify_tokens', 'sessions', 'rooms', 'room_members', 'invites', 'crate_items', 'dj_queue', 'booth_slots', 'spins', 'votes',
-  'chat_messages', 'slack_installs', 'slack_links', 'identity_links', 'api_tokens', 'oauth_clients', 'speakers', 'avatar_reports', 'blobs',
-  'analytics_events', 'deletion_requests',
+  'users',
+  'spotify_tokens',
+  'sessions',
+  'rooms',
+  'room_members',
+  'invites',
+  'crate_items',
+  'dj_queue',
+  'booth_slots',
+  'spins',
+  'votes',
+  'chat_messages',
+  'slack_installs',
+  'slack_links',
+  'identity_links',
+  'api_tokens',
+  'oauth_clients',
+  'speakers',
+  'avatar_reports',
+  'blobs',
+  'analytics_events',
+  'deletion_requests',
 ];
 
 export async function createTestApp(opts: { cfg?: Partial<Config>; spotify?: SpotifyGateway; clock?: Clock } = {}): Promise<TestApp> {
@@ -35,7 +54,14 @@ export async function createTestApp(opts: { cfg?: Partial<Config>; spotify?: Spo
   const redis = createRedis(cfg.REDIS_URL);
   const sub = createRedis(cfg.REDIS_URL);
   await redis.flushdb();
-  const { app, ctx } = await buildApp({ cfg, db, redis, sub, ...(opts.clock ? { clock: opts.clock } : {}), ...(opts.spotify ? { spotify: opts.spotify } : {}) });
+  const { app, ctx } = await buildApp({
+    cfg,
+    db,
+    redis,
+    sub,
+    ...(opts.clock ? { clock: opts.clock } : {}),
+    ...(opts.spotify ? { spotify: opts.spotify } : {}),
+  });
   await ctx.services.rooms?.start?.();
   await app.ready();
   return {

@@ -19,7 +19,8 @@ async function main() {
   await mkdir(OUT, { recursive: true });
   const plates = { back: back(), speakers: speakers(), booth: booth(), floor: floor() };
   for (const [k, c] of Object.entries(plates)) await write(`${k}.webp`, await c.webp());
-  for (const [k, col] of Object.entries({ cyan: P.cyan, magenta: P.magenta, amber: P.amber, violet: P.violet })) await write(`beam-${k}.webp`, await beam(col).webp());
+  for (const [k, col] of Object.entries({ cyan: P.cyan, magenta: P.magenta, amber: P.amber, violet: P.violet }))
+    await write(`beam-${k}.webp`, await beam(col).webp());
   await write('led.webp', await ledStrip().webp());
   await write('laptop.webp', await laptop().webp());
 

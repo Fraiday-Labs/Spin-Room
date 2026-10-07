@@ -13,15 +13,15 @@ All built-in art is original and generated in code by `tools/art` (`pnpm art`). 
 
 ## Layers, back to front
 
-| Layer | Asset | Driven by |
-| --- | --- | --- |
-| Back wall and truss | `back.webp` (brick, truss, 5 spotlight cans, neon record sign) | Static |
-| Spotlight beams | `beam-{violet,cyan,magenta,amber}.webp` | Slow CSS sweep; the active DJ's spotlight brightens |
-| Speaker stacks | `speakers.webp` + `led.webp` strips | LED strips pulse on a synthetic beat loop |
-| Equalizer bars | DOM bars | Synthetic loop (web apps get no access to Spotify's audio) |
-| DJs and laptops | Avatar sheets + `laptop.webp` | Booth slots; each DJ plays the `dj` animation; name label in slot color |
-| Booth and LED marquee | `booth.webp` + DOM text | Live Spotify metadata, "Artist – Title" in amber VT323; elapsed bottom-left, remaining bottom-right; long titles scroll |
-| Dance floor and crowd | `floor.webp` + `crowd.png` / `crowd-mask.png` | One figure per present member, tinted with their color; hands up on Hype, turned away on Skip |
+| Layer                 | Asset                                                          | Driven by                                                                                                               |
+| --------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Back wall and truss   | `back.webp` (brick, truss, 5 spotlight cans, neon record sign) | Static                                                                                                                  |
+| Spotlight beams       | `beam-{violet,cyan,magenta,amber}.webp`                        | Slow CSS sweep; the active DJ's spotlight brightens                                                                     |
+| Speaker stacks        | `speakers.webp` + `led.webp` strips                            | LED strips pulse on a synthetic beat loop                                                                               |
+| Equalizer bars        | DOM bars                                                       | Synthetic loop (web apps get no access to Spotify's audio)                                                              |
+| DJs and laptops       | Avatar sheets + `laptop.webp`                                  | Booth slots; each DJ plays the `dj` animation; name label in slot color                                                 |
+| Booth and LED marquee | `booth.webp` + DOM text                                        | Live Spotify metadata, "Artist – Title" in amber VT323; elapsed bottom-left, remaining bottom-right; long titles scroll |
+| Dance floor and crowd | `floor.webp` + `crowd.png` / `crowd-mask.png`                  | One figure per present member, tinted with their color; hands up on Hype, turned away on Skip                           |
 
 Slot geometry (native px): booth `x 128–352, y 148–214`; marquee `x 150–330, y 168–198`; DJ centers `x 176, 240, 304`; spotlights `x 48, 144, 240, 336, 432`; floor from `y 214`.
 
@@ -42,19 +42,19 @@ Individual votes are private to moderators (FR-V6), so crowd reactions are drawn
 
 ## Tokens
 
-| Token | Hex | Use |
-| --- | --- | --- |
-| `--night` | #0B1026 | Page and scene background |
-| `--indigo` | #1A1440 | Panels, booth shadow |
-| `--violet` | #5B2DFF | Skyline and accent |
-| `--magenta` | #FF2BD6 | Neon accent, slot 2 |
-| `--pink` | #FF4FA3 | Hype highlights |
-| `--cyan` | #3DE2FF | Neon accent, slot 1, focus rings |
-| `--purple` | #7A4DFF | Secondary accent |
-| `--amber` | #FFB000 | Marquee text, slot 3 |
-| `--yellow` | #FFD24A | Marquee highlights |
-| `--booth` | #2A3142 | Booth body, cards |
-| `--charcoal` | #1C2230 | Crowd, floor, inputs |
+| Token        | Hex     | Use                              |
+| ------------ | ------- | -------------------------------- |
+| `--night`    | #0B1026 | Page and scene background        |
+| `--indigo`   | #1A1440 | Panels, booth shadow             |
+| `--violet`   | #5B2DFF | Skyline and accent               |
+| `--magenta`  | #FF2BD6 | Neon accent, slot 2              |
+| `--pink`     | #FF4FA3 | Hype highlights                  |
+| `--cyan`     | #3DE2FF | Neon accent, slot 1, focus rings |
+| `--purple`   | #7A4DFF | Secondary accent                 |
+| `--amber`    | #FFB000 | Marquee text, slot 3             |
+| `--yellow`   | #FFD24A | Marquee highlights               |
+| `--booth`    | #2A3142 | Booth body, cards                |
+| `--charcoal` | #1C2230 | Crowd, floor, inputs             |
 
 Booth slot neon colors: cyan, magenta, amber, shared by each slot's spotlight and name label.
 

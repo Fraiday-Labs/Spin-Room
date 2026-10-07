@@ -52,16 +52,16 @@ export function registerOAuth(app: FastifyInstance, ctx: AppContext) {
   app.get('/.well-known/oauth-authorization-server', async () => {
     const issuer = ctx.cfg.PUBLIC_ORIGIN;
     return {
-    issuer,
-    authorization_endpoint: `${issuer}/oauth/authorize`,
-    token_endpoint: `${issuer}/oauth/token`,
-    registration_endpoint: `${issuer}/oauth/register`,
-    revocation_endpoint: `${issuer}/oauth/revoke`,
-    response_types_supported: ['code'],
-    grant_types_supported: ['authorization_code', 'refresh_token'],
-    code_challenge_methods_supported: ['S256'],
-    token_endpoint_auth_methods_supported: ['none'],
-    scopes_supported: ['rooms'],
+      issuer,
+      authorization_endpoint: `${issuer}/oauth/authorize`,
+      token_endpoint: `${issuer}/oauth/token`,
+      registration_endpoint: `${issuer}/oauth/register`,
+      revocation_endpoint: `${issuer}/oauth/revoke`,
+      response_types_supported: ['code'],
+      grant_types_supported: ['authorization_code', 'refresh_token'],
+      code_challenge_methods_supported: ['S256'],
+      token_endpoint_auth_methods_supported: ['none'],
+      scopes_supported: ['rooms'],
     };
   });
 
@@ -90,7 +90,8 @@ export function registerOAuth(app: FastifyInstance, ctx: AppContext) {
     const q = req.query;
     const client = q.client_id ? await ctx.db.query.oauthClients.findFirst({ where: eq(oauthClients.clientId, q.client_id) }) : null;
     if (!client) return oauthError(reply, 400, 'invalid_client', 'Unknown client_id — register the client first');
-    if (!q.redirect_uri || !client.redirectUris.includes(q.redirect_uri)) return oauthError(reply, 400, 'invalid_request', 'redirect_uri is not registered for this client');
+    if (!q.redirect_uri || !client.redirectUris.includes(q.redirect_uri))
+      return oauthError(reply, 400, 'invalid_request', 'redirect_uri is not registered for this client');
     const back = (params: Record<string, string>) => {
       const u = new URL(q.redirect_uri!);
       for (const [k, v] of Object.entries(params)) u.searchParams.set(k, v);
@@ -100,9 +101,18 @@ export function registerOAuth(app: FastifyInstance, ctx: AppContext) {
     if (q.response_type !== 'code') return back({ error: 'unsupported_response_type' });
     if (!q.code_challenge || q.code_challenge_method !== 'S256') return back({ error: 'invalid_request', error_description: 'PKCE with S256 is required' });
     const resource = q.resource ?? ctx.cfg.MCP_RESOURCE_URL;
-    if (resource.replace(/\/$/, '') !== ctx.cfg.MCP_RESOURCE_URL.replace(/\/$/, '')) return back({ error: 'invalid_target', error_description: 'Unknown resource' });
+    if (resource.replace(/\/$/, '') !== ctx.cfg.MCP_RESOURCE_URL.replace(/\/$/, ''))
+      return back({ error: 'invalid_target', error_description: 'Unknown resource' });
     const id = randomToken('az', 16);
-    const request: AuthzRequest = { clientId: client.clientId, clientName: client.name, redirectUri: q.redirect_uri, state: q.state ?? null, challenge: q.code_challenge, resource: ctx.cfg.MCP_RESOURCE_URL, scope: q.scope ?? 'rooms' };
+    const request: AuthzRequest = {
+      clientId: client.clientId,
+      clientName: client.name,
+      redirectUri: q.redirect_uri,
+      state: q.state ?? null,
+      challenge: q.code_challenge,
+      resource: ctx.cfg.MCP_RESOURCE_URL,
+      scope: q.scope ?? 'rooms',
+    };
     await ctx.redis.set(`oauth:req:${id}`, JSON.stringify(request), 'EX', REQUEST_TTL_SEC);
     // The web app handles sign-in (Spotify) and shows the consent screen.
     return reply.redirect(`/oauth/consent?request=${encodeURIComponent(id)}`, 302);
@@ -114,34 +124,57 @@ export function registerOAuth(app: FastifyInstance, ctx: AppContext) {
       const raw = b.code ? await ctx.redis.getdel(`oauth:code:${sha256(b.code)}`) : null;
       if (!raw) return oauthError(reply, 400, 'invalid_grant', 'Code expired or already used');
       const code = JSON.parse(raw) as AuthzCode;
-      if (b.client_id !== code.clientId || b.redirect_uri !== code.redirectUri) return oauthError(reply, 400, 'invalid_grant', 'client_id or redirect_uri mismatch');
-      if (!b.code_verifier || !safeEqual(pkceChallenge(b.code_verifier), code.challenge)) return oauthError(reply, 400, 'invalid_grant', 'PKCE verification failed');
+      if (b.client_id !== code.clientId || b.redirect_uri !== code.redirectUri)
+        return oauthError(reply, 400, 'invalid_grant', 'client_id or redirect_uri mismatch');
+      if (!b.code_verifier || !safeEqual(pkceChallenge(b.code_verifier), code.challenge))
+        return oauthError(reply, 400, 'invalid_grant', 'PKCE verification failed');
       const refresh = randomToken('srm', 32);
       const grantId = newId();
-      await ctx.db.insert(apiTokens).values({ id: grantId, userId: code.userId, tokenHash: sha256(refresh), kind: 'mcp_oauth', label: code.clientName, clientId: code.clientId, createdAt: ctx.clock.now() });
+      await ctx.db.insert(apiTokens).values({
+        id: grantId,
+        userId: code.userId,
+        tokenHash: sha256(refresh),
+        kind: 'mcp_oauth',
+        label: code.clientName,
+        clientId: code.clientId,
+        createdAt: ctx.clock.now(),
+      });
       await ctx.db
         .insert(identityLinks)
         .values({ userId: code.userId, provider: 'mcp', teamId: '', externalId: grantId, createdAt: ctx.clock.now() })
         .onConflictDoNothing();
       const access = await ctx.jwt.sign({ sub: code.userId, typ: 'mcp', gid: grantId }, code.resource, ACCESS_TTL_SEC);
-      return reply.header('cache-control', 'no-store').send({ access_token: access.token, token_type: 'Bearer', expires_in: ACCESS_TTL_SEC, refresh_token: refresh, scope: code.scope });
+      return reply
+        .header('cache-control', 'no-store')
+        .send({ access_token: access.token, token_type: 'Bearer', expires_in: ACCESS_TTL_SEC, refresh_token: refresh, scope: code.scope });
     }
     if (b.grant_type === 'refresh_token') {
       const row = b.refresh_token
-        ? await ctx.db.query.apiTokens.findFirst({ where: and(eq(apiTokens.tokenHash, sha256(b.refresh_token)), eq(apiTokens.kind, 'mcp_oauth'), isNull(apiTokens.revokedAt)) })
+        ? await ctx.db.query.apiTokens.findFirst({
+            where: and(eq(apiTokens.tokenHash, sha256(b.refresh_token)), eq(apiTokens.kind, 'mcp_oauth'), isNull(apiTokens.revokedAt)),
+          })
         : null;
       if (!row || (b.client_id && b.client_id !== row.clientId)) return oauthError(reply, 400, 'invalid_grant', 'Refresh token is invalid or revoked');
       const refresh = randomToken('srm', 32);
-      await ctx.db.update(apiTokens).set({ tokenHash: sha256(refresh), lastUsedAt: ctx.clock.now() }).where(eq(apiTokens.id, row.id));
+      await ctx.db
+        .update(apiTokens)
+        .set({ tokenHash: sha256(refresh), lastUsedAt: ctx.clock.now() })
+        .where(eq(apiTokens.id, row.id));
       const access = await ctx.jwt.sign({ sub: row.userId, typ: 'mcp', gid: row.id }, ctx.cfg.MCP_RESOURCE_URL, ACCESS_TTL_SEC);
-      return reply.header('cache-control', 'no-store').send({ access_token: access.token, token_type: 'Bearer', expires_in: ACCESS_TTL_SEC, refresh_token: refresh, scope: 'rooms' });
+      return reply
+        .header('cache-control', 'no-store')
+        .send({ access_token: access.token, token_type: 'Bearer', expires_in: ACCESS_TTL_SEC, refresh_token: refresh, scope: 'rooms' });
     }
     return oauthError(reply, 400, 'unsupported_grant_type', 'Use authorization_code or refresh_token');
   });
 
   app.post<{ Body: Record<string, string | undefined> }>('/oauth/revoke', async (req, reply) => {
     const t = req.body?.token;
-    if (t) await ctx.db.update(apiTokens).set({ revokedAt: ctx.clock.now() }).where(and(eq(apiTokens.tokenHash, sha256(t)), eq(apiTokens.kind, 'mcp_oauth')));
+    if (t)
+      await ctx.db
+        .update(apiTokens)
+        .set({ revokedAt: ctx.clock.now() })
+        .where(and(eq(apiTokens.tokenHash, sha256(t)), eq(apiTokens.kind, 'mcp_oauth')));
     return reply.code(200).send({});
   });
 }

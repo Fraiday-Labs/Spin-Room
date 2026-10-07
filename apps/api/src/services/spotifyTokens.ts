@@ -55,6 +55,12 @@ export function createSpotifyTokenService(ctx: AppContext) {
     throw new SpinroomError('spotify_error', 'Timed out refreshing Spotify token');
   }
 
-  return { save, get, async remove(userId: string) { await ctx.db.delete(spotifyTokens).where(eq(spotifyTokens.userId, userId)); } };
+  return {
+    save,
+    get,
+    async remove(userId: string) {
+      await ctx.db.delete(spotifyTokens).where(eq(spotifyTokens.userId, userId));
+    },
+  };
 }
 export type SpotifyTokenService = ReturnType<typeof createSpotifyTokenService>;

@@ -10,7 +10,9 @@ export default function SlackLink() {
   useEffect(() => {
     if (!me.data || state !== 'idle') return;
     api
-      .call('me.linkIdentity', { body: { provider: 'slack', teamId: p.get('team') ?? '', externalId: p.get('user') ?? '', exp: Number(p.get('exp')), sig: p.get('sig') ?? '' } })
+      .call('me.linkIdentity', {
+        body: { provider: 'slack', teamId: p.get('team') ?? '', externalId: p.get('user') ?? '', exp: Number(p.get('exp')), sig: p.get('sig') ?? '' },
+      })
       .then(() => setState('done'))
       .catch((e) => {
         setErr(errorMessage(e));
@@ -34,7 +36,9 @@ export default function SlackLink() {
     <div className="page stack" style={{ maxWidth: 560 }}>
       <h1>Connect Slack</h1>
       {state === 'idle' && <p className="muted">Linking…</p>}
-      {state === 'done' && <p className="notice">Done — your Slack account is linked. You can vote, DJ and add songs from Slack now. You can close this tab.</p>}
+      {state === 'done' && (
+        <p className="notice">Done — your Slack account is linked. You can vote, DJ and add songs from Slack now. You can close this tab.</p>
+      )}
       {state === 'error' && <p className="notice error">{err}</p>}
     </div>
   );

@@ -70,7 +70,11 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
   async function actor(teamId: string, slackUserId: string, respond: RespondFn) {
     const a = await access.client(teamId, slackUserId);
     if (!a) {
-      await respond({ response_type: 'ephemeral', text: 'Connect your Spinroom account first.', blocks: kb(connectBlocks(access.connectUrl(teamId, slackUserId))) });
+      await respond({
+        response_type: 'ephemeral',
+        text: 'Connect your Spinroom account first.',
+        blocks: kb(connectBlocks(access.connectUrl(teamId, slackUserId))),
+      });
       return null;
     }
     void links.touchSurface(teamId, slackUserId).catch(() => {});
@@ -78,7 +82,11 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
   }
 
   async function roomFor(teamId: string, channelId: string, arg: string | undefined): Promise<string | null> {
-    if (arg) return arg.toLowerCase().replace(/^.*\/r\//, '').split(/[?#]/)[0]!;
+    if (arg)
+      return arg
+        .toLowerCase()
+        .replace(/^.*\/r\//, '')
+        .split(/[?#]/)[0]!;
     const l = await links.forChannel(teamId, channelId);
     if (!l) return null;
     return (await slugOf(l.roomId)) ?? null;
@@ -156,19 +164,27 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
         await links.link({ teamId: team, channelId: channel, roomId: snap.room.id, linkedByUserId: a.userId, linkedBySlackUser: command.user_id });
         slugCache.set(snap.room.id, snap.room.slug);
         await renderCard(team, channel, { repost: true });
-        return void (await respond({ response_type: 'ephemeral', text: `Linked this channel to *${esc(snap.room.name)}*. The card updates as the room plays.` }));
+        return void (await respond({
+          response_type: 'ephemeral',
+          text: `Linked this channel to *${esc(snap.room.name)}*. The card updates as the room plays.`,
+        }));
       }
       if (sub === 'unlink') {
         const l = await links.forChannel(team, channel);
         if (!l) return void (await respond({ response_type: 'ephemeral', text: 'This channel isn’t linked.' }));
         const snap = await sr.call('rooms.get', { params: { slug: (await slugOf(l.roomId))! } });
-        if (snap.me?.role !== 'owner' && snap.me?.role !== 'moderator') return void (await respond({ response_type: 'ephemeral', text: 'Only owners and moderators can unlink.' }));
+        if (snap.me?.role !== 'owner' && snap.me?.role !== 'moderator')
+          return void (await respond({ response_type: 'ephemeral', text: 'Only owners and moderators can unlink.' }));
         await links.unlink(team, channel);
         return void (await respond({ response_type: 'ephemeral', text: 'Unlinked.' }));
       }
 
       const slug = await roomFor(team, channel, sub === 'add' || sub === 'invite' ? undefined : arg);
-      if (!slug) return void (await respond({ response_type: 'ephemeral', text: 'This channel isn’t linked to a room. Ask an owner to run `/spinroom link <room>`, or pass a room: `/spinroom now <room>`.' }));
+      if (!slug)
+        return void (await respond({
+          response_type: 'ephemeral',
+          text: 'This channel isn’t linked to a room. Ask an owner to run `/spinroom link <room>`, or pass a room: `/spinroom now <room>`.',
+        }));
 
       switch (sub) {
         case 'now': {
@@ -180,17 +196,26 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
         case 'skip': {
           const r = await sr.call('spins.vote', { params: { slug, spinId: 'current' }, body: { value: sub } });
           const note = r.counted ? '' : ' It counts toward auto-skip once your speaker is live.';
-          return void (await respond({ response_type: 'ephemeral', text: `Voted ${sub === 'hype' ? '▲ Hype' : '▼ Skip'}. Hype ${r.tally.hype} · Skip ${r.tally.skip}.${note}` }));
+          return void (await respond({
+            response_type: 'ephemeral',
+            text: `Voted ${sub === 'hype' ? '▲ Hype' : '▼ Skip'}. Hype ${r.tally.hype} · Skip ${r.tally.skip}.${note}`,
+          }));
         }
         case 'add': {
           if (!arg) return void (await openAddModal(client, command.trigger_id, slug));
           const c = await sr.call('crate.add', { params: { slug }, body: { query: arg } });
           const t = c.items.at(-1)?.track;
-          return void (await respond({ response_type: 'ephemeral', text: t ? `Added *${esc(t.title)}* by ${esc(t.artists.join(', '))} to your set.` : 'Added.' }));
+          return void (await respond({
+            response_type: 'ephemeral',
+            text: t ? `Added *${esc(t.title)}* by ${esc(t.artists.join(', '))} to your set.` : 'Added.',
+          }));
         }
         case 'dj': {
           const r = await sr.call('djQueue.join', { params: { slug } });
-          return void (await respond({ response_type: 'ephemeral', text: r.boothSlot !== null ? 'You’re at the booth — your track plays soon.' : `You’re #${r.queuePosition} in the DJ queue.` }));
+          return void (await respond({
+            response_type: 'ephemeral',
+            text: r.boothSlot !== null ? 'You’re at the booth — your track plays soon.' : `You’re #${r.queuePosition} in the DJ queue.`,
+          }));
         }
         case 'undj':
           await sr.call('djQueue.leave', { params: { slug } });
@@ -207,7 +232,11 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
         }
         case 'speaker': {
           const im = await client.conversations.open({ users: command.user_id });
-          if (im.channel?.id) await client.chat.postMessage({ channel: im.channel.id, text: `Your speaker for *${slug}*: ${cfg.publicUrl}/r/${slug}?speaker=1 — open it in a browser and click “Start speaker” (Spotify Premium).` });
+          if (im.channel?.id)
+            await client.chat.postMessage({
+              channel: im.channel.id,
+              text: `Your speaker for *${slug}*: ${cfg.publicUrl}/r/${slug}?speaker=1 — open it in a browser and click “Start speaker” (Spotify Premium).`,
+            });
           return void (await respond({ response_type: 'ephemeral', text: 'I sent you your speaker link in a DM.' }));
         }
         default:
@@ -233,7 +262,12 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
             type: 'input',
             block_id: 'track',
             label: { type: 'plain_text', text: 'Search Spotify' },
-            element: { type: 'external_select', action_id: 'sr_track_search', min_query_length: 2, placeholder: { type: 'plain_text', text: 'Song or artist' } },
+            element: {
+              type: 'external_select',
+              action_id: 'sr_track_search',
+              min_query_length: 2,
+              placeholder: { type: 'plain_text', text: 'Song or artist' },
+            },
           },
           { type: 'context', elements: [{ type: 'mrkdwn', text: 'Results from Spotify. Added tracks go to the end of your set.' }] },
         ],
@@ -242,8 +276,17 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
   }
 
   // ---------------------------------------------------------------- card buttons
-  const vote = (value: 'hype' | 'skip') =>
-    async ({ ack, body, respond }: { ack: () => Promise<void>; body: { team?: { id: string } | null; user: { id: string }; actions?: { value?: string }[] }; respond: RespondFn }) => {
+  const vote =
+    (value: 'hype' | 'skip') =>
+    async ({
+      ack,
+      body,
+      respond,
+    }: {
+      ack: () => Promise<void>;
+      body: { team?: { id: string } | null; user: { id: string }; actions?: { value?: string }[] };
+      respond: RespondFn;
+    }) => {
       await ack();
       const team = body.team?.id ?? '';
       const slug = body.actions?.[0]?.value ?? '';
@@ -251,7 +294,11 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
       if (!a) return;
       try {
         const r = await a.client.call('spins.vote', { params: { slug, spinId: 'current' }, body: { value } });
-        await respond({ response_type: 'ephemeral', replace_original: false, text: `${value === 'hype' ? '▲ Hype' : '▼ Skip'} counted${r.counted ? '' : ' (it counts toward auto-skip once your speaker is live)'}.` });
+        await respond({
+          response_type: 'ephemeral',
+          replace_original: false,
+          text: `${value === 'hype' ? '▲ Hype' : '▼ Skip'} counted${r.counted ? '' : ' (it counts toward auto-skip once your speaker is live)'}.`,
+        });
       } catch (e) {
         await respond({ response_type: 'ephemeral', replace_original: false, text: errText(e) });
       }
@@ -265,7 +312,11 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     if (!a) return;
     try {
       const r = await a.client.call('djQueue.join', { params: { slug: b.actions?.[0]?.value ?? '' } });
-      await respond({ response_type: 'ephemeral', replace_original: false, text: r.boothSlot !== null ? 'You’re at the booth.' : `You’re #${r.queuePosition} in the DJ queue.` });
+      await respond({
+        response_type: 'ephemeral',
+        replace_original: false,
+        text: r.boothSlot !== null ? 'You’re at the booth.' : `You’re #${r.queuePosition} in the DJ queue.`,
+      });
     } catch (e) {
       await respond({ response_type: 'ephemeral', replace_original: false, text: errText(e) });
     }
@@ -287,7 +338,10 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     try {
       const tracks = await a.client.call('search.tracks', { query: { q: b.value, limit: 10 } });
       await ack({
-        options: tracks.map((t) => ({ text: { type: 'plain_text' as const, text: `${t.artists.join(', ')} – ${t.title} (${formatMs(t.durationMs)})`.slice(0, 75) }, value: t.uri })),
+        options: tracks.map((t) => ({
+          text: { type: 'plain_text' as const, text: `${t.artists.join(', ')} – ${t.title} (${formatMs(t.durationMs)})`.slice(0, 75) },
+          value: t.uri,
+        })),
       });
     } catch {
       await ack({ options: [] });

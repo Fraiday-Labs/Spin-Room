@@ -12,7 +12,16 @@ type ItemRow = typeof crateItems.$inferSelect;
 const FALLBACK_NOTICE = 'Spotify didn’t let Spinroom edit your playlist, so your set is now stored in Spinroom. Your Spotify playlist is unchanged.';
 
 function rowToTrack(r: ItemRow): Track {
-  return { uri: r.trackUri, title: r.title, artists: r.artists, album: r.album, artUrl: r.artUrl, durationMs: r.durationMs, explicit: r.explicit, playable: r.playable };
+  return {
+    uri: r.trackUri,
+    title: r.title,
+    artists: r.artists,
+    album: r.album,
+    artUrl: r.artUrl,
+    durationMs: r.durationMs,
+    explicit: r.explicit,
+    playable: r.playable,
+  };
 }
 
 /**
@@ -21,7 +30,11 @@ function rowToTrack(r: ItemRow): Track {
  */
 export function createSetService(ctx: AppContext) {
   async function items(roomId: string, userId: string): Promise<ItemRow[]> {
-    return ctx.db.select().from(crateItems).where(and(eq(crateItems.roomId, roomId), eq(crateItems.userId, userId))).orderBy(asc(crateItems.position));
+    return ctx.db
+      .select()
+      .from(crateItems)
+      .where(and(eq(crateItems.roomId, roomId), eq(crateItems.userId, userId)))
+      .orderBy(asc(crateItems.position));
   }
 
   async function member(roomId: string, userId: string): Promise<MemberRow> {
@@ -31,7 +44,10 @@ export function createSetService(ctx: AppContext) {
   }
 
   async function updateMember(roomId: string, userId: string, patch: Partial<MemberRow>) {
-    await ctx.db.update(roomMembers).set(patch).where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+    await ctx.db
+      .update(roomMembers)
+      .set(patch)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
   }
 
   /** Replace the cached items with `tracks` (in order). */
@@ -77,7 +93,9 @@ export function createSetService(ctx: AppContext) {
     const rows = await items(room.id, userId);
     return {
       mode: m.setMode,
-      playlist: m.setPlaylistId ? { id: m.setPlaylistId, name: m.setPlaylistName ?? 'Playlist', url: `https://open.spotify.com/playlist/${m.setPlaylistId}` } : null,
+      playlist: m.setPlaylistId
+        ? { id: m.setPlaylistId, name: m.setPlaylistName ?? 'Playlist', url: `https://open.spotify.com/playlist/${m.setPlaylistId}` }
+        : null,
       position: rows.length ? m.setPosition % rows.length : 0,
       items: rows.map((r, i) => ({ id: r.id, position: i, track: rowToTrack(r), flags: flags(room, rowToTrack(r)) })),
       notice: m.setNotice,
@@ -248,9 +266,23 @@ export function createSetService(ctx: AppContext) {
       const p = await ctx.spotify.getPlaylist(t, id);
       await writeItems(room.id, userId, p.tracks);
       if (mode === 'link') {
-        await updateMember(room.id, userId, { setMode: 'playlist', setPlaylistId: p.id, setPlaylistName: p.name, setSnapshotId: p.snapshotId, setPosition: 0, setNotice: null });
+        await updateMember(room.id, userId, {
+          setMode: 'playlist',
+          setPlaylistId: p.id,
+          setPlaylistName: p.name,
+          setSnapshotId: p.snapshotId,
+          setPosition: 0,
+          setNotice: null,
+        });
       } else {
-        await updateMember(room.id, userId, { setMode: 'local', setPlaylistId: null, setPlaylistName: null, setSnapshotId: null, setPosition: 0, setNotice: null });
+        await updateMember(room.id, userId, {
+          setMode: 'local',
+          setPlaylistId: null,
+          setPlaylistName: null,
+          setSnapshotId: null,
+          setPosition: 0,
+          setNotice: null,
+        });
       }
       return view(room, userId);
     },

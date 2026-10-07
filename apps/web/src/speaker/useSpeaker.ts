@@ -35,7 +35,8 @@ export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' |
       player,
       serverClock,
       {
-        register: async (takeover, deviceId) => api.call('speakers.register', { body: { roomSlug: slug, kind: player.kind, spotifyDeviceId: deviceId, takeover } }),
+        register: async (takeover, deviceId) =>
+          api.call('speakers.register', { body: { roomSlug: slug, kind: player.kind, spotifyDeviceId: deviceId, takeover } }),
         heartbeat: async (id, body) => api.call('speakers.heartbeat', { params: { id }, body }),
         close: async (id) => {
           await api.call('speakers.close', { params: { id } });

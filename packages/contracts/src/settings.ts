@@ -16,27 +16,62 @@ export const RoomSettingsSchema = z.object({
   /** FR-V4: bounce after this many consecutive auto-skips. */
   bounceAfter: z.number().int().min(1).max(10).default(2),
   /** FR-V4: bounced DJ cooldown. */
-  bounceCooldownMs: z.number().int().min(0).max(60 * MINUTE).default(5 * MINUTE),
+  bounceCooldownMs: z
+    .number()
+    .int()
+    .min(0)
+    .max(60 * MINUTE)
+    .default(5 * MINUTE),
   /** FR-V5: Hype share that earns DJ points. */
   hypeRatio: z.number().min(0.1).max(1).default(0.5),
   /** FR-D5: spins per turn before returning to the queue; null = off. */
   turnLimit: z.number().int().min(1).max(50).nullable().default(null),
   /** FR-D7: refuse tracks longer than this. */
-  maxTrackMs: z.number().int().min(MINUTE).max(60 * MINUTE).default(10 * MINUTE),
+  maxTrackMs: z
+    .number()
+    .int()
+    .min(MINUTE)
+    .max(60 * MINUTE)
+    .default(10 * MINUTE),
   /** FR-D8: block the same track within the last N spins; null = off. */
   noRepeatWindow: z.number().int().min(1).max(200).nullable().default(null),
   /** FR-L6: block explicit tracks. */
   blockExplicit: z.boolean().default(false),
   /** FR-R2: invite token lifetime. */
-  inviteTtlMs: z.number().int().min(MINUTE).max(90 * DAY).default(7 * DAY),
+  inviteTtlMs: z
+    .number()
+    .int()
+    .min(MINUTE)
+    .max(90 * DAY)
+    .default(7 * DAY),
   /** FR-L1: pause when no live speaker for this long. */
-  pauseAfterNoSpeakerMs: z.number().int().min(10_000).max(60 * MINUTE).default(2 * MINUTE),
+  pauseAfterNoSpeakerMs: z
+    .number()
+    .int()
+    .min(10_000)
+    .max(60 * MINUTE)
+    .default(2 * MINUTE),
   /** FR-L2: remote presence window after a Slack/MCP action. */
-  remotePresenceMs: z.number().int().min(MINUTE).max(120 * MINUTE).default(15 * MINUTE),
+  remotePresenceMs: z
+    .number()
+    .int()
+    .min(MINUTE)
+    .max(120 * MINUTE)
+    .default(15 * MINUTE),
   /** FR-V2: heard audio within this window counts as eligible. */
-  recentListenMs: z.number().int().min(MINUTE).max(120 * MINUTE).default(10 * MINUTE),
+  recentListenMs: z
+    .number()
+    .int()
+    .min(MINUTE)
+    .max(120 * MINUTE)
+    .default(10 * MINUTE),
   /** FR-D4: DJ removed from booth after presence drops this long. */
-  djPresenceDropMs: z.number().int().min(10_000).max(30 * MINUTE).default(60_000),
+  djPresenceDropMs: z
+    .number()
+    .int()
+    .min(10_000)
+    .max(30 * MINUTE)
+    .default(60_000),
   /** FR-R7: chat rate limit. */
   chatMaxMessages: z.number().int().min(1).max(50).default(5),
   chatWindowMs: z.number().int().min(1000).max(MINUTE).default(10_000),

@@ -7,7 +7,12 @@ afterEach(async () => t?.close());
 
 async function upload(u: TestUser, files: Parameters<typeof multipart>[0], query = '') {
   const mp = multipart(files);
-  const res = await t.app.inject({ method: 'POST', url: `/v1/avatars${query}`, payload: mp.payload, headers: { ...mp.headers, authorization: `Bearer ${u.token}` } });
+  const res = await t.app.inject({
+    method: 'POST',
+    url: `/v1/avatars${query}`,
+    payload: mp.payload,
+    headers: { ...mp.headers, authorization: `Bearer ${u.token}` },
+  });
   return res;
 }
 
@@ -16,7 +21,10 @@ describe('avatar import (ChatGPT pets)', () => {
     t = await createTestApp();
     const u = await login(t, 'alice');
     const sheet = await makeSheet({ rows: V1_ROWS, format: 'webp' });
-    const kit = makeKit({ 'pet.json': JSON.stringify({ name: 'Mochi <script>', spritesheet: 'spritesheet.webp', spriteVersionNumber: 1, evil: { a: 1 } }), 'spritesheet.webp': sheet });
+    const kit = makeKit({
+      'pet.json': JSON.stringify({ name: 'Mochi <script>', spritesheet: 'spritesheet.webp', spriteVersionNumber: 1, evil: { a: 1 } }),
+      'spritesheet.webp': sheet,
+    });
 
     const dry = (await upload(u, [{ filename: 'mochi.codex-pet.zip', data: kit }], '?dryRun=true')).json();
     expect(dry).toMatchObject({ ok: true, avatar: null, sourceFormat: 'pet_v1', suggestedName: 'Mochi script', detectedSize: { w: 1536, h: 1872 } });
@@ -76,16 +84,42 @@ describe('avatar import (ChatGPT pets)', () => {
   });
 
   const invalid: [string, () => Promise<{ filename: string; data: Buffer }[]>, string, RegExp?][] = [
-    ['wrong size', async () => [{ filename: 'x.png', data: await makeSheet({ w: 1024, h: 1024, rows: [1] }) }], 'size_unsupported', /1024 × 1024\. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT\./],
+    [
+      'wrong size',
+      async () => [{ filename: 'x.png', data: await makeSheet({ w: 1024, h: 1024, rows: [1] }) }],
+      'size_unsupported',
+      /1024 × 1024\. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT\./,
+    ],
     ['no alpha', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [8], alpha: false }) }], 'no_alpha'],
     ['jpeg', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [8], format: 'jpeg', alpha: false }) }], 'format_unsupported'],
     ['empty idle row', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [0, 4, 4] }) }], 'idle_empty'],
-    ['zip path traversal', async () => [{ filename: 'k.zip', data: makeKit({ 'pet.json': '{"spritesheet":"s.png"}', '../s.png': await makeSheet({ rows: [8] }) }) }], 'zip_nested'],
+    [
+      'zip path traversal',
+      async () => [{ filename: 'k.zip', data: makeKit({ 'pet.json': '{"spritesheet":"s.png"}', '../s.png': await makeSheet({ rows: [8] }) }) }],
+      'zip_nested',
+    ],
     ['zip nested folder', async () => [{ filename: 'k.zip', data: makeKit({ 'pet/pet.json': '{}', 'pet/s.png': Buffer.from('x') }) }], 'zip_nested'],
-    ['zip extra files', async () => [{ filename: 'k.zip', data: makeKit({ 'pet.json': '{"spritesheet":"s.png"}', 's.png': await makeSheet({ rows: [8] }), 'run.sh': 'echo hi' }) }], 'zip_extra_files'],
+    [
+      'zip extra files',
+      async () => [
+        { filename: 'k.zip', data: makeKit({ 'pet.json': '{"spritesheet":"s.png"}', 's.png': await makeSheet({ rows: [8] }), 'run.sh': 'echo hi' }) },
+      ],
+      'zip_extra_files',
+    ],
     ['zip without pet.json', async () => [{ filename: 'k.zip', data: makeKit({ 's.png': Buffer.from('x') }) }], 'pet_json_missing'],
-    ['huge pet.json', async () => [{ filename: 'k.zip', data: makeKit({ 'pet.json': JSON.stringify({ name: 'x'.repeat(70_000) }), 's.png': Buffer.from('x') }) }], 'pet_json_too_large'],
-    ['bad pet.json', async () => [{ filename: 'pet.json', data: Buffer.from('{nope') }, { filename: 's.png', data: await makeSheet({ rows: [8] }) }], 'pet_json_invalid'],
+    [
+      'huge pet.json',
+      async () => [{ filename: 'k.zip', data: makeKit({ 'pet.json': JSON.stringify({ name: 'x'.repeat(70_000) }), 's.png': Buffer.from('x') }) }],
+      'pet_json_too_large',
+    ],
+    [
+      'bad pet.json',
+      async () => [
+        { filename: 'pet.json', data: Buffer.from('{nope') },
+        { filename: 's.png', data: await makeSheet({ rows: [8] }) },
+      ],
+      'pet_json_invalid',
+    ],
   ];
   for (const [label, files, code, msg] of invalid) {
     it(`rejects: ${label} → ${code}`, async () => {
@@ -159,7 +193,10 @@ describe('avatar moderation (FR-A11–A16)', () => {
     await t.ctx.services.rooms.exec(bobRoom.id, { type: 'remoteAction', userId: alice.id, role: 'member' });
     await bob.req('POST', `/v1/rooms/${bobRoom.slug}/moderation`, { action: 'hide_avatar', userId: alice.id });
     const bobSnap = (await bob.req('GET', `/v1/rooms/${bobRoom.slug}`)).json();
-    expect(bobSnap.members.find((m: { user: { id: string } }) => m.user.id === alice.id)).toMatchObject({ avatarHidden: true, user: { avatar: { kind: 'preset' } } });
+    expect(bobSnap.members.find((m: { user: { id: string } }) => m.user.id === alice.id)).toMatchObject({
+      avatarHidden: true,
+      user: { avatar: { kind: 'preset' } },
+    });
 
     // Report → admin removes everywhere → Alice reverts to her preset; violation counted.
     await bob.req('POST', `/v1/avatars/${id}/report`, { reason: 'Looks like a famous mascot', roomSlug: room.slug });

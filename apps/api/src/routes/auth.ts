@@ -20,13 +20,7 @@ interface PkceState {
 
 /** Failures the setup screen explains with a fix (PRD option B step 6). */
 export type LoginFailure =
-  | 'invalid_client_id'
-  | 'redirect_uri_mismatch'
-  | 'user_not_allowlisted'
-  | 'access_denied'
-  | 'state_expired'
-  | 'spotify_error'
-  | 'quota_exceeded';
+  'invalid_client_id' | 'redirect_uri_mismatch' | 'user_not_allowlisted' | 'access_denied' | 'state_expired' | 'spotify_error' | 'quota_exceeded';
 
 function safeReturnTo(raw: string | undefined, mode: 'cookie' | 'token'): string {
   if (!raw) return mode === 'token' ? 'spinroom://auth' : '/lobby';
@@ -81,10 +75,7 @@ export const authHandlers: Handlers = {
     if (ctx.spotify.mode === 'real') {
       reply.setCookie(COOKIES.clientId, clientId, { path: '/', httpOnly: true, secure: ctx.cfg.COOKIE_SECURE, sameSite: 'lax', maxAge: 400 * 86400 });
     }
-    reply.redirect(
-      ctx.spotify.authorizeUrl({ clientId, redirectUri: callbackUrl(ctx.cfg), state, challenge, scopes: SPOTIFY_SCOPES }),
-      302,
-    );
+    reply.redirect(ctx.spotify.authorizeUrl({ clientId, redirectUri: callbackUrl(ctx.cfg), state, challenge, scopes: SPOTIFY_SCOPES }), 302);
     return REPLIED;
   },
 

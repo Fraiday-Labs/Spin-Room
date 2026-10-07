@@ -2,13 +2,7 @@ import { zipSync } from 'fflate';
 import sharp from 'sharp';
 
 /** Generate ChatGPT-style pet sheets for tests: 192 × 208 cells, 8 columns. */
-export async function makeSheet(opts: {
-  w?: number;
-  h?: number;
-  rows?: number[];
-  format?: 'png' | 'webp' | 'jpeg';
-  alpha?: boolean;
-}): Promise<Buffer> {
+export async function makeSheet(opts: { w?: number; h?: number; rows?: number[]; format?: 'png' | 'webp' | 'jpeg'; alpha?: boolean }): Promise<Buffer> {
   const w = opts.w ?? 1536;
   const h = opts.h ?? 1872;
   const ch = opts.alpha === false ? 3 : 4;
@@ -47,7 +41,9 @@ export function multipart(files: { field?: string; filename: string; data: Buffe
   const chunks: Buffer[] = [];
   for (const f of files) {
     chunks.push(
-      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${f.field ?? 'file'}"; filename="${f.filename}"\r\nContent-Type: ${f.type ?? 'application/octet-stream'}\r\n\r\n`),
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="${f.field ?? 'file'}"; filename="${f.filename}"\r\nContent-Type: ${f.type ?? 'application/octet-stream'}\r\n\r\n`,
+      ),
     );
     chunks.push(f.data, Buffer.from('\r\n'));
   }

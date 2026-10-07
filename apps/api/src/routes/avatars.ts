@@ -20,7 +20,10 @@ async function putBlob(ctx: AppContext, data: Buffer, prefix: string, ext: strin
   const existing = await ctx.db.query.blobs.findFirst({ where: eq(blobs.sha256, `${prefix}:${sha}`) });
   if (!existing || !(await ctx.storage.exists(key))) {
     await ctx.storage.put(key, data, contentType);
-    await ctx.db.insert(blobs).values({ sha256: `${prefix}:${sha}`, key, contentType, bytes: data.length, createdAt: ctx.clock.now() }).onConflictDoNothing();
+    await ctx.db
+      .insert(blobs)
+      .values({ sha256: `${prefix}:${sha}`, key, contentType, bytes: data.length, createdAt: ctx.clock.now() })
+      .onConflictDoNothing();
   }
   return { key, sha };
 }
@@ -77,7 +80,10 @@ export const avatarHandlers: Handlers = {
         sheet = parts[1 - ji]!;
         original = sheet;
       } else {
-        throw new AvatarImportError('format_unsupported', 'Upload the .codex-pet.zip from Download sprite kit, a single PNG/WebP sheet, or pet.json together with its sprite sheet.');
+        throw new AvatarImportError(
+          'format_unsupported',
+          'Upload the .codex-pet.zip from Download sprite kit, a single PNG/WebP sheet, or pet.json together with its sprite sheet.',
+        );
       }
       const built = await buildRuntimeSheet(sheet, { ...(query.cols ? { cols: query.cols } : {}), ...(query.rows ? { rows: query.rows } : {}) });
       const sourceFormat = pet ? (built.layout.version === 2 || pet.version === 2 ? 'pet_v2' : 'pet_v1') : 'single_sheet';
@@ -107,10 +113,21 @@ export const avatarHandlers: Handlers = {
       if (query.dryRun) return report;
 
       // FR-A12: rights confirmation is required to save.
-      if (!query.rightsConfirmed) throw new SpinroomError('rights_not_confirmed', 'Confirm you have the right to use this art and that it isn’t a copyrighted or trademarked character.');
-      const mine = await ctx.db.select({ id: avatars.id }).from(avatars).where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed')));
-      if (mine.length >= AVATAR_LIMITS.customPerUser) throw new SpinroomError('avatar_limit', `You can keep up to ${AVATAR_LIMITS.customPerUser} custom avatars — delete one first.`);
-      const orig = await putBlob(ctx, original, 'orig', sniff(original) === 'zip' ? 'zip' : sniff(original), sniff(original) === 'zip' ? 'application/zip' : `image/${sniff(original)}`);
+      if (!query.rightsConfirmed)
+        throw new SpinroomError('rights_not_confirmed', 'Confirm you have the right to use this art and that it isn’t a copyrighted or trademarked character.');
+      const mine = await ctx.db
+        .select({ id: avatars.id })
+        .from(avatars)
+        .where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed')));
+      if (mine.length >= AVATAR_LIMITS.customPerUser)
+        throw new SpinroomError('avatar_limit', `You can keep up to ${AVATAR_LIMITS.customPerUser} custom avatars — delete one first.`);
+      const orig = await putBlob(
+        ctx,
+        original,
+        'orig',
+        sniff(original) === 'zip' ? 'zip' : sniff(original),
+        sniff(original) === 'zip' ? 'application/zip' : `image/${sniff(original)}`,
+      );
       const id = newId();
       const provider = ctx.cfg.AVATAR_SAFETY === 'auto_approve' ? autoApprove : manualReview;
       const status = await provider.check(built.sheet, { avatarId: id, ownerId: userId });
@@ -157,7 +174,11 @@ export const avatarHandlers: Handlers = {
 
   'avatars.mine': async (c) => {
     const { userId } = requireUser(c);
-    const rows = await c.ctx.db.select().from(avatars).where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed'))).orderBy(asc(avatars.createdAt));
+    const rows = await c.ctx.db
+      .select()
+      .from(avatars)
+      .where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed')))
+      .orderBy(asc(avatars.createdAt));
     return rows.map((r) => avatarFull(c.ctx, r));
   },
 
@@ -184,14 +205,21 @@ export const avatarHandlers: Handlers = {
     const a = await ctx.db.query.avatars.findFirst({ where: eq(avatars.id, c.params.id) });
     if (!a || a.kind !== 'custom') throw new SpinroomError('not_found', 'Avatar not found');
     const room = body.roomSlug ? await roomBySlug(ctx, body.roomSlug).catch(() => null) : null;
-    await ctx.db.insert(avatarReports).values({ id: newId(), avatarId: a.id, reporterId: userId, roomId: room?.id ?? null, reason: body.reason, createdAt: ctx.clock.now() });
+    await ctx.db
+      .insert(avatarReports)
+      .values({ id: newId(), avatarId: a.id, reporterId: userId, roomId: room?.id ?? null, reason: body.reason, createdAt: ctx.clock.now() });
     return { ok: true as const };
   },
 
   'admin.avatarQueue': async ({ ctx }) => {
     const pending = await ctx.db.select().from(avatars).where(eq(avatars.status, 'pending')).orderBy(asc(avatars.createdAt));
     const reports = await ctx.db.select().from(avatarReports).where(isNull(avatarReports.resolvedAt)).orderBy(asc(avatarReports.createdAt));
-    const reported = reports.length ? await ctx.db.select().from(avatars).where(inArray(avatars.id, [...new Set(reports.map((r) => r.avatarId))])) : [];
+    const reported = reports.length
+      ? await ctx.db
+          .select()
+          .from(avatars)
+          .where(inArray(avatars.id, [...new Set(reports.map((r) => r.avatarId))]))
+      : [];
     const byId = new Map(reported.map((a) => [a.id, a]));
     return {
       pending: pending.map((a) => avatarFull(ctx, a)),
@@ -229,7 +257,10 @@ export const avatarHandlers: Handlers = {
         const owner = await ctx.services.users.get(a.ownerId);
         if (owner) {
           const violations = owner.violationCount + 1;
-          await ctx.db.update(users).set({ violationCount: violations, uploadRevoked: owner.uploadRevoked || violations >= MAX_VIOLATIONS }).where(eq(users.id, owner.id));
+          await ctx.db
+            .update(users)
+            .set({ violationCount: violations, uploadRevoked: owner.uploadRevoked || violations >= MAX_VIOLATIONS })
+            .where(eq(users.id, owner.id));
         }
       }
     } else if (a.ownerId) {
@@ -243,9 +274,11 @@ export const avatarHandlers: Handlers = {
 async function revertUsers(ctx: AppContext, avatarId: string) {
   const using = await ctx.db.select().from(users).where(eq(users.avatarId, avatarId));
   for (const u of using) {
-    await ctx.db.update(users).set({ avatarId: u.presetAvatarId || DEFAULT_PRESET_ID }).where(eq(users.id, u.id));
+    await ctx.db
+      .update(users)
+      .set({ avatarId: u.presetAvatarId || DEFAULT_PRESET_ID })
+      .where(eq(users.id, u.id));
     await ctx.services.rooms.onProfileChanged(u.id);
   }
   ctx.services.users.invalidateAvatar(avatarId);
 }
-

@@ -45,7 +45,10 @@ export function createSessionService(ctx: AppContext) {
       const row = await ctx.db.query.sessions.findFirst({ where: and(eq(sessions.refreshHash, sha256(refreshToken)), isNull(sessions.revokedAt)) });
       if (!row || row.expiresAt < now) throw new SpinroomError('session_expired', 'Please sign in again');
       const refresh = randomToken('srr', 32);
-      await ctx.db.update(sessions).set({ refreshHash: sha256(refresh), expiresAt: now + REFRESH_TTL_MS }).where(eq(sessions.id, row.id));
+      await ctx.db
+        .update(sessions)
+        .set({ refreshHash: sha256(refresh), expiresAt: now + REFRESH_TTL_MS })
+        .where(eq(sessions.id, row.id));
       const { token, expiresAt } = await mint(row.userId, row.id);
       return { userId: row.userId, sessionId: row.id, access: token, accessExpiresAt: expiresAt, refresh, csrf: randomToken('csrf', 16) };
     },
@@ -55,7 +58,10 @@ export function createSessionService(ctx: AppContext) {
     },
 
     async revokeAll(userId: string) {
-      await ctx.db.update(sessions).set({ revokedAt: ctx.clock.now() }).where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+      await ctx.db
+        .update(sessions)
+        .set({ revokedAt: ctx.clock.now() })
+        .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
     },
   };
 }

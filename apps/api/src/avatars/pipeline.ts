@@ -38,7 +38,8 @@ export interface PetMeta {
 
 /** FR-A4: pet.json is untrusted — size-capped, only known fields, never rendered as HTML. */
 export function parsePetJson(buf: Buffer): PetMeta {
-  if (buf.length > AVATAR_LIMITS.petJsonMaxBytes) throw new AvatarImportError('pet_json_too_large', 'pet.json is larger than 64 KB — use the file from Download sprite kit.');
+  if (buf.length > AVATAR_LIMITS.petJsonMaxBytes)
+    throw new AvatarImportError('pet_json_too_large', 'pet.json is larger than 64 KB — use the file from Download sprite kit.');
   let raw: unknown;
   try {
     raw = JSON.parse(buf.toString('utf8'));
@@ -61,10 +62,12 @@ export function parsePetJson(buf: Buffer): PetMeta {
   };
 }
 
+// eslint-disable-next-line no-control-regex
+const NAME_STRIP = /[\u0000-\u001F\u007F<>]/g;
+
 /** Plain text only, 32 characters max. */
 export function sanitizeName(s: string): string {
-  // eslint-disable-next-line no-control-regex
-  return s.replace(/[\u0000-\u001F\u007F<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, AVATAR_LIMITS.nameMaxLength);
+  return s.replace(NAME_STRIP, '').replace(/\s+/g, ' ').trim().slice(0, AVATAR_LIMITS.nameMaxLength);
 }
 
 const IGNORED = (name: string) => name.startsWith('__MACOSX/') || name.endsWith('.DS_Store') || name.endsWith('/');
@@ -89,8 +92,10 @@ export function readSpriteKit(zip: Buffer): { petJson: Buffer; sheet: Buffer; sh
     }
   }
   const total = entries.reduce((n, e) => n + e.size, 0);
-  if (total > AVATAR_LIMITS.zipExpandedMaxBytes) throw new AvatarImportError('zip_too_large', 'The zip expands past 20 MB. Sprite kits are much smaller — re-download it from ChatGPT.');
-  if (!files.some((e) => e.name === 'pet.json')) throw new AvatarImportError('pet_json_missing', 'The zip has no pet.json. Use Download sprite kit in ChatGPT’s Pets settings.');
+  if (total > AVATAR_LIMITS.zipExpandedMaxBytes)
+    throw new AvatarImportError('zip_too_large', 'The zip expands past 20 MB. Sprite kits are much smaller — re-download it from ChatGPT.');
+  if (!files.some((e) => e.name === 'pet.json'))
+    throw new AvatarImportError('pet_json_missing', 'The zip has no pet.json. Use Download sprite kit in ChatGPT’s Pets settings.');
 
   const pick = (name: string) => {
     const out = unzipSync(new Uint8Array(zip), { filter: (f) => f.name === name });
@@ -102,9 +107,17 @@ export function readSpriteKit(zip: Buffer): { petJson: Buffer; sheet: Buffer; sh
   const petJson = pick('pet.json');
   const meta = parsePetJson(petJson);
   const sheetName = meta.spritesheet ?? files.find((f) => /\.(webp|png)$/i.test(f.name))?.name ?? null;
-  if (!sheetName || sheetName.includes('/') || sheetName.includes('..')) throw new AvatarImportError('sheet_missing', 'pet.json doesn’t name a sprite sheet in the zip.');
+  if (!sheetName || sheetName.includes('/') || sheetName.includes('..'))
+    throw new AvatarImportError('sheet_missing', 'pet.json doesn’t name a sprite sheet in the zip.');
   const extra = files.filter((f) => f.name !== 'pet.json' && f.name !== sheetName);
-  if (extra.length) throw new AvatarImportError('zip_extra_files', `The zip has extra files (${extra.map((e) => e.name).slice(0, 3).join(', ')}). Sprite kits hold only pet.json and the sprite sheet.`);
+  if (extra.length)
+    throw new AvatarImportError(
+      'zip_extra_files',
+      `The zip has extra files (${extra
+        .map((e) => e.name)
+        .slice(0, 3)
+        .join(', ')}). Sprite kits hold only pet.json and the sprite sheet.`,
+    );
   if (!files.some((f) => f.name === sheetName)) throw new AvatarImportError('sheet_missing', `pet.json names “${sheetName}”, but it isn’t in the zip.`);
   return { petJson, sheet: pick(sheetName), sheetName };
 }
@@ -181,7 +194,8 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
     throw new AvatarImportError('image_invalid', 'That image can’t be read — export it again as PNG or WebP.');
   }
   if ((meta.pages ?? 1) > 1) throw new AvatarImportError('image_animated', 'Animated images aren’t supported. Use the still sprite sheet from ChatGPT.');
-  if (!meta.hasAlpha) throw new AvatarImportError('no_alpha', 'The sheet has no transparency. ChatGPT pet sheets have a transparent background — use Download sprite kit.');
+  if (!meta.hasAlpha)
+    throw new AvatarImportError('no_alpha', 'The sheet has no transparency. ChatGPT pet sheets have a transparent background — use Download sprite kit.');
   const w = meta.width!;
   const h = meta.height!;
   const layout = detectLayout(w, h, manualGrid);
@@ -192,7 +206,8 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
   const petRows = AVATAR_MAPPING.petRows;
   const rowIndex = (name: string) => petRows.indexOf(name);
   const idleRow = rowIndex('idle');
-  if (!counts[idleRow]) throw new AvatarImportError('idle_empty', 'The idle row (first row) is empty. Every pet needs idle frames — check the sheet or re-download it.');
+  if (!counts[idleRow])
+    throw new AvatarImportError('idle_empty', 'The idle row (first row) is empty. Every pet needs idle frames — check the sheet or re-download it.');
 
   const plan: { state: AvatarState; srcRow: number; frames: number; dimmed?: boolean }[] = [];
   const frameCounts: Record<string, number> = {};
@@ -202,7 +217,11 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
     frameCounts[m.row] = frames;
     if (frames > 0) plan.push({ state: m.state, srcRow: idx, frames });
     else {
-      issues.push({ level: 'warning', code: `row_empty_${m.row}`, message: `The ${m.row} row is empty, so ${m.state === 'away' ? 'away' : m.state} will use the idle animation.` });
+      issues.push({
+        level: 'warning',
+        code: `row_empty_${m.row}`,
+        message: `The ${m.row} row is empty, so ${m.state === 'away' ? 'away' : m.state} will use the idle animation.`,
+      });
       plan.push({ state: m.state, srcRow: idleRow, frames: counts[idleRow]!, ...(m.dimWhenFallback ? { dimmed: true } : {}) });
     }
   }
@@ -228,7 +247,9 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
       composites.push({ input: cell, left: f * cw, top: r * ch });
     }
   }
-  const canvas = sharp({ create: { width: maxFrames * cw, height: plan.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(composites);
+  const canvas = sharp({ create: { width: maxFrames * cw, height: plan.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(
+    composites,
+  );
   const flat = await canvas.png().toBuffer();
   let sheet: Buffer | null = null;
   for (const quality of [88, 80, 70, 60, 50]) {

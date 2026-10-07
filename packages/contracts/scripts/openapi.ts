@@ -16,13 +16,17 @@ for (const [name, r] of Object.entries(routes)) {
     summary: r.summary,
     parameters: [...params, ...query],
     responses: {
-      [r.kind === 'redirect' ? '302' : '200']: r.kind === 'redirect' ? { description: 'Redirect' } : { description: 'OK', content: { 'application/json': { schema: toSchema(r.response) } } },
+      [r.kind === 'redirect' ? '302' : '200']:
+        r.kind === 'redirect' ? { description: 'Redirect' } : { description: 'OK', content: { 'application/json': { schema: toSchema(r.response) } } },
       default: { description: 'Problem', content: { 'application/problem+json': { schema: toSchema(ProblemSchema) } } },
     },
     security: r.auth === 'none' ? [] : [{ bearer: [] }, { cookie: [] }],
   };
   if (r.method !== 'GET' && Object.keys((r.body as z.ZodObject).shape ?? { x: 1 }).length) {
-    op.requestBody = r.kind === 'multipart' ? { content: { 'multipart/form-data': { schema: { type: 'object' } } } } : { content: { 'application/json': { schema: toSchema(r.body) } } };
+    op.requestBody =
+      r.kind === 'multipart'
+        ? { content: { 'multipart/form-data': { schema: { type: 'object' } } } }
+        : { content: { 'application/json': { schema: toSchema(r.body) } } };
   }
   (paths[r.path] ??= {})[r.method.toLowerCase()] = op;
 }

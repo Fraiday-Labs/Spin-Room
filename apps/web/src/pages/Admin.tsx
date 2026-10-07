@@ -51,7 +51,9 @@ export default function Admin() {
           </div>
         ))}
       </div>
-      <p className="muted">Rights holders can send takedown notices to the contact listed in the README. Users with repeated confirmed violations lose upload access.</p>
+      <p className="muted">
+        Rights holders can send takedown notices to the contact listed in the README. Users with repeated confirmed violations lose upload access.
+      </p>
     </div>
   );
 }

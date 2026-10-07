@@ -1,4 +1,5 @@
-export function slackConfig(env: Record<string, string | undefined> = process.env) {
+export function slackConfig(raw: Record<string, string | undefined> = process.env) {
+  const env = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== ''));
   return {
     signingSecret: env.SLACK_SIGNING_SECRET ?? 'dev-slack-signing-secret',
     clientId: env.SLACK_CLIENT_ID ?? 'dev-client-id',
@@ -20,5 +21,15 @@ export function slackConfig(env: Record<string, string | undefined> = process.en
 export type SlackConfig = ReturnType<typeof slackConfig>;
 
 /** Bot scopes (PRD) plus channels/groups history to count newer messages for card reposts. */
-export const BOT_SCOPES = ['commands', 'chat:write', 'chat:write.public', 'users:read', 'channels:read', 'groups:read', 'im:write', 'channels:history', 'groups:history'];
+export const BOT_SCOPES = [
+  'commands',
+  'chat:write',
+  'chat:write.public',
+  'users:read',
+  'channels:read',
+  'groups:read',
+  'im:write',
+  'channels:history',
+  'groups:history',
+];
 export const BASE = '/v1/integrations/slack';

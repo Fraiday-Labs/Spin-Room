@@ -18,7 +18,11 @@ export async function signInFast(page: Page, userId: string, displayName?: strin
   await page.goto('/');
   await page.evaluate(
     async ([id, name]) => {
-      const r = await fetch('/v1/auth/fake/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ spotifyUserId: id, premium: true, ...(name ? { displayName: name } : {}) }) });
+      const r = await fetch('/v1/auth/fake/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ spotifyUserId: id, premium: true, ...(name ? { displayName: name } : {}) }),
+      });
       if (!r.ok) throw new Error(await r.text());
     },
     [userId, displayName ?? null] as const,
@@ -35,6 +39,9 @@ export async function newUserPage(browser: Browser, userId: string, displayName?
 export async function addTrack(page: Page, query: string) {
   await page.getByRole('tab', { name: 'My set' }).click();
   await page.getByTestId('set-search').fill(query);
-  await page.getByRole('button', { name: `Add ${query}` }).first().click();
+  await page
+    .getByRole('button', { name: `Add ${query}` })
+    .first()
+    .click();
   await expect(page.getByTestId('my-set')).toContainText(query);
 }

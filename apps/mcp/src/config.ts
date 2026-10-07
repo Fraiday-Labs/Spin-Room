@@ -1,4 +1,5 @@
-export function mcpConfig(env: Record<string, string | undefined> = process.env) {
+export function mcpConfig(raw: Record<string, string | undefined> = process.env) {
+  const env = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== ''));
   const apiUrl = (env.SPINROOM_API_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
   return {
     apiUrl,

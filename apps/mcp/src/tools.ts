@@ -63,7 +63,9 @@ export function nowPlayingData(snap: RoomSnapshot, publicUrl: string) {
   return {
     room: snap.room.slug,
     status: snap.status,
-    track: spin ? { title: spin.track.title, artists: spin.track.artists, uri: spin.track.uri, url: `https://open.spotify.com/track/${spin.track.uri.split(':').pop()}` } : null,
+    track: spin
+      ? { title: spin.track.title, artists: spin.track.artists, uri: spin.track.uri, url: `https://open.spotify.com/track/${spin.track.uri.split(':').pop()}` }
+      : null,
     dj: spin ? (names.get(spin.djUserId) ?? 'DJ') : null,
     progress: spin ? { elapsed: formatMs(elapsed), duration: formatMs(spin.durationMs), elapsed_ms: elapsed, duration_ms: spin.durationMs } : null,
     crowd: { hype: snap.tally.hype, skip: snap.tally.skip, counted_listeners: snap.tally.eligibleVoters },
@@ -94,7 +96,12 @@ function nowPlayingText(d: ReturnType<typeof nowPlayingData>): string {
 
 function crateText(c: Crate): string {
   if (!c.items.length) return 'Your set is empty. Add tracks with crate_add.';
-  return c.items.map((it, i) => `${i + 1}. ${it.track.artists.join(', ')} – ${it.track.title}${i === c.position ? '  ← next' : ''}${it.flags.length ? ` [${it.flags.join(', ')}]` : ''}`).join('\n');
+  return c.items
+    .map(
+      (it, i) =>
+        `${i + 1}. ${it.track.artists.join(', ')} – ${it.track.title}${i === c.position ? '  ← next' : ''}${it.flags.length ? ` [${it.flags.join(', ')}]` : ''}`,
+    )
+    .join('\n');
 }
 
 const crateData = (c: Crate) => ({
@@ -140,8 +147,18 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
     ({ filter, query }) =>
       safely(async () => {
         const r = await client.call('rooms.list', { query: { filter, ...(query ? { q: query } : {}), limit: 25 } });
-        const rooms = r.rooms.map((x) => ({ slug: x.slug, name: x.name, listeners: x.listeners, listening: x.liveSpeakers, status: x.status, now_playing: x.nowPlaying ? `${x.nowPlaying.artists.join(', ')} – ${x.nowPlaying.title}` : null, role: x.myRole }));
-        const text = rooms.length ? rooms.map((x) => `${x.slug} — ${x.name} · ${x.listeners} here${x.now_playing ? ` · ♪ ${x.now_playing}` : ''}`).join('\n') : 'No rooms found.';
+        const rooms = r.rooms.map((x) => ({
+          slug: x.slug,
+          name: x.name,
+          listeners: x.listeners,
+          listening: x.liveSpeakers,
+          status: x.status,
+          now_playing: x.nowPlaying ? `${x.nowPlaying.artists.join(', ')} – ${x.nowPlaying.title}` : null,
+          role: x.myRole,
+        }));
+        const text = rooms.length
+          ? rooms.map((x) => `${x.slug} — ${x.name} · ${x.listeners} here${x.now_playing ? ` · ♪ ${x.now_playing}` : ''}`).join('\n')
+          : 'No rooms found.';
         return ok(text, { rooms });
       }),
   );
@@ -150,7 +167,8 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
     'join_room',
     {
       title: 'Join a room',
-      description: 'Join a room by slug or invite link (idempotent). Marks you present as a remote for 15 minutes. Returns room state and a speaker link if no speaker is playing for you.',
+      description:
+        'Join a room by slug or invite link (idempotent). Marks you present as a remote for 15 minutes. Returns room state and a speaker link if no speaker is playing for you.',
       inputSchema: { room: roomArg },
       annotations: { idempotentHint: true },
     },
@@ -204,7 +222,11 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
         const slug = await resolve(room);
         const r = await client.call('spins.vote', { params: { slug, spinId: 'current' }, body: { value: vote === 'clear' ? null : vote } });
         const note = r.counted ? '' : ' (recorded; it counts toward auto-skip once your speaker is live)';
-        return ok(`${vote === 'clear' ? 'Vote cleared' : `Voted ${vote}`}${note}. Hype ${r.tally.hype} · Skip ${r.tally.skip}.`, { my_vote: r.myVote, counted: r.counted, crowd: r.tally });
+        return ok(`${vote === 'clear' ? 'Vote cleared' : `Voted ${vote}`}${note}. Hype ${r.tally.hype} · Skip ${r.tally.skip}.`, {
+          my_vote: r.myVote,
+          counted: r.counted,
+          crowd: r.tally,
+        });
       }),
   );
 
@@ -219,7 +241,14 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
     ({ query, limit }) =>
       safely(async () => {
         const tracks = await client.call('search.tracks', { query: { q: query, limit } });
-        const list = tracks.map((t) => ({ uri: t.uri, title: t.title, artist: t.artists.join(', '), duration: formatMs(t.durationMs), explicit: t.explicit, playable: t.playable }));
+        const list = tracks.map((t) => ({
+          uri: t.uri,
+          title: t.title,
+          artist: t.artists.join(', '),
+          duration: formatMs(t.durationMs),
+          explicit: t.explicit,
+          playable: t.playable,
+        }));
         return ok(list.length ? list.map((t, i) => `${i + 1}. ${t.artist} – ${t.title} (${t.duration}) ${t.uri}`).join('\n') : 'No matches.', { tracks: list });
       }),
   );
@@ -228,7 +257,8 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
     'crate_add',
     {
       title: 'Add to my set',
-      description: 'Add a track to your set (crate) in a room, by Spotify track URI/link or by search query (first match). Appends to your linked Spotify playlist.',
+      description:
+        'Add a track to your set (crate) in a room, by Spotify track URI/link or by search query (first match). Appends to your linked Spotify playlist.',
       inputSchema: { room: roomArg, track_uri: z.string().optional(), query: z.string().max(200).optional() },
     },
     ({ room, track_uri, query }) =>
@@ -243,7 +273,12 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
 
   server.registerTool(
     'crate_list',
-    { title: 'List my set', description: 'Show your set (crate) for a room in play order.', inputSchema: { room: roomArg }, annotations: { readOnlyHint: true } },
+    {
+      title: 'List my set',
+      description: 'Show your set (crate) for a room in play order.',
+      inputSchema: { room: roomArg },
+      annotations: { readOnlyHint: true },
+    },
     ({ room }) =>
       safely(async () => {
         const slug = await resolve(room);
@@ -254,7 +289,11 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
 
   server.registerTool(
     'crate_remove',
-    { title: 'Remove from my set', description: 'Remove a track from your set by 1-based position or track URI.', inputSchema: { room: roomArg, position: z.number().int().min(1).optional(), track_uri: z.string().optional() } },
+    {
+      title: 'Remove from my set',
+      description: 'Remove a track from your set by 1-based position or track URI.',
+      inputSchema: { room: roomArg, position: z.number().int().min(1).optional(), track_uri: z.string().optional() },
+    },
     ({ room, position, track_uri }) =>
       safely(async () => {
         const slug = await resolve(room);
@@ -268,7 +307,11 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
 
   server.registerTool(
     'crate_move',
-    { title: 'Reorder my set', description: 'Move a track in your set from one 1-based position to another.', inputSchema: { room: roomArg, from: z.number().int().min(1), to: z.number().int().min(1) } },
+    {
+      title: 'Reorder my set',
+      description: 'Move a track in your set from one 1-based position to another.',
+      inputSchema: { room: roomArg, from: z.number().int().min(1), to: z.number().int().min(1) },
+    },
     ({ room, from, to }) =>
       safely(async () => {
         const slug = await resolve(room);
@@ -282,7 +325,11 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
 
   server.registerTool(
     'dj_queue_join',
-    { title: 'Join the DJ queue', description: 'Join the DJ queue (needs at least one playable track in your set and Spotify Premium). Returns your booth slot or queue position.', inputSchema: { room: roomArg } },
+    {
+      title: 'Join the DJ queue',
+      description: 'Join the DJ queue (needs at least one playable track in your set and Spotify Premium). Returns your booth slot or queue position.',
+      inputSchema: { room: roomArg },
+    },
     ({ room }) =>
       safely(async () => {
         const slug = await resolve(room);
@@ -330,7 +377,12 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
     ({ name, visibility, description, skip_ratio, booth_slots }) =>
       safely(async () => {
         const r = await client.call('rooms.create', {
-          body: { name, visibility, ...(description ? { description } : {}), settings: { ...(skip_ratio ? { skipRatio: skip_ratio } : {}), ...(booth_slots ? { boothSlots: booth_slots } : {}) } },
+          body: {
+            name,
+            visibility,
+            ...(description ? { description } : {}),
+            settings: { ...(skip_ratio ? { skipRatio: skip_ratio } : {}), ...(booth_slots ? { boothSlots: booth_slots } : {}) },
+          },
         });
         return ok(`Created ${r.room.name} (${r.room.slug}). Invite: ${r.invite.url}\nRoom: ${publicUrl}/r/${r.room.slug}`, {
           room: { slug: r.room.slug, name: r.room.name, visibility: r.room.visibility, url: `${publicUrl}/r/${r.room.slug}` },
@@ -379,8 +431,19 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
       safely(async () => {
         const slug = await resolve(room);
         const h = await client.call('rooms.history', { params: { slug }, query: { limit } });
-        const spins = h.map((s) => ({ title: s.track.title, artists: s.track.artists, dj: s.djName, hype: s.hype, skip: s.skip, ended: s.endReason ?? 'playing', at: new Date(s.startedAtServerMs).toISOString() }));
-        return ok(spins.map((s) => `${s.artists.join(', ')} – ${s.title} · DJ ${s.dj} · Hype ${s.hype} Skip ${s.skip} · ${s.ended}`).join('\n') || 'No spins yet.', { spins });
+        const spins = h.map((s) => ({
+          title: s.track.title,
+          artists: s.track.artists,
+          dj: s.djName,
+          hype: s.hype,
+          skip: s.skip,
+          ended: s.endReason ?? 'playing',
+          at: new Date(s.startedAtServerMs).toISOString(),
+        }));
+        return ok(
+          spins.map((s) => `${s.artists.join(', ')} – ${s.title} · DJ ${s.dj} · Hype ${s.hype} Skip ${s.skip} · ${s.ended}`).join('\n') || 'No spins yet.',
+          { spins },
+        );
       }),
   );
 
@@ -388,14 +451,21 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
   const template = new ResourceTemplate('spinroom://room/{slug}/now-playing', {
     list: async () => {
       const r = await client.call('rooms.list', { query: { filter: 'mine', limit: 50 } }).catch(() => ({ rooms: [] }));
-      return { resources: r.rooms.map((x) => ({ uri: `spinroom://room/${x.slug}/now-playing`, name: `${x.name} — now playing`, mimeType: 'application/json' })) };
+      return {
+        resources: r.rooms.map((x) => ({ uri: `spinroom://room/${x.slug}/now-playing`, name: `${x.name} — now playing`, mimeType: 'application/json' })),
+      };
     },
   });
-  server.registerResource('now-playing', template, { title: 'Now playing', description: 'Live now-playing state of a room. Subscribe for updates.', mimeType: 'application/json' }, async (uri, vars) => {
-    const slug = String(vars.slug);
-    const snap = await client.call('rooms.get', { params: { slug } });
-    return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(nowPlayingData(snap, publicUrl)) }] };
-  });
+  server.registerResource(
+    'now-playing',
+    template,
+    { title: 'Now playing', description: 'Live now-playing state of a room. Subscribe for updates.', mimeType: 'application/json' },
+    async (uri, vars) => {
+      const slug = String(vars.slug);
+      const snap = await client.call('rooms.get', { params: { slug } });
+      return { contents: [{ uri: uri.href, mimeType: 'application/json', text: JSON.stringify(nowPlayingData(snap, publicUrl)) }] };
+    },
+  );
 
   // Subscriptions: a live socket per subscribed room pushes resources/updated.
   const subs = new Map<string, LiveRoom>();
@@ -425,7 +495,11 @@ export function createSpinroomServer(deps: SpinroomMcpDeps) {
   // ---------------------------------------------------------------- prompt
   server.registerPrompt(
     'spinroom_session',
-    { title: 'Spinroom session', description: 'Join your usual room, start a speaker if needed, and say what’s playing.', argsSchema: { room: z.string().optional().describe('Room slug or invite link (defaults to your most recent room)') } },
+    {
+      title: 'Spinroom session',
+      description: 'Join your usual room, start a speaker if needed, and say what’s playing.',
+      argsSchema: { room: z.string().optional().describe('Room slug or invite link (defaults to your most recent room)') },
+    },
     ({ room }) => ({
       messages: [
         {

@@ -12,7 +12,10 @@ export interface Storage {
 
 export class FsStorage implements Storage {
   private readonly root: string;
-  constructor(dir: string, private readonly baseUrl: string) {
+  constructor(
+    dir: string,
+    private readonly baseUrl: string,
+  ) {
     this.root = resolve(dir);
   }
   private path(key: string) {
@@ -49,9 +52,7 @@ export class FsStorage implements Storage {
  * Works with AWS S3, Cloudflare R2, MinIO and other S3-compatible stores.
  */
 export class S3Storage implements Storage {
-  constructor(
-    private readonly o: { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string; publicBaseUrl: string },
-  ) {}
+  constructor(private readonly o: { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string; publicBaseUrl: string }) {}
 
   private async signed(method: string, key: string, body?: Buffer, contentType?: string): Promise<Response> {
     const { createHash, createHmac } = await import('node:crypto');
@@ -59,7 +60,9 @@ export class S3Storage implements Storage {
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     const date = amzDate.slice(0, 8);
-    const payloadHash = createHash('sha256').update(body ?? '').digest('hex');
+    const payloadHash = createHash('sha256')
+      .update(body ?? '')
+      .digest('hex');
     const headers: Record<string, string> = {
       host: url.host,
       'x-amz-content-sha256': payloadHash,
@@ -68,7 +71,17 @@ export class S3Storage implements Storage {
       ...(method === 'PUT' ? { 'cache-control': 'public, max-age=31536000, immutable' } : {}),
     };
     const signedHeaders = Object.keys(headers).sort().join(';');
-    const canonical = [method, url.pathname, '', ...Object.keys(headers).sort().map((h) => `${h}:${headers[h]}`), '', signedHeaders, payloadHash].join('\n');
+    const canonical = [
+      method,
+      url.pathname,
+      '',
+      ...Object.keys(headers)
+        .sort()
+        .map((h) => `${h}:${headers[h]}`),
+      '',
+      signedHeaders,
+      payloadHash,
+    ].join('\n');
     const scope = `${date}/${this.o.region}/s3/aws4_request`;
     const toSign = ['AWS4-HMAC-SHA256', amzDate, scope, createHash('sha256').update(canonical).digest('hex')].join('\n');
     const h = (k: Buffer | string, d: string) => createHmac('sha256', k).update(d).digest();

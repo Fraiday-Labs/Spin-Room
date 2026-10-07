@@ -6,7 +6,7 @@
   "bin": { "spinroom-mcp": "dist/stdio.js" },
   "files": ["dist"],
   "scripts": {
-    "dev": "tsx watch src/http.ts",
+    "dev": "tsx watch --env-file-if-exists=../../.env src/http.ts",
     "start": "node dist/http.js",
     "build": "tsup",
     "typecheck": "tsc -p tsconfig.json"

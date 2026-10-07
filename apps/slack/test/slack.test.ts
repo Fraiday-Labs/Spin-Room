@@ -95,12 +95,24 @@ async function setup() {
 
   const post = async (path: string, form: Record<string, string>) => {
     const body = new URLSearchParams(form).toString();
-    return fetch(`${slackUrl}/v1/integrations/slack/${path}`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', ...sign(body) }, body });
+    return fetch(`${slackUrl}/v1/integrations/slack/${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded', ...sign(body) },
+      body,
+    });
   };
   let n = 0;
   const command = async (user: string, text: string, channel = 'C1') => {
     const id = `r${++n}`;
-    const res = await post('commands', { team_id: 'T1', channel_id: channel, user_id: user, command: '/spinroom', text, trigger_id: `trig${n}`, response_url: `${slack.base}/response/${id}` });
+    const res = await post('commands', {
+      team_id: 'T1',
+      channel_id: channel,
+      user_id: user,
+      command: '/spinroom',
+      text,
+      trigger_id: `trig${n}`,
+      response_url: `${slack.base}/response/${id}`,
+    });
     expect(res.status).toBe(200);
     // respond() goes to the response_url; wait for it.
     for (let i = 0; i < 100; i++) {
@@ -112,7 +124,15 @@ async function setup() {
   };
   const action = async (user: string, actionId: string, value: string) => {
     const id = `a${++n}`;
-    const payload = { type: 'block_actions', team: { id: 'T1' }, user: { id: user }, trigger_id: `trig${n}`, response_url: `${slack.base}/response/${id}`, channel: { id: 'C1' }, actions: [{ action_id: actionId, value, type: 'button', block_id: 'b' }] };
+    const payload = {
+      type: 'block_actions',
+      team: { id: 'T1' },
+      user: { id: user },
+      trigger_id: `trig${n}`,
+      response_url: `${slack.base}/response/${id}`,
+      channel: { id: 'C1' },
+      actions: [{ action_id: actionId, value, type: 'button', block_id: 'b' }],
+    };
     await post('interactivity', { payload: JSON.stringify(payload) });
     for (let i = 0; i < 100; i++) {
       const c = slack.calls.find((x) => x.method === `response/${id}`);
@@ -150,7 +170,15 @@ async function playingRoom(owner: TestUser) {
 describe('Slack app (Journey 4)', () => {
   it('rejects unsigned requests', async () => {
     const s = await setup();
-    const res = await fetch(`${s.slackUrl}/v1/integrations/slack/commands`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-slack-request-timestamp': `${Math.floor(Date.now() / 1000)}`, 'x-slack-signature': 'v0=bad' }, body: 'command=/spinroom' });
+    const res = await fetch(`${s.slackUrl}/v1/integrations/slack/commands`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-slack-request-timestamp': `${Math.floor(Date.now() / 1000)}`,
+        'x-slack-signature': 'v0=bad',
+      },
+      body: 'command=/spinroom',
+    });
     expect(res.status).toBe(401);
   });
 
@@ -189,7 +217,9 @@ describe('Slack app (Journey 4)', () => {
     expect((await seen) - sent).toBeLessThan(1000);
 
     // The card is edited in place.
-    await vi.waitFor(() => expect(s.slack.calls.some((c) => c.method === 'chat.update' && JSON.stringify(c.body.blocks).includes('Hype 1'))).toBe(true), { timeout: 3000 });
+    await vi.waitFor(() => expect(s.slack.calls.some((c) => c.method === 'chat.update' && JSON.stringify(c.body.blocks).includes('Hype 1'))).toBe(true), {
+      timeout: 3000,
+    });
 
     // Card buttons work too.
     const skip = await s.action('U-BOB', 'sr_skip', room.slug);
@@ -205,7 +235,15 @@ describe('Slack app (Journey 4)', () => {
     expect((await s.command('U-ALICE', 'invite <@UCAROL|carol>')).text).toContain('Invite sent');
     expect(s.slack.calls.some((c) => c.method === 'chat.postMessage' && String(c.body.text).includes('/invite/inv_'))).toBe(true);
     // With no search text, `add` opens the search modal (no chat reply).
-    await s.post('commands', { team_id: 'T1', channel_id: 'C1', user_id: 'U-BOB', command: '/spinroom', text: 'add', trigger_id: 'trig-modal', response_url: `${s.slack.base}/response/modal` });
+    await s.post('commands', {
+      team_id: 'T1',
+      channel_id: 'C1',
+      user_id: 'U-BOB',
+      command: '/spinroom',
+      text: 'add',
+      trigger_id: 'trig-modal',
+      response_url: `${s.slack.base}/response/modal`,
+    });
     await vi.waitFor(() => expect(s.slack.calls.some((c) => c.method === 'views.open')).toBe(true));
     expect((await s.command('U-ALICE', 'unlink')).text).toBe('Unlinked.');
   });
@@ -214,7 +252,15 @@ describe('Slack app (Journey 4)', () => {
     const s = await setup();
     const alice = await login(t, 'alice');
     await connect(s, 'U-ALICE', alice);
-    const payload = { type: 'block_suggestion', team: { id: 'T1' }, user: { id: 'U-ALICE' }, action_id: 'sr_track_search', block_id: 'track', value: 'neon', view: { callback_id: 'sr_add_modal' } };
+    const payload = {
+      type: 'block_suggestion',
+      team: { id: 'T1' },
+      user: { id: 'U-ALICE' },
+      action_id: 'sr_track_search',
+      block_id: 'track',
+      value: 'neon',
+      view: { callback_id: 'sr_add_modal' },
+    };
     const res = await s.post('options', { payload: JSON.stringify(payload) });
     const json = (await res.json()) as { options: { text: { text: string }; value: string }[] };
     expect(json.options[0]!.text.text).toContain('Neon Tide');

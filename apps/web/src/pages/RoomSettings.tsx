@@ -53,7 +53,10 @@ export default function RoomSettings({ slug }: { slug?: string }) {
           e.preventDefault();
           setMsg(null);
           try {
-            const updated = await api.call('rooms.patch', { params: { slug: slug! }, body: { name: room.name, description: room.description, visibility: room.visibility, settings: room.settings } });
+            const updated = await api.call('rooms.patch', {
+              params: { slug: slug! },
+              body: { name: room.name, description: room.description, visibility: room.visibility, settings: room.settings },
+            });
             setRoom(updated);
             await qc.invalidateQueries({ queryKey: ['room', slug] });
             setMsg('Saved.');
@@ -153,14 +156,18 @@ export default function RoomSettings({ slug }: { slug?: string }) {
               <tr key={m.userId}>
                 <td>{m.displayName}</td>
                 <td>
-                  <span className="badge">{m.role}</span> {m.banned && <span className="badge badge-warn">banned</span>} {m.muted && <span className="badge">muted</span>}
+                  <span className="badge">{m.role}</span> {m.banned && <span className="badge badge-warn">banned</span>}{' '}
+                  {m.muted && <span className="badge">muted</span>}
                 </td>
                 <td>
                   {isOwner && m.role !== 'owner' && (
                     <button
                       className="btn btn-ghost"
                       onClick={async () => {
-                        await api.call('rooms.moderate', { params: { slug: slug! }, body: { action: 'set_role', userId: m.userId, role: m.role === 'moderator' ? 'member' : 'moderator' } });
+                        await api.call('rooms.moderate', {
+                          params: { slug: slug! },
+                          body: { action: 'set_role', userId: m.userId, role: m.role === 'moderator' ? 'member' : 'moderator' },
+                        });
                         await members.refetch();
                       }}
                     >
@@ -188,8 +195,8 @@ export default function RoomSettings({ slug }: { slug?: string }) {
       <section className="card stack">
         <h2>Slack</h2>
         <p>
-          To show this room in a Slack channel, install the Spinroom Slack app and run <code>/spinroom link {slug}</code> in the channel. Owners and moderators can link
-          channels.
+          To show this room in a Slack channel, install the Spinroom Slack app and run <code>/spinroom link {slug}</code> in the channel. Owners and moderators
+          can link channels.
         </p>
       </section>
     </div>

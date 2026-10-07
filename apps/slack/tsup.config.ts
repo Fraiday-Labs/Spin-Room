@@ -1,2 +1,10 @@
 import { defineConfig } from 'tsup';
-export default defineConfig({ entry: ['src/main.ts'], format: ['esm'], target: 'node22', outDir: 'dist', clean: true, splitting: false, noExternal: [/^@spinroom\//] });
+export default defineConfig({
+  entry: ['src/main.ts'],
+  format: ['esm'],
+  target: 'node22',
+  outDir: 'dist',
+  clean: true,
+  splitting: false,
+  noExternal: [/^@spinroom\//],
+});

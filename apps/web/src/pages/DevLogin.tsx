@@ -26,7 +26,13 @@ export function DevLogin() {
         className="card stack"
         onSubmit={(e) => {
           e.preventDefault();
-          if (id.trim()) go(id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-'));
+          if (id.trim())
+            go(
+              id
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]/g, '-'),
+            );
         }}
       >
         <label className="field">

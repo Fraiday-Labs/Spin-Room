@@ -103,7 +103,8 @@ export class RoomRuntime implements RoomHooks {
     const settings = roomSettings(room);
     const s = createRoomState(room.id, settings, now);
     const slots = await this.ctx.db.select().from(boothSlots).where(eq(boothSlots.roomId, room.id));
-    for (const b of slots) if (b.slot < s.booth.length) s.booth[b.slot] = { userId: b.userId, spinsThisTurn: b.spinsThisTurn, consecutiveSkips: b.consecutiveSkips };
+    for (const b of slots)
+      if (b.slot < s.booth.length) s.booth[b.slot] = { userId: b.userId, spinsThisTurn: b.spinsThisTurn, consecutiveSkips: b.consecutiveSkips };
     const q = await this.ctx.db.select().from(djQueue).where(eq(djQueue.roomId, room.id)).orderBy(asc(djQueue.position));
     s.queue = q.map((x) => ({ userId: x.userId, joinedAt: x.joinedAt, cooldownUntil: x.cooldownUntil }));
     for (const x of q) if (x.cooldownUntil && x.cooldownUntil > now) s.cooldowns[x.userId] = x.cooldownUntil;
@@ -115,7 +116,16 @@ export class RoomRuntime implements RoomHooks {
         id: open.id,
         djUserId: open.djUserId,
         slot,
-        track: { uri: open.trackUri, title: open.title, artists: open.artists, album: open.album, artUrl: open.artUrl, durationMs: open.durationMs, explicit: open.explicit, playable: true },
+        track: {
+          uri: open.trackUri,
+          title: open.title,
+          artists: open.artists,
+          album: open.album,
+          artUrl: open.artUrl,
+          durationMs: open.durationMs,
+          explicit: open.explicit,
+          playable: true,
+        },
         startedAtServerMs: open.startedAt,
         durationMs: open.durationMs,
         votes: Object.fromEntries(vs.map((v) => [v.userId, { value: v.value, surface: v.surface }])),
@@ -124,7 +134,12 @@ export class RoomRuntime implements RoomHooks {
       s.status = 'playing';
       if (slot < 0) s.current = null;
     }
-    const recent = await this.ctx.db.select({ uri: spins.trackUri }).from(spins).where(eq(spins.roomId, room.id)).orderBy(desc(spins.startedAt)).limit(TIMING.historyLimit);
+    const recent = await this.ctx.db
+      .select({ uri: spins.trackUri })
+      .from(spins)
+      .where(eq(spins.roomId, room.id))
+      .orderBy(desc(spins.startedAt))
+      .limit(TIMING.historyLimit);
     s.recent = recent.map((r) => r.uri).reverse();
     for (const uid of new Set([...s.booth.map((b) => b.userId).filter((x): x is string => !!x), ...s.queue.map((x) => x.userId)])) {
       s.sets[uid] = await this.sets.preview(room.id, uid);
@@ -132,7 +147,17 @@ export class RoomRuntime implements RoomHooks {
     // Members re-establish presence by reconnecting; keep booth members around for the drop window.
     for (const b of s.booth) {
       if (b.userId && !s.members[b.userId]) {
-        s.members[b.userId] = { userId: b.userId, role: 'member', sockets: 0, remoteUntil: now + settings.djPresenceDropMs, speakerAt: null, lastAudioAt: null, absentSince: null, presence: 'remote', eligible: false };
+        s.members[b.userId] = {
+          userId: b.userId,
+          role: 'member',
+          sockets: 0,
+          remoteUntil: now + settings.djPresenceDropMs,
+          speakerAt: null,
+          lastAudioAt: null,
+          absentSince: null,
+          presence: 'remote',
+          eligible: false,
+        };
       }
     }
     return s;
@@ -219,7 +244,10 @@ export class RoomRuntime implements RoomHooks {
         void this.refreshSet(roomId, ef.userId);
         return null;
       case 'awardPoints':
-        await db.update(users).set({ points: sql`${users.points} + ${ef.points}` }).where(eq(users.id, ef.userId));
+        await db
+          .update(users)
+          .set({ points: sql`${users.points} + ${ef.points}` })
+          .where(eq(users.id, ef.userId));
         return null;
     }
   }
@@ -258,12 +286,16 @@ export class RoomRuntime implements RoomHooks {
     // Mirror booth and queue to Postgres for durability.
     if (JSON.stringify(before.booth) !== JSON.stringify(after.booth)) {
       await this.ctx.db.delete(boothSlots).where(eq(boothSlots.roomId, roomId));
-      await this.ctx.db.insert(boothSlots).values(after.booth.map((b, slot) => ({ roomId, slot, userId: b.userId, consecutiveSkips: b.consecutiveSkips, spinsThisTurn: b.spinsThisTurn })));
+      await this.ctx.db
+        .insert(boothSlots)
+        .values(after.booth.map((b, slot) => ({ roomId, slot, userId: b.userId, consecutiveSkips: b.consecutiveSkips, spinsThisTurn: b.spinsThisTurn })));
     }
     if (JSON.stringify(before.queue) !== JSON.stringify(after.queue)) {
       await this.ctx.db.delete(djQueue).where(eq(djQueue.roomId, roomId));
       if (after.queue.length) {
-        await this.ctx.db.insert(djQueue).values(after.queue.map((q, i) => ({ roomId, userId: q.userId, position: i, joinedAt: q.joinedAt, cooldownUntil: q.cooldownUntil })));
+        await this.ctx.db
+          .insert(djQueue)
+          .values(after.queue.map((q, i) => ({ roomId, userId: q.userId, position: i, joinedAt: q.joinedAt, cooldownUntil: q.cooldownUntil })));
       }
     }
     const dj = after.current ? await this.ctx.services.users.get(after.current.djUserId) : null;
@@ -310,7 +342,9 @@ export class RoomRuntime implements RoomHooks {
   async summaries(roomIds: string[]): Promise<Map<string, RoomLiveSummary>> {
     if (!roomIds.length) return new Map();
     const raw = await this.ctx.redis.mget(roomIds.map(summaryKey));
-    return new Map(roomIds.map((id, i) => [id, raw[i] ? (JSON.parse(raw[i]!) as RoomLiveSummary) : { listeners: 0, liveSpeakers: 0, status: 'idle', nowPlaying: null }]));
+    return new Map(
+      roomIds.map((id, i) => [id, raw[i] ? (JSON.parse(raw[i]!) as RoomLiveSummary) : { listeners: 0, liveSpeakers: 0, status: 'idle', nowPlaying: null }]),
+    );
   }
 
   // ---------------------------------------------------------------- timers
@@ -338,7 +372,9 @@ export class RoomRuntime implements RoomHooks {
   // ---------------------------------------------------------------- hooks used by other services
 
   async settingsChanged(room: RoomRow, settings: RoomSettings) {
-    await this.exec(room.id, { type: 'settings', settings }, () => [{ type: 'room.settings_changed', settings, name: room.name, description: room.description }]);
+    await this.exec(room.id, { type: 'settings', settings }, () => [
+      { type: 'room.settings_changed', settings, name: room.name, description: room.description },
+    ]);
   }
 
   /** Re-announce a member whose profile or avatar changed (presence.changed carries thumb + sheet). */
@@ -349,7 +385,10 @@ export class RoomRuntime implements RoomHooks {
       const state = await this.load(roomId);
       if (!state.members[userId]) continue;
       const [view] = await membersView(this.ctx, roomId, state, [userId]);
-      if (view) await this.publish(roomId, [{ type: 'presence.changed', userId, state: view.presence, eligible: view.eligible, member: view, avatar: view.user.avatar }]);
+      if (view)
+        await this.publish(roomId, [
+          { type: 'presence.changed', userId, state: view.presence, eligible: view.eligible, member: view, avatar: view.user.avatar },
+        ]);
     }
   }
 

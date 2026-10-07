@@ -100,7 +100,10 @@ export class SpotifyPlayer implements PlayerAdapter {
 
   async play(uri: string, positionMs: number) {
     this.expectingUri = uri;
-    await this.api('PUT', `/me/player/play?device_id=${encodeURIComponent(this.deviceId ?? '')}`, { uris: [uri], position_ms: Math.max(0, Math.round(positionMs)) });
+    await this.api('PUT', `/me/player/play?device_id=${encodeURIComponent(this.deviceId ?? '')}`, {
+      uris: [uri],
+      position_ms: Math.max(0, Math.round(positionMs)),
+    });
   }
   async seek(positionMs: number) {
     await this.player?.seek(Math.max(0, Math.round(positionMs)));

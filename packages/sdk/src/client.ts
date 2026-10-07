@@ -85,7 +85,12 @@ export class SpinroomClient {
     return this.send(name, input, opts, true);
   }
 
-  private async send<N extends RouteName>(name: N, input: CallInput<N>, opts: { idempotencyKey?: string; signal?: AbortSignal }, mayRetry: boolean): Promise<RouteResponse<N>> {
+  private async send<N extends RouteName>(
+    name: N,
+    input: CallInput<N>,
+    opts: { idempotencyKey?: string; signal?: AbortSignal },
+    mayRetry: boolean,
+  ): Promise<RouteResponse<N>> {
     const def = routes[name];
     const write = def.method !== 'GET';
     const headers = await this.headers(write);

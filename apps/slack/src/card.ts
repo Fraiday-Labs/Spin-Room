@@ -24,8 +24,13 @@ export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemer
     const art = abs(publicUrl, spin.track.artUrl);
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `*<${trackUrl}|${esc(spin.track.title)}>*\n${esc(spin.track.artists.join(', '))}\n_${esc(snap.room.name)}_ · <${roomUrl}|open room>` },
-      ...(art?.startsWith('https://') ? { accessory: { type: 'image', image_url: art, alt_text: `Album art for ${spin.track.album || spin.track.title}` } } : {}),
+      text: {
+        type: 'mrkdwn',
+        text: `*<${trackUrl}|${esc(spin.track.title)}>*\n${esc(spin.track.artists.join(', '))}\n_${esc(snap.room.name)}_ · <${roomUrl}|open room>`,
+      },
+      ...(art?.startsWith('https://')
+        ? { accessory: { type: 'image', image_url: art, alt_text: `Album art for ${spin.track.album || spin.track.title}` } }
+        : {}),
     });
     const thumbs = snap.booth
       .filter((b) => b.userId)
@@ -35,11 +40,23 @@ export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemer
       .map((u) => ({ type: 'image', image_url: abs(publicUrl, u!.avatar.thumbUrl)!, alt_text: u!.displayName }));
     blocks.push({
       type: 'context',
-      elements: [...thumbs, { type: 'mrkdwn', text: `DJ: *${esc(dj?.displayName ?? 'DJ')}* · ${formatMs(elapsed)} / ${formatMs(spin.durationMs)} · Hype ${snap.tally.hype} · Skip ${snap.tally.skip} · Listen on Spotify` }],
+      elements: [
+        ...thumbs,
+        {
+          type: 'mrkdwn',
+          text: `DJ: *${esc(dj?.displayName ?? 'DJ')}* · ${formatMs(elapsed)} / ${formatMs(spin.durationMs)} · Hype ${snap.tally.hype} · Skip ${snap.tally.skip} · Listen on Spotify`,
+        },
+      ],
     });
   } else {
     text = `${snap.room.name}: ${snap.status === 'paused' ? 'paused — start a speaker to resume' : 'booth open — step up'}`;
-    blocks.push({ type: 'section', text: { type: 'mrkdwn', text: `*${esc(snap.room.name)}*\n${snap.status === 'paused' ? 'Paused — nobody has a speaker on.' : 'Booth open — step up and play something.'} <${roomUrl}|Open room>` } });
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*${esc(snap.room.name)}*\n${snap.status === 'paused' ? 'Paused — nobody has a speaker on.' : 'Booth open — step up and play something.'} <${roomUrl}|Open room>`,
+      },
+    });
   }
   const slug = snap.room.slug;
   blocks.push({
