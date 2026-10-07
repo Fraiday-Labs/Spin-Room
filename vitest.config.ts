@@ -9,7 +9,7 @@ export default defineConfig({
       'apps/api',
       'apps/mcp',
       'apps/slack',
-      { extends: './apps/web/vite.config.ts', test: { name: 'web', root: './apps/web', include: ['src/**/*.test.{ts,tsx}'], environment: 'node' } },
+      'apps/web',
     ],
   },
 });
