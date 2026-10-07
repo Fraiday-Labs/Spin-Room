@@ -19,7 +19,7 @@ export interface IssuedSession {
 
 export function createSessionService(ctx: AppContext) {
   async function mint(userId: string, sessionId: string) {
-    return ctx.jwt.sign({ sub: userId, sid: sessionId, typ: 'access', srf: 'web' }, API_AUDIENCE, ACCESS_TTL_SEC);
+    return ctx.jwt.sign({ sub: userId, sid: sessionId, typ: 'access' }, API_AUDIENCE, ACCESS_TTL_SEC);
   }
 
   return {

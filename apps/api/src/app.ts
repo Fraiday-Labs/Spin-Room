@@ -16,6 +16,9 @@ import { FsStorage, S3Storage, type Storage } from './lib/storage.js';
 import { registerAssetRoutes } from './routes/assets.js';
 import { authHandlers } from './routes/auth.js';
 import { meHandlers } from './routes/me.js';
+import { playHandlers } from './routes/play.js';
+import { registerLive } from './routes/live.js';
+import { roomHandlers } from './routes/rooms.js';
 import { createServices } from './services/index.js';
 import { FakeSpotifyGateway } from './spotify/fake.js';
 import type { SpotifyGateway } from './spotify/gateway.js';
@@ -84,7 +87,8 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
   });
 
   registerErrorHandling(app);
-  registerRoutes(app, ctx, { ...authHandlers, ...meHandlers });
+  registerRoutes(app, ctx, { ...authHandlers, ...meHandlers, ...roomHandlers, ...playHandlers });
+  registerLive(app, ctx);
   registerAssetRoutes(app, ctx);
   app.get('/healthz', async () => ({ ok: true }));
 

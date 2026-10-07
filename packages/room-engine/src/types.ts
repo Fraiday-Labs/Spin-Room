@@ -87,7 +87,7 @@ export type Command =
   | { type: 'remoteAction'; userId: string; role: Role }
   | { type: 'leave'; userId: string; kicked?: boolean }
   | { type: 'roleChanged'; userId: string; role: Role }
-  | { type: 'speakerHeartbeat'; userId: string; live: boolean; audible: boolean }
+  | { type: 'speakerHeartbeat'; userId: string; live: boolean; audible: boolean; role?: Role }
   | { type: 'queueJoin'; userId: string }
   | { type: 'queueLeave'; userId: string }
   | { type: 'vote'; userId: string; spinId: string; value: VoteValue | null; surface: Surface }

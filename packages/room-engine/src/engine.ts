@@ -140,7 +140,8 @@ export function apply(state: RoomState, cmd: Command, env: Env): ApplyResult {
       break;
     }
     case 'speakerHeartbeat': {
-      const m = s.members[cmd.userId];
+      // A live speaker makes its member present even without an open room socket.
+      const m = s.members[cmd.userId] ?? (cmd.live && cmd.role ? ensureMember(tx, cmd.userId, cmd.role) : undefined);
       if (!m) break;
       m.speakerAt = cmd.live ? tx.now : null;
       if (cmd.audible) m.lastAudioAt = tx.now;

@@ -3,6 +3,7 @@ import { createAnalytics } from './analytics.js';
 import { createSessionService } from './sessions.js';
 import { createSpotifyTokenService } from './spotifyTokens.js';
 import { createUserService } from './users.js';
+import { RoomRuntime } from '../rooms/runtime.js';
 
 /** Room lifecycle hooks other services call into (implemented by the room runtime). */
 export interface RoomHooks {
@@ -14,7 +15,7 @@ export interface RoomHooks {
 
 export function createServices(ctx: AppContext) {
   return {
-    rooms: undefined as RoomHooks | undefined,
+    rooms: new RoomRuntime(ctx),
     users: createUserService(ctx),
     sessions: createSessionService(ctx),
     spotifyTokens: createSpotifyTokenService(ctx),
