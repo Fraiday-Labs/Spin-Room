@@ -1,0 +1,33 @@
+/* Pixel Neon DJ design tokens — see docs/design/pixel-neon-dj.md */
+:root {
+  --night: #0b1026;
+  --indigo: #1a1440;
+  --violet: #5b2dff;
+  --magenta: #ff2bd6;
+  --pink: #ff4fa3;
+  --cyan: #3de2ff;
+  --purple: #7a4dff;
+  --amber: #ffb000;
+  --yellow: #ffd24a;
+  --booth: #2a3142;
+  --charcoal: #1c2230;
+
+  /* Derived UI tokens (all text pairs meet WCAG AA on --night and --indigo). */
+  --text: #f2f0ff;
+  --text-dim: #b9b4dc;
+  --border: #3a3566;
+  --danger: #ff6b6b;
+  --ok: #7cf2b0;
+  --focus: var(--cyan);
+
+  --slot-0: var(--cyan);
+  --slot-1: var(--magenta);
+  --slot-2: var(--amber);
+
+  --font-pixel: 'Pixelify Sans', ui-monospace, monospace;
+  --font-marquee: 'VT323', ui-monospace, monospace;
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --radius: 6px;
+  --gap: 12px;
+}

@@ -1,0 +1,35 @@
+{
+  "name": "spinroom",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "pnpm --filter @spinroom/web e2e",
+    "size": "pnpm --filter @spinroom/web size",
+    "art": "tsx tools/art/build.ts",
+    "db:generate": "pnpm --filter @spinroom/api db:generate",
+    "db:migrate": "pnpm --filter @spinroom/api db:migrate",
+    "seed": "tsx scripts/seed.ts",
+    "openapi": "pnpm --filter @spinroom/contracts openapi"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.15.0",
+    "eslint": "^10.12.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.0.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  }
+}

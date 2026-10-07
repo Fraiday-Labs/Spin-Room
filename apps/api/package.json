@@ -1,0 +1,36 @@
+{
+  "name": "@spinroom/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsup src/main.ts --format esm --target node22 --out-dir dist --clean --no-splitting --noExternal @spinroom/contracts --noExternal @spinroom/room-engine",
+    "typecheck": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "^10.1.2",
+    "@fastify/websocket": "^11.3.3",
+    "@spinroom/contracts": "workspace:*",
+    "@spinroom/room-engine": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
+    "fflate": "^0.8.3",
+    "ioredis": "^5.4.2",
+    "jose": "^6.2.12",
+    "postgres": "^3.4.9",
+    "sharp": "^0.35.5",
+    "uuidv7": "^1.2.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "drizzle-kit": "^0.31.11",
+    "tsup": "^8.5.1",
+    "ws": "^8.22.0"
+  }
+}

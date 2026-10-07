@@ -1,0 +1,13 @@
+{
+  "$comment": "Spinroom state -> ChatGPT/Codex pet row. Edit to remap without code changes; runtime sheets can be rebuilt from stored originals.",
+  "petRows": ["idle", "running-right", "running-left", "waving", "jumping", "failed", "waiting", "running", "review"],
+  "states": [
+    { "state": "idle", "row": "idle", "required": true },
+    { "state": "hype", "row": "jumping", "fallback": "idle" },
+    { "state": "skip", "row": "failed", "fallback": "idle" },
+    { "state": "dj", "row": "running", "fallback": "idle" },
+    { "state": "walk", "row": "running-right", "fallback": "idle" },
+    { "state": "wave", "row": "waving", "fallback": "idle" },
+    { "state": "away", "row": "waiting", "fallback": "idle", "dimWhenFallback": true }
+  ]
+}
