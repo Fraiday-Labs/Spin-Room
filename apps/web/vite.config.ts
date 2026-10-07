@@ -34,7 +34,12 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
-    proxy: { '/v1': { target: API, ws: true, changeOrigin: false, xfwd: true } },
+    proxy: {
+      '/v1': { target: API, ws: true, changeOrigin: false, xfwd: true },
+      // OAuth endpoints for remote MCP clients live on the API, at the public origin.
+      '^/oauth/(authorize|token|register|revoke)': { target: API, xfwd: true },
+      '/.well-known/oauth-authorization-server': { target: API, xfwd: true },
+    },
   },
   preview: {
     host: '127.0.0.1',

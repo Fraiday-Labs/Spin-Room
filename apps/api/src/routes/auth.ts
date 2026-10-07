@@ -67,6 +67,7 @@ export const authHandlers: Handlers = {
     callbackUrl: callbackUrl(ctx.cfg),
     rememberedClientId: req.cookies[COOKIES.clientId] ?? null,
     scopes: [...SPOTIFY_SCOPES],
+    mcpUrl: ctx.cfg.MCP_RESOURCE_URL,
   }),
 
   'auth.spotifyStart': async ({ ctx, query, req, reply }) => {

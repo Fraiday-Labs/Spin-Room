@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
     "start": "node dist/main.js",
-    "build": "tsup src/main.ts --format esm --target node22 --out-dir dist --clean --no-splitting --noExternal @spinroom/contracts --noExternal @spinroom/room-engine",
+    "build": "tsup",
     "typecheck": "tsc -p tsconfig.json",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate.ts"
+    "db:migrate": "tsx --env-file-if-exists=../../.env src/db/migrate-cli.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

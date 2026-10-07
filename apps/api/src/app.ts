@@ -21,6 +21,7 @@ import { playHandlers } from './routes/play.js';
 import { registerLive } from './routes/live.js';
 import { roomHandlers } from './routes/rooms.js';
 import { tokenHandlers } from './routes/tokens.js';
+import { oauthHandlers, registerOAuth } from './routes/oauth.js';
 import { createServices } from './services/index.js';
 import { FakeSpotifyGateway } from './spotify/fake.js';
 import type { SpotifyGateway } from './spotify/gateway.js';
@@ -78,6 +79,10 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
   ctx.services = createServices(ctx);
 
   await app.register(cookie);
+  // OAuth token/registration endpoints take form posts.
+  app.addContentTypeParser('application/x-www-form-urlencoded', { parseAs: 'string' }, (_req, body, done) => {
+    done(null, Object.fromEntries(new URLSearchParams(body as string)));
+  });
   await app.register(multipart, { limits: { fileSize: AVATAR_LIMITS.uploadMaxBytes, files: 2, fields: 10 } });
   await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 
@@ -89,7 +94,8 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
   });
 
   registerErrorHandling(app);
-  registerRoutes(app, ctx, { ...authHandlers, ...meHandlers, ...roomHandlers, ...playHandlers, ...avatarHandlers, ...tokenHandlers });
+  registerRoutes(app, ctx, { ...authHandlers, ...meHandlers, ...roomHandlers, ...playHandlers, ...avatarHandlers, ...tokenHandlers, ...oauthHandlers });
+  registerOAuth(app, ctx);
   registerLive(app, ctx);
   registerAssetRoutes(app, ctx);
   app.get('/healthz', async () => ({ ok: true }));

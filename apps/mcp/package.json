@@ -1,0 +1,25 @@
+{
+  "name": "spinroom-mcp",
+  "version": "0.1.0",
+  "description": "Spinroom MCP server: join rooms, vote, DJ and chat from your coding agent.",
+  "type": "module",
+  "bin": { "spinroom-mcp": "dist/stdio.js" },
+  "files": ["dist"],
+  "scripts": {
+    "dev": "tsx watch src/http.ts",
+    "start": "node dist/http.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@spinroom/contracts": "workspace:*",
+    "@spinroom/sdk": "workspace:*",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "tsup": "^8.5.1"
+  }
+}

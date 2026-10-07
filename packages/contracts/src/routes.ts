@@ -132,6 +132,8 @@ export const routes = {
       callbackUrl: z.string(),
       rememberedClientId: z.string().nullable(),
       scopes: z.array(z.string()),
+      /** Remote MCP endpoint for the Connect agent page. */
+      mcpUrl: z.string(),
     }),
   }),
   'auth.fakeLogin': route({
@@ -590,6 +592,25 @@ export const routes = {
     summary: 'Exchange a one-time code for a personal API token.',
     body: z.object({ code: z.string(), label: z.string().max(60).default('spinroom-mcp') }),
     response: z.object({ token: z.string(), userId: IdSchema, displayName: z.string() }),
+  }),
+
+  // ---------------------------------------------------------------- MCP OAuth consent (web UI for /oauth/authorize)
+  'oauth.request': route({
+    method: 'GET',
+    path: '/v1/oauth/requests/{id}',
+    auth: 'user',
+    summary: 'A pending MCP authorization request, shown on the consent screen.',
+    params: z.object({ id: z.string() }),
+    response: z.object({ clientName: z.string(), redirectHost: z.string(), scopes: z.array(z.string()) }),
+  }),
+  'oauth.approve': route({
+    method: 'POST',
+    path: '/v1/oauth/requests/{id}/approve',
+    auth: 'user',
+    summary: 'Approve or deny an MCP authorization request.',
+    params: z.object({ id: z.string() }),
+    body: z.object({ approve: z.boolean() }),
+    response: z.object({ redirectTo: z.string() }),
   }),
 
   // ---------------------------------------------------------------- avatars

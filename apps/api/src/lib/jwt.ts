@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 
 export type TokenType = 'access' | 'exchange' | 'mcp';
@@ -25,6 +26,7 @@ export class Jwt {
       .setIssuer(this.issuer)
       .setAudience(audience)
       .setIssuedAt()
+      .setJti(randomUUID())
       .setExpirationTime(exp)
       .sign(this.key);
     return { token, expiresAt: exp * 1000 };
