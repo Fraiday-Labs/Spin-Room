@@ -182,6 +182,18 @@ export interface BuiltSheet {
 }
 
 /** FR-A2, A3, A5, A6, A18: validate a sheet and build the Spinroom runtime sheet + thumbnail. */
+/** [colour quality, alpha quality] pairs tried in order until the sheet fits the size budget. */
+const WEBP_LADDER: readonly (readonly [number, number])[] = [
+  [88, 90],
+  [82, 80],
+  [76, 70],
+  [70, 60],
+  [62, 50],
+  [55, 40],
+];
+/** When thinning a busy sheet, rows with fewer frames than this keep them all. */
+const THIN_KEEP_UNDER = 5;
+
 export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: number; rows?: number }): Promise<BuiltSheet> {
   const kind = sniff(input);
   if (kind !== 'png' && kind !== 'webp') {
@@ -228,39 +240,68 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
 
   const cw = RUNTIME_SHEET.cellW;
   const ch = RUNTIME_SHEET.cellH;
-  const maxFrames = Math.max(...plan.map((p) => p.frames));
-  const composites: OverlayOptions[] = [];
   const cellCache = new Map<string, Buffer>();
-  for (let r = 0; r < plan.length; r++) {
-    const p = plan[r]!;
-    for (let f = 0; f < p.frames; f++) {
-      const key = `${p.srcRow}:${f}`;
-      let cell = cellCache.get(key);
-      if (!cell) {
-        cell = await sharp(input)
-          .extract({ left: f * PET_FORMAT.cellW, top: p.srcRow * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
-          .resize(cw, ch, { kernel: 'lanczos3' })
-          .png()
-          .toBuffer();
-        cellCache.set(key, cell);
-      }
-      composites.push({ input: cell, left: f * cw, top: r * ch });
+  const cellAt = async (row: number, frame: number) => {
+    const key = `${row}:${frame}`;
+    let cell = cellCache.get(key);
+    if (!cell) {
+      cell = await sharp(input)
+        .extract({ left: frame * PET_FORMAT.cellW, top: row * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
+        .resize(cw, ch, { kernel: 'lanczos3' })
+        .png()
+        .toBuffer();
+      cellCache.set(key, cell);
     }
-  }
-  const canvas = sharp({ create: { width: maxFrames * cw, height: plan.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).composite(
-    composites,
-  );
-  const flat = await canvas.png().toBuffer();
+    return cell;
+  };
+  /** Frame indices kept per row: all of them, or every other one for long rows (busy sheets). */
+  const keptFrames = (frames: number, thin: boolean) =>
+    Array.from({ length: frames }, (_, i) => i).filter((i) => !thin || frames <= THIN_KEEP_UNDER || i % 2 === 0);
+  const compose = async (thin: boolean) => {
+    const composites: OverlayOptions[] = [];
+    const kept = plan.map((p) => keptFrames(p.frames, thin));
+    for (let r = 0; r < plan.length; r++) {
+      const frames = kept[r]!;
+      for (let f = 0; f < frames.length; f++) composites.push({ input: await cellAt(plan[r]!.srcRow, frames[f]!), left: f * cw, top: r * ch });
+    }
+    const maxFrames = Math.max(...kept.map((k) => k.length));
+    const flat = await sharp({ create: { width: maxFrames * cw, height: plan.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+      .composite(composites)
+      .png()
+      .toBuffer();
+    return { flat, frames: kept.map((k) => k.length) };
+  };
+
+  // Detailed, anti-aliased art (e.g. ChatGPT pet sheets) is dominated by the alpha channel, so
+  // step colour and alpha quality down together; as a last resort, drop every other frame.
   let sheet: Buffer | null = null;
-  for (const quality of [88, 80, 70, 60, 50]) {
-    // Re-encoding through sharp drops all metadata (FR-A6).
-    const out = await sharp(flat).webp({ quality, alphaQuality: 90, effort: 5 }).toBuffer();
-    if (out.length <= RUNTIME_SHEET.maxBytes) {
-      sheet = out;
+  let rowFrames = plan.map((p) => p.frames);
+  for (const thin of [false, true]) {
+    const built = await compose(thin);
+    for (const [quality, alphaQuality] of WEBP_LADDER) {
+      // Re-encoding through sharp drops all metadata (FR-A6).
+      const out = await sharp(built.flat).webp({ quality, alphaQuality, effort: 6 }).toBuffer();
+      if (out.length <= RUNTIME_SHEET.maxBytes) {
+        sheet = out;
+        break;
+      }
+    }
+    if (sheet) {
+      rowFrames = built.frames;
+      if (thin)
+        issues.push({
+          level: 'warning',
+          code: 'frames_reduced',
+          message: 'This pet is very detailed, so long animations keep every other frame to stay small enough to load quickly.',
+        });
       break;
     }
   }
-  if (!sheet) throw new AvatarImportError('sheet_too_large', 'The converted sheet is over 150 KB even at low quality. Try a pet with fewer or simpler frames.');
+  if (!sheet)
+    throw new AvatarImportError(
+      'sheet_too_large',
+      'This pet is too detailed to shrink under 150 KB, even with fewer frames. Try a simpler pet or one with fewer frames.',
+    );
 
   const firstIdle = cellCache.get(`${idleRow}:0`)!;
   const thumb = await sharp(firstIdle)
@@ -271,7 +312,7 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
   return {
     sheet,
     thumb,
-    rows: plan.map((p) => ({ state: p.state, frames: p.frames, ...(p.dimmed ? { dimmed: true } : {}) })),
+    rows: plan.map((p, i) => ({ state: p.state, frames: rowFrames[i]!, ...(p.dimmed ? { dimmed: true } : {}) })),
     frameCounts,
     issues,
     layout,
