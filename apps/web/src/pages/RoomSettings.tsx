@@ -5,6 +5,7 @@ import { Link, useLocation } from 'wouter';
 import { CopyButton } from '../components/CopyButton';
 import { RoomLifecycle } from '../components/RoomLifecycle';
 import { api, errorMessage, useMe } from '../lib/api';
+import css from './RoomSettings.module.css';
 
 const MIN = 60_000;
 
@@ -30,8 +31,8 @@ export default function RoomSettings({ slug }: { slug?: string }) {
     const raw = s[key] as number | null;
     const scale = opts.scale ?? 1;
     return (
-      <label className="field">
-        {label}
+      <label className={css.field}>
+        <span className={css.label}>{label}</span>
         <input
           className="input"
           type="number"
@@ -42,7 +43,7 @@ export default function RoomSettings({ slug }: { slug?: string }) {
           placeholder={opts.nullable ? 'Off' : undefined}
           onChange={(e) => set({ [key]: e.target.value === '' && opts.nullable ? null : Number(e.target.value) * scale } as Partial<Settings>)}
         />
-        {opts.help && <span className="muted">{opts.help}</span>}
+        <span className={css.help}>{opts.help}</span>
       </label>
     );
   };
@@ -51,7 +52,7 @@ export default function RoomSettings({ slug }: { slug?: string }) {
       <Link href={`/r/${slug}`}>← Back to the room</Link>
       <h1>Room settings</h1>
       <form
-        className="card stack"
+        className={`card ${css.form}`}
         onSubmit={async (e) => {
           e.preventDefault();
           setMsg(null);
@@ -68,47 +69,64 @@ export default function RoomSettings({ slug }: { slug?: string }) {
           }
         }}
       >
-        <label className="field">
-          Name
-          <input className="input" value={room.name} onChange={(e) => setRoom({ ...room, name: e.target.value })} />
-        </label>
-        <label className="field">
-          Description
-          <input className="input" value={room.description} maxLength={280} onChange={(e) => setRoom({ ...room, description: e.target.value })} />
-        </label>
-        <label className="field">
-          Visibility
-          <select className="input" value={room.visibility} onChange={(e) => setRoom({ ...room, visibility: e.target.value as Room['visibility'] })}>
-            <option value="public">Public</option>
-            <option value="invite_only">Invite only</option>
-          </select>
-        </label>
-        <h2>Votes</h2>
-        <div className="row">
-          {num('Auto-skip at Skip share (%)', 'skipRatio', { min: 10, max: 100, scale: 0.01, help: 'Of listeners with a live speaker' })}
-          {num('…and at least this many Skips', 'minSkips', { min: 1, max: 50 })}
-          {num('Bounce after auto-skips in a row', 'bounceAfter', { min: 1, max: 10 })}
-          {num('Bounce cooldown (minutes)', 'bounceCooldownMs', { min: 0, max: 60, scale: MIN })}
+        <div className={css.section}>
+          <h2>General</h2>
+          <div className={css.grid}>
+            <label className={css.field}>
+              <span className={css.label}>Name</span>
+              <input className="input" value={room.name} onChange={(e) => setRoom({ ...room, name: e.target.value })} />
+              <span className={css.help} />
+            </label>
+            <label className={css.field}>
+              <span className={css.label}>Visibility</span>
+              <select className="input" value={room.visibility} onChange={(e) => setRoom({ ...room, visibility: e.target.value as Room['visibility'] })}>
+                <option value="public">Public</option>
+                <option value="invite_only">Invite only</option>
+              </select>
+              <span className={css.help} />
+            </label>
+            <label className={`${css.field} ${css.wide}`}>
+              <span className={css.label}>Description</span>
+              <input className="input" value={room.description} maxLength={280} onChange={(e) => setRoom({ ...room, description: e.target.value })} />
+              <span className={css.help} />
+            </label>
+          </div>
         </div>
-        <h2>Booth</h2>
-        <div className="row">
-          {num('DJ slots', 'boothSlots', { min: 1, max: 3 })}
-          {num('Spins per turn', 'turnLimit', { min: 1, max: 50, nullable: true, help: 'Empty = no limit' })}
-          {num('Longest track (minutes)', 'maxTrackMs', { min: 1, max: 60, scale: MIN })}
-          {num('No repeats within last N spins', 'noRepeatWindow', { min: 1, max: 200, nullable: true, help: 'Empty = off' })}
+        <div className={css.section}>
+          <h2>Votes</h2>
+          <div className={css.grid}>
+            {num('Auto-skip at Skip share (%)', 'skipRatio', { min: 10, max: 100, scale: 0.01, help: 'Of listeners with a live speaker' })}
+            {num('…and at least this many Skips', 'minSkips', { min: 1, max: 50 })}
+            {num('Bounce after auto-skips in a row', 'bounceAfter', { min: 1, max: 10 })}
+            {num('Bounce cooldown (minutes)', 'bounceCooldownMs', { min: 0, max: 60, scale: MIN })}
+          </div>
         </div>
-        <label className="row">
-          <input type="checkbox" checked={s.blockExplicit} onChange={(e) => set({ blockExplicit: e.target.checked })} /> Block explicit tracks
-        </label>
-        <h2>Room</h2>
-        <div className="row">
-          {num('Max people at once', 'maxPresent', { min: 2, max: 500 })}
-          {num('Invite links last (days)', 'inviteTtlMs', { min: 1, max: 90, scale: 86_400_000 })}
+        <div className={css.section}>
+          <h2>Booth</h2>
+          <div className={css.grid}>
+            {num('DJ slots', 'boothSlots', { min: 1, max: 3 })}
+            {num('Spins per turn', 'turnLimit', { min: 1, max: 50, nullable: true, help: 'Empty = no limit' })}
+            {num('Longest track (minutes)', 'maxTrackMs', { min: 1, max: 60, scale: MIN })}
+            {num('No repeats within last N spins', 'noRepeatWindow', { min: 1, max: 200, nullable: true, help: 'Empty = off' })}
+          </div>
+          <label className={css.check}>
+            <input type="checkbox" checked={s.blockExplicit} onChange={(e) => set({ blockExplicit: e.target.checked })} />
+            Block explicit tracks
+          </label>
         </div>
-        {msg && <p role="status">{msg}</p>}
-        <button className="btn btn-primary" type="submit" style={{ justifySelf: 'start' }}>
-          Save settings
-        </button>
+        <div className={css.section}>
+          <h2>Room</h2>
+          <div className={css.grid}>
+            {num('Max people at once', 'maxPresent', { min: 2, max: 500 })}
+            {num('Invite links last (days)', 'inviteTtlMs', { min: 1, max: 90, scale: 86_400_000 })}
+          </div>
+        </div>
+        <div className={css.actions}>
+          <button className="btn btn-primary" type="submit">
+            Save settings
+          </button>
+          {msg && <p role="status">{msg}</p>}
+        </div>
       </form>
 
       <section className="card stack">
