@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import s from './RoomCard.module.css';
 import { RoomLifecycle } from './RoomLifecycle';
 
-/** `manage`: show the owner's Close / Delete controls (used in My rooms). */
+/** `manage`: show Close / Delete controls (My rooms, for rooms you own or as a site admin). */
 export function RoomCard({ room, manage = false }: { room: RoomSummary; manage?: boolean }) {
   // Closed rooms only show up in their owner's list, with a way to reopen or delete them.
   if (room.closedAt)
@@ -42,8 +42,8 @@ export function RoomCard({ room, manage = false }: { room: RoomSummary; manage?:
       </div>
     </>
   );
-  // Owners get Close / Delete right on the card in their own list.
-  if (manage && room.myRole === 'owner')
+  // Owners (and site admins) get Close / Delete right on the card in their own list.
+  if (manage)
     return (
       <div className={s.card} data-testid={`room-card-${room.slug}`}>
         <Link href={`/r/${room.slug}`} className={s.cardLink}>

@@ -2,6 +2,7 @@ import { AVATAR_COLORS } from '@spinroom/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'wouter';
+import { AvatarPicker } from '../components/AvatarPicker';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { AvatarSprite } from '../room/AvatarSprite';
 import { AvatarStudio } from '../studio/AvatarStudio';
@@ -89,6 +90,14 @@ export default function Profile({ tab }: { tab?: string }) {
               </div>
             </div>
             {msg && <p role="status">{msg}</p>}
+          </section>
+
+          <section className="card stack">
+            <div className="row" style={{ justifyContent: 'space-between' }}>
+              <h2 style={{ margin: 0 }}>Your avatar</h2>
+              <Link href="/profile/avatar">Make one from a ChatGPT pet →</Link>
+            </div>
+            <AvatarPicker me={u} />
           </section>
 
           <section className="card stack">

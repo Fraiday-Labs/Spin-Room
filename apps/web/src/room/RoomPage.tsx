@@ -163,7 +163,8 @@ export default function RoomPage({ slug }: { slug: string }) {
     );
   }
 
-  const isMod = snap.me?.role === 'owner' || snap.me?.role === 'moderator';
+  // Site admins can manage any room (the server allows it too).
+  const isMod = snap.me?.role === 'owner' || snap.me?.role === 'moderator' || !!me.data?.isAdmin;
   const djName = snap.currentSpin ? (snap.members.find((m) => m.user.id === snap.currentSpin!.djUserId)?.user.displayName ?? null) : null;
   const voteDisabled = !me.data ? 'Sign in to vote' : snap.currentSpin?.djUserId === me.data.id ? 'You’re the DJ' : null;
 

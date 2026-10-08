@@ -7,7 +7,7 @@ import { requireUser, type Handlers } from '../http/router.js';
 import { sha256 } from '../lib/crypto.js';
 import { newId, randomToken } from '../lib/ids.js';
 import { LIVE_TICKET_TTL_MS, liveTicketKey } from '../rooms/live-ticket.js';
-import { assertCanView, assertMod, assertOwner, ensureMember, isMod, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
+import { assertCanView, assertMod, assertOwner, ensureMember, isMod, isSiteAdmin, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
 import type { RoomLiveSummary } from '../rooms/snapshot.js';
 
 export function slugify(name: string): string {
@@ -148,8 +148,9 @@ export const roomHandlers: Handlers = {
         for (const m of ms) roles.set(m.roomId, m.role);
       }
     }
-    // Closed rooms are hidden, except from their owner's own list (to reopen or delete them).
-    rows = rows.filter((r) => !r.closedAt || (query.filter === 'mine' && r.ownerId === auth?.userId));
+    // Closed rooms are hidden, except from their owner's own list (to reopen or delete them); admins see the ones they're in.
+    const admin = query.filter === 'mine' && !!auth && (await isSiteAdmin(ctx, auth.userId));
+    rows = rows.filter((r) => !r.closedAt || (query.filter === 'mine' && (r.ownerId === auth?.userId || admin)));
     if (query.q && query.filter === 'mine') rows = rows.filter((r) => `${r.name} ${r.description}`.toLowerCase().includes(query.q!.toLowerCase()));
     const live = await ctx.services.rooms.summaries(rows.map((r) => r.id));
     const all = rows
@@ -219,7 +220,7 @@ export const roomHandlers: Handlers = {
     const { userId } = requireUser(c);
     const { ctx, params } = c;
     const room = await roomBySlug(ctx, params.slug);
-    assertOwner(room, userId);
+    await assertOwner(ctx, room, userId);
     if (!room.closedAt) {
       await ctx.db.update(rooms).set({ closedAt: ctx.clock.now() }).where(eq(rooms.id, room.id));
       await ctx.services.rooms.shutdown(room.id, 'closed');
@@ -232,7 +233,7 @@ export const roomHandlers: Handlers = {
     const { userId } = requireUser(c);
     const { ctx, params } = c;
     const room = await roomBySlug(ctx, params.slug);
-    assertOwner(room, userId);
+    await assertOwner(ctx, room, userId);
     const [updated] = await ctx.db.update(rooms).set({ closedAt: null }).where(eq(rooms.id, room.id)).returning();
     return toRoom(updated!);
   },
@@ -241,7 +242,7 @@ export const roomHandlers: Handlers = {
     const { userId } = requireUser(c);
     const { ctx, params } = c;
     const room = await roomBySlug(ctx, params.slug);
-    assertOwner(room, userId);
+    await assertOwner(ctx, room, userId);
     // Close first so nobody can rejoin while the rows go, then remove everything.
     if (!room.closedAt) await ctx.db.update(rooms).set({ closedAt: ctx.clock.now() }).where(eq(rooms.id, room.id));
     await ctx.services.rooms.shutdown(room.id, 'deleted');

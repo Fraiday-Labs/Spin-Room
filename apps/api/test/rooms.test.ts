@@ -505,4 +505,22 @@ describe('closing and deleting rooms', () => {
     // The slug can be used again.
     expect((await createRoom(alice)).room.slug).toBe(room.slug);
   });
+  it('lets a site admin manage any room; other members still can’t', async () => {
+    t = await createTestApp({ cfg: { ADMIN_SPOTIFY_IDS: 'root' } });
+    const alice = await login(t, 'alice');
+    const root = await login(t, 'root');
+    const bob = await login(t, 'bob');
+    const { room } = await createRoom(alice);
+    for (const u of [root, bob]) await u.req('POST', `/v1/rooms/${room.slug}/join`, {});
+    expect((await bob.req('PATCH', `/v1/rooms/${room.slug}`, { name: 'Bob was here' })).statusCode).toBe(403);
+    expect((await root.req('PATCH', `/v1/rooms/${room.slug}`, { name: 'Tidied up' })).json().name).toBe('Tidied up');
+    expect((await root.req('GET', `/v1/rooms/${room.slug}/invites`)).statusCode).toBe(200);
+    expect((await bob.req('POST', `/v1/rooms/${room.slug}/close`)).statusCode).toBe(403);
+    expect((await root.req('POST', `/v1/rooms/${room.slug}/close`)).json()).toEqual({ ok: true });
+    // The admin still sees it (closed) in their rooms, to reopen or delete.
+    const mine = (await root.req('GET', '/v1/rooms?filter=mine')).json().rooms;
+    expect(mine.find((r: { slug: string }) => r.slug === room.slug)?.closedAt).toBeTruthy();
+    expect((await root.req('DELETE', `/v1/rooms/${room.slug}`)).json()).toEqual({ ok: true });
+    expect((await alice.req('GET', `/v1/rooms/${room.slug}`)).statusCode).toBe(404);
+  });
 });

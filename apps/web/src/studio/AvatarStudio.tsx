@@ -87,6 +87,28 @@ export function AvatarStudio({ me }: { me: Me }) {
   return (
     <div className="stack">
       <section className="card stack">
+        <h2>Choose your avatar</h2>
+        <AvatarPicker me={me} onError={setMsg} />
+        {mine.data && mine.data.length > 0 && (
+          <div className="row">
+            {mine.data.map((a) => (
+              <button
+                key={a.id}
+                className="btn btn-ghost"
+                onClick={async () => {
+                  await api.call('avatars.delete', { params: { id: a.id } });
+                  await qc.invalidateQueries({ queryKey: ['avatars'] });
+                  await qc.invalidateQueries({ queryKey: ['me'] });
+                }}
+              >
+                Delete “{a.name}”
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="card stack">
         <h2>Bring your ChatGPT pet</h2>
         <ol className={s.howto}>
           <li>
@@ -208,28 +230,6 @@ export function AvatarStudio({ me }: { me: Me }) {
           </div>
         )}
         {msg && <p role="status">{msg}</p>}
-      </section>
-
-      <section className="card stack">
-        <h2>Choose your avatar</h2>
-        <AvatarPicker me={me} onError={setMsg} />
-        {mine.data && mine.data.length > 0 && (
-          <div className="row">
-            {mine.data.map((a) => (
-              <button
-                key={a.id}
-                className="btn btn-ghost"
-                onClick={async () => {
-                  await api.call('avatars.delete', { params: { id: a.id } });
-                  await qc.invalidateQueries({ queryKey: ['avatars'] });
-                  await qc.invalidateQueries({ queryKey: ['me'] });
-                }}
-              >
-                Delete “{a.name}”
-              </button>
-            ))}
-          </div>
-        )}
       </section>
     </div>
   );

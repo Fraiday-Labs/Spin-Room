@@ -60,13 +60,24 @@ export function isMod(role: Role | null | undefined) {
   return role === 'owner' || role === 'moderator';
 }
 
-export async function assertMod(ctx: AppContext, room: RoomRow, userId: string): Promise<MemberRow> {
-  const m = await memberRow(ctx, room.id, userId);
-  if (!m || !isMod(m.role)) throw new SpinroomError('forbidden', 'Only the room owner and moderators can do that');
-  return m;
+/** Site admins (ADMIN_SPOTIFY_IDS) can manage any room, e.g. to clean up rooms whose owner is gone. */
+export async function isSiteAdmin(ctx: AppContext, userId: string): Promise<boolean> {
+  return !!(await ctx.services.users.get(userId))?.isAdmin;
 }
 
-/** Close, reopen and delete are the owner's alone. */
-export function assertOwner(room: RoomRow, userId: string) {
-  if (room.ownerId !== userId) throw new SpinroomError('forbidden', 'Only the room owner can close, reopen or delete it');
+export async function assertMod(ctx: AppContext, room: RoomRow, userId: string): Promise<MemberRow> {
+  const m = await memberRow(ctx, room.id, userId);
+  if (m && isMod(m.role)) return m;
+  if (await isSiteAdmin(ctx, userId)) {
+    // Act with owner powers; make sure there's a membership row to act from.
+    await ctx.db.insert(roomMembers).values({ roomId: room.id, userId, role: 'member', joinedAt: ctx.clock.now() }).onConflictDoNothing();
+    return { ...(m ?? (await memberRow(ctx, room.id, userId))!), role: 'owner' };
+  }
+  throw new SpinroomError('forbidden', 'Only the room owner and moderators can do that');
+}
+
+/** Close, reopen and delete are the owner's alone (and site admins'). */
+export async function assertOwner(ctx: AppContext, room: RoomRow, userId: string) {
+  if (room.ownerId === userId || (await isSiteAdmin(ctx, userId))) return;
+  throw new SpinroomError('forbidden', 'Only the room owner can close, reopen or delete it');
 }

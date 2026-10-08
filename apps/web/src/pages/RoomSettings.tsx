@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { CopyButton } from '../components/CopyButton';
 import { RoomLifecycle } from '../components/RoomLifecycle';
-import { api, errorMessage } from '../lib/api';
+import { api, errorMessage, useMe } from '../lib/api';
 
 const MIN = 60_000;
 
 export default function RoomSettings({ slug }: { slug?: string }) {
   const qc = useQueryClient();
+  const me = useMe();
   const [, navigate] = useLocation();
   const snap = useQuery({ queryKey: ['room', slug], queryFn: () => api.call('rooms.get', { params: { slug: slug! } }) });
   const invites = useQuery({ queryKey: ['invites', slug], queryFn: () => api.call('invites.list', { params: { slug: slug! } }) });
@@ -24,7 +25,7 @@ export default function RoomSettings({ slug }: { slug?: string }) {
   if (!room || !snap.data) return <div className="page muted">Loading…</div>;
   const s = room.settings;
   const set = (patch: Partial<Settings>) => setRoom({ ...room, settings: { ...s, ...patch } });
-  const isOwner = snap.data.me?.role === 'owner';
+  const isOwner = snap.data.me?.role === 'owner' || !!me.data?.isAdmin;
   const num = (label: string, key: keyof Settings, opts: { min: number; max: number; step?: number; scale?: number; help?: string; nullable?: boolean }) => {
     const raw = s[key] as number | null;
     const scale = opts.scale ?? 1;

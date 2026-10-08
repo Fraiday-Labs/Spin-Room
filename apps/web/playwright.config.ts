@@ -39,6 +39,7 @@ export default defineConfig({
         NODE_ENV: 'development',
         SPOTIFY_MODE: 'fake',
         AVATAR_SAFETY: 'auto_approve',
+        ADMIN_SPOTIFY_IDS: 'e2e-site-admin',
         PUBLIC_ORIGIN: ORIGIN,
         DATABASE_URL: process.env.E2E_DATABASE_URL ?? 'postgres://spinroom:spinroom@localhost:5432/spinroom_e2e',
         REDIS_URL: process.env.E2E_REDIS_URL ?? 'redis://localhost:6379/14',

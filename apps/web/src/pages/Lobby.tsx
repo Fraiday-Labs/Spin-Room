@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { AvatarPicker } from '../components/AvatarPicker';
+import { useLocation } from 'wouter';
 import { RoomCard } from '../components/RoomCard';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 
@@ -56,7 +55,7 @@ export default function Lobby() {
         {mine.data?.rooms.length === 0 && <p className="muted">You haven’t joined any rooms yet.</p>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
           {mine.data?.rooms.map((r) => (
-            <RoomCard key={r.id} room={r} manage />
+            <RoomCard key={r.id} room={r} manage={r.myRole === 'owner' || !!me.data?.isAdmin} />
           ))}
         </div>
       </section>
@@ -140,14 +139,6 @@ export default function Lobby() {
           ))}
         </div>
         {pub.data?.rooms.length === 0 && <p className="muted">No public rooms match.</p>}
-      </section>
-
-      <section className="card stack">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>Your avatar</h2>
-          <Link href="/profile/avatar">Make one from a ChatGPT pet →</Link>
-        </div>
-        <AvatarPicker me={me.data} />
       </section>
     </div>
   );

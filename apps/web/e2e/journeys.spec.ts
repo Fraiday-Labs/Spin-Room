@@ -275,3 +275,43 @@ test('owners can close or delete a room right from My rooms in the lobby', async
   await card.getByRole('button', { name: 'Delete forever' }).click();
   await expect(card).toHaveCount(0);
 });
+
+test('a site admin can open settings in, and delete, a room someone else owns', async ({ page, browser }) => {
+  const owner = await newUserPage(browser, uid('roomowner'));
+  await owner.goto('/lobby');
+  const name = `Admin cleanup ${run}`;
+  await owner.getByTestId('room-name').fill(name);
+  await owner.getByTestId('create-room').click();
+  await expect(owner).toHaveURL(/\/r\/admin-cleanup-/);
+  const slug = new URL(owner.url()).pathname.split('/')[2]!;
+
+  // A regular member sees no Settings.
+  const member = await newUserPage(browser, uid('member'));
+  await member.goto(`/r/${slug}`);
+  await expect(member.getByTestId('stage')).toBeVisible();
+  await expect(member.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+
+  await signInViaUi(page, 'e2e-site-admin');
+  await page.goto(`/r/${slug}`);
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await expect(page.getByRole('heading', { name: 'Room settings' })).toBeVisible();
+  await page.goto('/lobby');
+  const card = page.getByTestId(`room-card-${slug}`);
+  await card.getByRole('button', { name: 'Delete room' }).click();
+  await card.getByLabel('Type the room name to confirm').fill(name);
+  await card.getByRole('button', { name: 'Delete forever' }).click();
+  await expect(card).toHaveCount(0);
+});
+
+test('avatar choice lives on the profile page, above the ChatGPT pet studio', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('avatarfan'));
+  await page.goto('/lobby');
+  await expect(page.getByRole('heading', { name: 'My rooms' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your avatar' })).toHaveCount(0);
+  await page.goto('/profile');
+  await expect(page.getByRole('heading', { name: 'Your avatar' })).toBeVisible();
+  await page.getByRole('link', { name: 'Avatar studio' }).click();
+  const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
+  expect(headings.indexOf('Choose your avatar')).toBeGreaterThanOrEqual(0);
+  expect(headings.indexOf('Choose your avatar')).toBeLessThan(headings.indexOf('Bring your ChatGPT pet'));
+});
