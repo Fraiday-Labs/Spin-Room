@@ -6,6 +6,21 @@ import { cookiesFrom, createTestApp, login, type TestApp } from './helpers.js';
 let t: TestApp;
 afterEach(async () => t?.close());
 
+describe('hosted Spotify app', () => {
+  it('tells the sign-in page whether people can just sign in (server has its own Spotify app)', async () => {
+    const real = () => new RealSpotifyGateway({ accountsUrl: 'https://accounts.test', apiUrl: 'https://api.test/v1', retries: 0, fetch: (async () => new Response('{}')) as never });
+    t = await createTestApp({ spotify: real() });
+    expect((await t.app.inject({ method: 'GET', url: '/v1/auth/config' })).json().hostedSpotifyApp).toBe(false);
+    await t.close();
+    t = await createTestApp({ spotify: real(), cfg: { SPOTIFY_DEV_CLIENT_ID: '0f1e2d3c4b5a69788796a5b4c3d2e1f0' } });
+    expect((await t.app.inject({ method: 'GET', url: '/v1/auth/config' })).json().hostedSpotifyApp).toBe(true);
+    // No Client ID needed: sign-in goes straight to Spotify with the server's app.
+    const start = await t.app.inject({ method: 'GET', url: '/v1/auth/spotify/start?return_to=/lobby' });
+    expect(start.statusCode).toBe(302);
+    expect(start.headers.location).toContain('client_id=0f1e2d3c4b5a69788796a5b4c3d2e1f0');
+  });
+});
+
 describe('Spotify login (fake mode)', () => {
   it('signs in a Premium user and shows the profile', async () => {
     t = await createTestApp();

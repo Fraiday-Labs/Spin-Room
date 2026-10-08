@@ -123,6 +123,8 @@ export const routes = {
       scopes: z.array(z.string()),
       /** Remote MCP endpoint for the Connect agent page. */
       mcpUrl: z.string(),
+      /** The server has its own Spotify app (SPOTIFY_DEV_CLIENT_ID): people just sign in, no setup. */
+      hostedSpotifyApp: z.boolean(),
       /** "Add to Slack" link, or null while the Slack app isn't configured on the server. */
       slackInstallUrl: z.string().nullable(),
     }),

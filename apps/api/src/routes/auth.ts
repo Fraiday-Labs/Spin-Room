@@ -62,6 +62,7 @@ export const authHandlers: Handlers = {
     rememberedClientId: req.cookies[COOKIES.clientId] ?? null,
     scopes: [...SPOTIFY_SCOPES],
     mcpUrl: ctx.cfg.MCP_RESOURCE_URL,
+    hostedSpotifyApp: ctx.spotify.mode === 'real' && SPOTIFY_CLIENT_ID_RE.test(ctx.cfg.SPOTIFY_DEV_CLIENT_ID ?? ''),
     slackInstallUrl: ctx.cfg.SLACK_CLIENT_ID ? `${ctx.cfg.PUBLIC_ORIGIN}/v1/integrations/slack/install` : null,
   }),
 
