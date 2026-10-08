@@ -202,7 +202,7 @@
   height: 56px;
 }
 
-/* Crowd: 16×20 back-view sprites at 2×, tinted with each member's color via a mask. */
+/* Crowd: each member's own avatar (the same one shown at the booth). */
 .crowd {
   position: absolute;
   inset: 0;
@@ -211,90 +211,14 @@
 .fig {
   position: absolute;
   width: 32px;
-  height: 40px;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
   pointer-events: auto;
 }
-.figBase,
-.figTint {
-  position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-  background-size: 160px 320px;
-}
-.figBase {
-  background-image: url(/art/crowd.png);
-  background-position: 0 var(--vy);
-}
-.figTint {
-  background-color: var(--tint);
-  -webkit-mask-image: url(/art/crowd-mask.png);
-  mask-image: url(/art/crowd-mask.png);
-  -webkit-mask-size: 160px 320px;
-  mask-size: 160px 320px;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: 0 var(--vy);
-  mask-position: 0 var(--vy);
-}
-.idle .figBase,
-.fig.idle .figBase {
-  animation: crowdIdle 1.4s steps(1) infinite;
-}
-.fig.idle .figTint {
-  animation: crowdIdleMask 1.4s steps(1) infinite;
-}
-.fig.hype .figBase {
-  animation: crowdHype 0.7s steps(1) infinite;
-}
-.fig.hype .figTint {
-  animation: crowdHypeMask 0.7s steps(1) infinite;
-}
-.fig.skip .figBase {
-  background-position: -128px var(--vy);
-}
-.fig.skip .figTint {
-  -webkit-mask-position: -128px var(--vy);
-  mask-position: -128px var(--vy);
-}
-@keyframes crowdIdle {
-  0% {
-    background-position: 0 var(--vy);
-  }
-  50% {
-    background-position: -32px var(--vy);
-  }
-}
-@keyframes crowdIdleMask {
-  0% {
-    -webkit-mask-position: 0 var(--vy);
-    mask-position: 0 var(--vy);
-  }
-  50% {
-    -webkit-mask-position: -32px var(--vy);
-    mask-position: -32px var(--vy);
-  }
-}
-@keyframes crowdHype {
-  0% {
-    background-position: -64px var(--vy);
-  }
-  50% {
-    background-position: -96px var(--vy);
-  }
-}
-@keyframes crowdHypeMask {
-  0% {
-    -webkit-mask-position: -64px var(--vy);
-    mask-position: -64px var(--vy);
-  }
-  50% {
-    -webkit-mask-position: -96px var(--vy);
-    mask-position: -96px var(--vy);
-  }
+.fig > div {
+  display: block;
 }
 .remote {
   opacity: 0.45;
@@ -338,9 +262,7 @@
   .led,
   .eq span,
   .glow,
-  .scroll,
-  .fig .figBase,
-  .fig .figTint {
+  .scroll {
     animation: none !important;
   }
 }

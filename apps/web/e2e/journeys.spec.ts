@@ -398,3 +398,30 @@ test('"Anyone with the link" lets someone straight into an invite-only room, eve
   await latecomer.goto(new URL(shareUrl).pathname + new URL(shareUrl).search);
   await expect(latecomer.getByText(/That link no longer works/)).toBeVisible();
 });
+
+test('your chosen avatar is the one in the crowd after you step down from the booth', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('crowdfan'));
+  await page.goto('/profile');
+  await page.getByRole('link', { name: 'Avatar studio' }).click();
+  const choice = page.getByRole('radio').nth(1);
+  await choice.click();
+  await expect(choice).toHaveAttribute('aria-checked', 'true');
+
+  await page.goto('/lobby');
+  await page.getByTestId('open-create-room').click();
+  await page.getByTestId('room-name').fill(`Crowd ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/crowd-/);
+  await addTrack(page, 'Neon Tide');
+  await page.getByRole('tab', { name: 'DJ queue' }).click();
+  await page.getByTestId('queue-toggle').click();
+  const booth = page.getByTestId('dj-slot-0').locator('div[style*="background-image"]');
+  await expect(booth).toBeVisible();
+  const sheet = await booth.evaluate((el) => (el as HTMLElement).style.backgroundImage);
+
+  await page.getByRole('button', { name: 'Step down from the booth' }).click();
+  await expect(page.getByTestId('dj-slot-0')).toHaveCount(0);
+  const inCrowd = page.locator('[data-testid^="crowd-"] div[style*="background-image"]');
+  await expect(inCrowd).toHaveCount(1);
+  expect(await inCrowd.evaluate((el) => (el as HTMLElement).style.backgroundImage)).toBe(sheet);
+});

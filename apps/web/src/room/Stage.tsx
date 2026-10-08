@@ -14,7 +14,9 @@ const BEAMS = ['violet', 'cyan', 'magenta', 'amber', 'violet'] as const;
 /** Booth slot → spotlight index (slots sit under spotlights 1–3). */
 const SLOT_SPOT = [1, 2, 3];
 const BOOTH_Y = 148;
-const CROWD_VARIANTS = 8;
+/** Crowd figures: avatar width on the 480×270 stage, and the top of the front row. */
+const CROWD_W = 32;
+const CROWD_Y = 206;
 const EQ_COLORS = ['#FF2BD6', '#FF4FA3', '#FFB000', '#FFD24A', '#7CF2B0', '#3DE2FF', '#5B2DFF', '#7A4DFF'];
 
 function useScale(ref: React.RefObject<HTMLDivElement | null>) {
@@ -148,20 +150,21 @@ export function Stage({ snap, myId, onSelectMember }: { snap: RoomSnapshot; myId
               const hsh = hash(m.user.id);
               const row = hsh % 3;
               const x = 6 + (Math.floor(hsh / 3) % 440);
-              const y = 214 + row * 14;
+              const y = CROWD_Y + row * 14;
               const r = reactions.get(m.user.id) ?? 'idle';
               return (
                 <button
                   key={m.user.id}
                   type="button"
                   tabIndex={-1}
-                  className={`${s.fig} ${s[r]} ${m.presence === 'remote' ? s.remote : ''} ${m.user.id === myId ? s.me : ''}`}
-                  style={{ left: x, top: y, zIndex: y, '--vy': `${-(hsh % CROWD_VARIANTS) * 40}px`, '--tint': m.user.avatarColor } as CSSProperties}
+                  className={`${s.fig} ${m.presence === 'remote' ? s.remote : ''} ${m.user.id === myId ? s.me : ''}`}
+                  style={{ left: x, top: y, zIndex: y }}
                   onClick={() => onSelectMember?.(m)}
                   title={m.user.displayName}
+                  data-testid={`crowd-${m.user.id}`}
                 >
-                  <span className={s.figBase} />
-                  <span className={s.figTint} />
+                  {/* The same avatar people chose and see at the booth, reacting to the track. */}
+                  <AvatarSprite avatar={m.user.avatar} state={r} width={CROWD_W} paused={hidden} />
                   {m.presence === 'remote' && <span className={s.noPhones} />}
                 </button>
               );
