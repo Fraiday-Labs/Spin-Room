@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'wouter';
-import { api, queryClient, useMe } from '../lib/api';
+import { useMe } from '../lib/api';
 import { Logo } from './Logo';
+import { UserMenu } from './UserMenu';
 import s from './Layout.module.css';
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -17,19 +18,7 @@ export function Layout({ children }: { children: ReactNode }) {
           {me.data ? (
             <>
               <Link href="/lobby">Rooms</Link>
-              <Link href="/profile">Profile</Link>
-              <Link href="/connect-agent">Connect agent</Link>
-              {me.data.isAdmin && <Link href="/admin">Admin</Link>}
-              <button
-                className="btn btn-ghost"
-                onClick={async () => {
-                  await api.call('auth.logout').catch(() => {});
-                  queryClient.setQueryData(['me'], null);
-                  location.href = '/';
-                }}
-              >
-                Sign out
-              </button>
+              <UserMenu me={me.data} />
             </>
           ) : (
             <Link href="/connect" className="btn btn-spotify">

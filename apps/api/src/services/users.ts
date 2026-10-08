@@ -143,6 +143,7 @@ export function createUserService(ctx: AppContext) {
         isPremium: u.isPremium,
         remoteOnly: !u.isPremium,
         isAdmin: u.isAdmin,
+        photoUrl: u.photoKey ? ctx.storage.url(u.photoKey) : null,
         uploadRevoked: u.uploadRevoked,
         connections: { slack: links.some((l) => l.provider === 'slack'), mcp: links.some((l) => l.provider === 'mcp') || mcpTokens.length > 0 },
         createdAt: u.createdAt,

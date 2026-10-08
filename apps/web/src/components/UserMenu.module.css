@@ -1,0 +1,78 @@
+.wrap {
+  position: relative;
+}
+.trigger {
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  padding: 2px;
+  cursor: pointer;
+  display: grid;
+}
+.trigger:hover,
+.trigger[aria-expanded='true'] {
+  border-color: var(--cyan);
+}
+.badge {
+  border-radius: 50%;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.initial {
+  color: var(--night);
+  font-family: var(--font-body);
+  font-weight: 800;
+  line-height: 1;
+  user-select: none;
+}
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 200px;
+  background: var(--indigo);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  z-index: 40;
+  box-shadow: 4px 4px 0 var(--night);
+}
+.who {
+  padding: 8px 10px 6px;
+  color: var(--text-dim);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.who b {
+  color: var(--text);
+}
+.item {
+  display: block;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+.item:hover,
+.item:focus-visible {
+  background: rgb(255 255 255 / 0.08);
+  color: var(--cyan);
+  outline: none;
+}
+.sep {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+  width: 100%;
+}

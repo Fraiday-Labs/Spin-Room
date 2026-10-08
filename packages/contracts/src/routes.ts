@@ -122,6 +122,8 @@ export const routes = {
       scopes: z.array(z.string()),
       /** Remote MCP endpoint for the Connect agent page. */
       mcpUrl: z.string(),
+      /** "Add to Slack" link, or null while the Slack app isn't configured on the server. */
+      slackInstallUrl: z.string().nullable(),
     }),
   }),
   'auth.fakeLogin': route({
@@ -206,6 +208,21 @@ export const routes = {
     auth: 'user',
     summary: 'Choose a preset or one of my custom avatars.',
     body: z.object({ avatarId: IdSchema }),
+    response: MeSchema,
+  }),
+  'me.setPhoto': route({
+    method: 'PUT',
+    path: '/v1/me/photo',
+    auth: 'user',
+    summary: 'Upload a profile photo (JPEG, PNG, WebP, GIF or HEIC up to 10 MB). Multipart; stored as a 256×256 WebP without metadata.',
+    response: MeSchema,
+    kind: 'multipart',
+  }),
+  'me.deletePhoto': route({
+    method: 'DELETE',
+    path: '/v1/me/photo',
+    auth: 'user',
+    summary: 'Remove my profile photo (back to the initial-letter circle).',
     response: MeSchema,
   }),
   'me.playlists': route({

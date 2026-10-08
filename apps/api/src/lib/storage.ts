@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 /** S3-compatible object storage, content-addressed. A filesystem driver is used in dev. */
@@ -6,6 +6,8 @@ export interface Storage {
   put(key: string, data: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer | null>;
   exists(key: string): Promise<boolean>;
+  /** Remove an object; missing keys are fine. */
+  delete(key: string): Promise<void>;
   /** Public URL (CDN in production) for a key. */
   url(key: string): string;
 }
@@ -41,6 +43,9 @@ export class FsStorage implements Storage {
     } catch {
       return false;
     }
+  }
+  async delete(key: string) {
+    await rm(this.path(key), { force: true });
   }
   url(key: string) {
     return `${this.baseUrl}/${key}`;
@@ -102,6 +107,10 @@ export class S3Storage implements Storage {
   }
   async exists(key: string) {
     return (await this.signed('HEAD', key)).ok;
+  }
+  async delete(key: string) {
+    const res = await this.signed('DELETE', key);
+    if (!res.ok && res.status !== 404) throw new Error(`S3 delete ${key} failed: ${res.status}`);
   }
   url(key: string) {
     return `${this.o.publicBaseUrl}/${key}`;

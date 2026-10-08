@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'wouter';
 import { AvatarPicker } from '../components/AvatarPicker';
+import { ProfilePhoto } from '../components/ProfilePhoto';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { AvatarSprite } from '../room/AvatarSprite';
 import { AvatarStudio } from '../studio/AvatarStudio';
@@ -45,6 +46,7 @@ export default function Profile({ tab }: { tab?: string }) {
         <AvatarStudio me={u} />
       ) : (
         <>
+          <ProfilePhoto me={u} />
           <section className="card stack">
             <h2>Display</h2>
             <form
@@ -123,7 +125,7 @@ export default function Profile({ tab }: { tab?: string }) {
             <div className="stack">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <span>Coding agents (MCP)</span>
-                <Link href="/connect-agent">Connect an agent →</Link>
+                <Link href="/integrations">Integrations →</Link>
               </div>
               <ul className="stack" style={{ listStyle: 'none', padding: 0 }}>
                 {tokens.data

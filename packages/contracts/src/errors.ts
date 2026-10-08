@@ -40,6 +40,7 @@ export const ERROR_CODES = {
   avatar_limit: 422,
   rights_not_confirmed: 422,
   payload_too_large: 413,
+  unsupported_image: 415,
   rate_limited: 429,
   quota_exceeded: 429,
   spotify_error: 502,

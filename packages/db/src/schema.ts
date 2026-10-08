@@ -36,6 +36,8 @@ export const users = pgTable('users', {
   /** Preset others see while a custom avatar is pending review (FR-A13). */
   presetAvatarId: text('preset_avatar_id').notNull().default('preset-bolt'),
   avatarColor: text('avatar_color').notNull().default('#3DE2FF'),
+  /** Storage key of an uploaded profile photo (256×256 WebP), shown in the account menu and profile. */
+  photoKey: text('photo_key'),
   isPremium: boolean('is_premium').notNull().default(false),
   isAdmin: boolean('is_admin').notNull().default(false),
   points: integer('points').notNull().default(0),

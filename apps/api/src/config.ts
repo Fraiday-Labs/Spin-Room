@@ -40,6 +40,8 @@ export const ConfigSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   /** Comma-separated Spotify user IDs that are Spinroom admins. */
+  /** Set when the Slack app is configured (same variable the Slack app reads); turns on "Add to Slack". */
+  SLACK_CLIENT_ID: z.string().min(1).optional(),
   ADMIN_SPOTIFY_IDS: z.string().default(''),
   COOKIE_SECURE: bool.default(false),
   /** Image-safety check for custom avatars: manual review queue, or auto-approve (dev only). */

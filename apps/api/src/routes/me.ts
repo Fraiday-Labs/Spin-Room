@@ -4,7 +4,8 @@ import type { AppContext } from '../context.js';
 import { apiTokens, avatars, deletionRequests, identityLinks, users } from '../db/schema.js';
 import { clearSessionCookies } from '../http/auth.js';
 import { requireUser, type Handlers } from '../http/router.js';
-import { hmac, safeEqual } from '../lib/crypto.js';
+import { hmac, safeEqual, sha256 } from '../lib/crypto.js';
+import { processPhoto } from '../lib/photo.js';
 import { isNull } from 'drizzle-orm';
 
 async function loadMe(ctx: AppContext, userId: string) {
@@ -18,7 +19,37 @@ export function slackLinkSignature(secret: string, p: { teamId: string; external
   return hmac(secret, `slack|${p.teamId}|${p.externalId}|${p.exp}`);
 }
 
+async function dropPhoto(ctx: AppContext, key: string | null) {
+  if (key) await ctx.storage.delete(key).catch((err) => ctx.log.warn({ err, key }, 'photo delete failed'));
+}
+
 export const meHandlers: Handlers = {
+  'me.setPhoto': async (c) => {
+    const { userId } = requireUser(c);
+    const { ctx, req } = c;
+    if (!req.isMultipart()) throw new SpinroomError('bad_request', 'Send the photo as multipart/form-data');
+    const part = await req.file();
+    if (!part) throw new SpinroomError('bad_request', 'No photo uploaded');
+    const input = await part.toBuffer();
+    if (part.file.truncated) throw new SpinroomError('payload_too_large', 'Photos are limited to 10 MB');
+    const webp = await processPhoto(input);
+    // Per-user keys, so removing a photo never touches anyone else's.
+    const key = `photos/${userId}/${sha256(webp).slice(0, 32)}.webp`;
+    await ctx.storage.put(key, webp, 'image/webp');
+    const before = await loadMe(ctx, userId);
+    await ctx.db.update(users).set({ photoKey: key }).where(eq(users.id, userId));
+    if (before.photoKey && before.photoKey !== key) await dropPhoto(ctx, before.photoKey);
+    return ctx.services.users.toMe(await loadMe(ctx, userId));
+  },
+
+  'me.deletePhoto': async (c) => {
+    const { userId } = requireUser(c);
+    const before = await loadMe(c.ctx, userId);
+    await c.ctx.db.update(users).set({ photoKey: null }).where(eq(users.id, userId));
+    await dropPhoto(c.ctx, before.photoKey);
+    return c.ctx.services.users.toMe(await loadMe(c.ctx, userId));
+  },
+
   'me.get': async (c) => c.ctx.services.users.toMe(await loadMe(c.ctx, requireUser(c).userId)),
 
   'me.patch': async (c) => {
@@ -94,10 +125,11 @@ export const meHandlers: Handlers = {
     const { userId } = requireUser(c);
     const now = c.ctx.clock.now();
     await c.ctx.services.rooms?.onAccountDeleted(userId);
+    await dropPhoto(c.ctx, (await loadMe(c.ctx, userId)).photoKey);
     // Immediate: revoke access and scrub identifying fields. The deletion worker purges the rest.
     await c.ctx.db
       .update(users)
-      .set({ deletedAt: now, displayName: 'Deleted user', email: null, spotifyClientId: null, spotifyUserId: `deleted:${userId}` })
+      .set({ deletedAt: now, displayName: 'Deleted user', email: null, photoKey: null, spotifyClientId: null, spotifyUserId: `deleted:${userId}` })
       .where(eq(users.id, userId));
     await c.ctx.services.spotifyTokens.remove(userId);
     await c.ctx.services.sessions.revokeAll(userId);

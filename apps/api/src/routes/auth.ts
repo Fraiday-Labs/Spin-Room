@@ -62,6 +62,7 @@ export const authHandlers: Handlers = {
     rememberedClientId: req.cookies[COOKIES.clientId] ?? null,
     scopes: [...SPOTIFY_SCOPES],
     mcpUrl: ctx.cfg.MCP_RESOURCE_URL,
+    slackInstallUrl: ctx.cfg.SLACK_CLIENT_ID ? `${ctx.cfg.PUBLIC_ORIGIN}/v1/integrations/slack/install` : null,
   }),
 
   'auth.spotifyStart': async ({ ctx, query, req, reply }) => {

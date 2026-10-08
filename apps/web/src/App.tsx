@@ -11,7 +11,7 @@ const Lobby = lazy(() => import('./pages/Lobby'));
 const RoomPage = lazy(() => import('./room/RoomPage'));
 const RoomSettings = lazy(() => import('./pages/RoomSettings'));
 const Profile = lazy(() => import('./pages/Profile'));
-const ConnectAgent = lazy(() => import('./pages/ConnectAgent'));
+const Integrations = lazy(() => import('./pages/Integrations'));
 const InviteLanding = lazy(() => import('./pages/InviteLanding'));
 const SlackLink = lazy(() => import('./pages/SlackLink'));
 const OAuthConsent = lazy(() => import('./pages/OAuthConsent'));
@@ -50,8 +50,13 @@ export function App() {
                 <Profile />
               </Route>
               <Route path="/profile/:tab">{(p) => <Profile tab={p.tab} />}</Route>
+              <Route path="/integrations">
+                <Integrations />
+              </Route>
+              <Route path="/integrations/:tab">{(p) => <Integrations tab={p.tab} />}</Route>
+              {/* Older links (MCP docs, emails) */}
               <Route path="/connect-agent">
-                <ConnectAgent />
+                <Integrations />
               </Route>
               <Route path="/invite/:token">{(p) => <InviteLanding token={p.token} />}</Route>
               <Route path="/slack/link">

@@ -38,7 +38,7 @@ The product spec is [docs/PRD.md](docs/PRD.md), the build plan is [docs/BUILD_PL
 | `packages/sdk`         | Typed REST client, live-room socket (seq-gap resync, 1–30 s backoff), server clock and drift controller. Used by web, MCP and Slack.                         |
 | `packages/db`          | Drizzle schema, Postgres client and AES-GCM sealer shared by the API and Slack services.                                                                     |
 | `apps/api`             | Auth (Spotify PKCE with your own Client ID), rooms, sets, votes, chat, moderation, speakers, avatars, the OAuth 2.1 server for MCP, and the realtime socket. |
-| `apps/web`             | Lobby, room (stage, player panel, rail), speaker, avatar studio, settings, Connect agent, OAuth consent.                                                     |
+| `apps/web`             | Lobby, room (stage, player panel, rail), speaker, avatar studio, settings, Integrations, OAuth consent.                                                      |
 | `apps/mcp`             | `spinroom-mcp`: 17 tools, a now-playing resource with subscriptions, and the `spinroom_session` prompt.                                                      |
 | `apps/slack`           | Install, account linking, `/spinroom` commands, live card, buttons, modal.                                                                                   |
 | `apps/server`          | The API, MCP server and Slack app in one process on one port, for a single free instance (see Deploying).                                                    |
@@ -119,7 +119,7 @@ Every variable is listed with comments in [`.env.example`](.env.example). The mo
 
 ## MCP: use Spinroom from a coding agent
 
-The browser tab is the speaker; the agent is the remote. Agents never see Spotify tokens. **Profile → Connect agent** in the app shows copy-ready snippets and a one-time link code.
+The browser tab is the speaker; the agent is the remote. Agents never see Spotify tokens. **Integrations** (account menu) shows copy-ready snippets and a one-time link code.
 
 **Remote server (OAuth 2.1, recommended).** Deploy `apps/mcp` at `https://mcp.<domain>/mcp`. Clients discover the authorization server through `/.well-known/oauth-protected-resource`, register dynamically, and sign in with Spotify in a browser window. Tokens are audience-bound and can be revoked from the Profile page.
 
@@ -133,7 +133,7 @@ The browser tab is the speaker; the agent is the remote. Agents never see Spotif
 **Local stdio (personal token).** For clients without remote MCP or OAuth support, including Grok and older clients:
 
 ```bash
-SPINROOM_URL=https://<domain> npx -y spinroom-mcp login ABCD-1234   # code from Connect agent
+SPINROOM_URL=https://<domain> npx -y spinroom-mcp login ABCD-1234   # code from Integrations → Local server
 ```
 
 ```json

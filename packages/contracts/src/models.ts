@@ -83,6 +83,8 @@ export const MeSchema = PublicUserSchema.extend({
   /** Free accounts can browse and chat but not run a speaker or DJ. */
   remoteOnly: z.boolean(),
   isAdmin: z.boolean(),
+  /** Uploaded profile photo; null shows the initial-letter circle. */
+  photoUrl: z.string().nullable(),
   uploadRevoked: z.boolean(),
   connections: z.object({ slack: z.boolean(), mcp: z.boolean() }),
   createdAt: TimestampSchema,
