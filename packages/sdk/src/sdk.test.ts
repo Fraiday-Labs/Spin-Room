@@ -22,23 +22,33 @@ describe('ServerClock', () => {
 });
 
 describe('DriftController', () => {
-  it('ignores drift under 500 ms', () => {
-    expect(new DriftController().decide(10_000, 10_400).kind).toBe('none');
-  });
-  it('seeks over 500 ms', () => {
-    expect(new DriftController().decide(10_000, 10_600)).toMatchObject({ kind: 'seek', positionMs: 10_000 });
-  });
-  it('reloads after two drifts over 3 s in a row', () => {
+  it('ignores drift under 1.5 s', () => {
     const d = new DriftController();
-    expect(d.decide(10_000, 14_000).kind).toBe('seek');
-    expect(d.decide(15_000, 19_000).kind).toBe('reload');
-    expect(d.decide(20_000, 24_000).kind).toBe('seek');
+    expect(d.decide(10_000, 11_400).kind).toBe('none');
+    expect(d.decide(15_000, 16_400).kind).toBe('none');
+  });
+  it('seeks only when drift over 1.5 s persists for two checks', () => {
+    const d = new DriftController();
+    expect(d.decide(10_000, 11_800).kind).toBe('none');
+    expect(d.decide(15_000, 16_800)).toMatchObject({ kind: 'seek', positionMs: 15_000 });
+  });
+  it('a single jittery reading never seeks', () => {
+    const d = new DriftController();
+    expect(d.decide(10_000, 11_800).kind).toBe('none');
+    expect(d.decide(15_000, 15_200).kind).toBe('none');
+    expect(d.decide(20_000, 21_800).kind).toBe('none');
+  });
+  it('seeks at once when over 5 s, and reloads after two in a row', () => {
+    const d = new DriftController();
+    expect(d.decide(10_000, 16_000).kind).toBe('seek');
+    expect(d.decide(15_000, 21_000).kind).toBe('reload');
+    expect(d.decide(20_000, 26_000).kind).toBe('seek');
   });
   it('resets the streak after a good sample', () => {
     const d = new DriftController();
-    d.decide(10_000, 14_000);
+    d.decide(10_000, 16_000);
     d.decide(15_000, 15_100);
-    expect(d.decide(20_000, 24_000).kind).toBe('seek');
+    expect(d.decide(20_000, 26_000).kind).toBe('seek');
   });
 });
 

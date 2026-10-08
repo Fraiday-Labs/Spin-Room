@@ -64,26 +64,50 @@ describe('SpeakerController', () => {
     expect(st!.positionMs).toBeLessThan(50);
   });
 
-  it('seeks when drift exceeds 500 ms', async () => {
-    const { c, player } = setup({ driftPerSec: 150 }); // runs 15% fast
+  it('seeks only after drift stays over 1.5 s for two checks', async () => {
+    const { c, player } = setup({ driftPerSec: 200 }); // runs 20% fast
     await c.start();
     await c.setSpin(spin('c', Date.now()));
-    await vi.advanceTimersByTimeAsync(5000); // drift ≈ 750 ms → seek
-    expect(Math.abs(c.view.driftMs!)).toBeGreaterThan(500);
+    const seek = vi.spyOn(player, 'seek');
+    await vi.advanceTimersByTimeAsync(5000); // still settling after the play: no judgement
+    expect(c.view.driftMs).toBeNull();
+    await vi.advanceTimersByTimeAsync(5000); // drift ≈ 2 s: first reading over, wait
+    expect(seek).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5000); // drift ≈ 3 s again → seek
+    expect(seek).toHaveBeenCalledTimes(1);
     const st = await player.getState();
-    expect(Math.abs(st!.positionMs - 5000)).toBeLessThan(100);
+    expect(Math.abs(st!.positionMs - 15_000)).toBeLessThan(100);
   });
 
-  it('reloads after two checks over 3 s', async () => {
+  it('seeks at once when far off, and reloads if it is still far off', async () => {
     const { c, player } = setup();
     await c.start();
     await c.setSpin(spin('d', Date.now()));
+    await vi.advanceTimersByTimeAsync(10_000); // past the settle window, in sync
     const play = vi.spyOn(player, 'play');
+    const seek = vi.spyOn(player, 'seek');
     await player.seek(60_000);
-    await vi.advanceTimersByTimeAsync(5000); // > 3 s → seek
+    seek.mockClear();
+    await vi.advanceTimersByTimeAsync(5000); // > 5 s off → seek right away
+    expect(seek).toHaveBeenCalledTimes(1);
+    expect(play).not.toHaveBeenCalled();
     await player.seek(60_000);
-    await vi.advanceTimersByTimeAsync(5000); // > 3 s again → reload
+    await vi.advanceTimersByTimeAsync(10_000); // settle, then > 5 s off again → reload
     expect(play).toHaveBeenCalledWith('spotify:track:d', expect.any(Number));
+  });
+
+  it('does not restart the track for a pause that lasts one check', async () => {
+    const { c, player } = setup();
+    await c.start();
+    await c.setSpin(spin('p', Date.now()));
+    await vi.advanceTimersByTimeAsync(10_000);
+    const play = vi.spyOn(player, 'play');
+    await player.pause(); // e.g. Spotify buffering
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(play).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5000); // still paused on the next check → play again
+    expect(play).toHaveBeenCalledWith('spotify:track:p', expect.any(Number));
+    expect((await player.getState())!.paused).toBe(false);
   });
 
   it('heartbeats every 15 s with position and audibility', async () => {

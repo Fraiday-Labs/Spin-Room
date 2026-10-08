@@ -52,6 +52,10 @@ export class SpeakerController {
   private joinToAudioMs: number | null = null;
   private listeners = new Set<(v: SpeakerView) => void>();
   private busy = false;
+  /** No drift judgement before this local time: Spotify is still buffering a play or seek. */
+  private settleUntil = 0;
+  /** Consecutive checks that found the player paused, empty or on another track. */
+  private offTrackChecks = 0;
 
   constructor(
     readonly player: PlayerAdapter,
@@ -192,15 +196,23 @@ export class SpeakerController {
     await this.player.setVolume(this.effectiveVolume()).catch(() => {});
     try {
       await this.player.play(spin.track.uri, pos);
+      this.settle();
       if (this.startedClickAt !== null && this.joinToAudioMs === null) this.joinToAudioMs = this.localNow() - this.startedClickAt;
     } catch (e) {
       this.set({ message: (e as Error).message });
     }
   }
 
-  /** Drift correction (every 5 s). */
+  /** After a play or seek, hold off judging drift while Spotify buffers. */
+  private settle() {
+    this.settleUntil = this.localNow() + TIMING.driftSettleMs;
+    this.offTrackChecks = 0;
+  }
+
+  /** Drift correction (every 5 s). Every correction is audible, so act only on lasting problems. */
   async correct() {
     if (this.busy || this.view.status !== 'live' || !this.spin) return;
+    if (this.localNow() < this.settleUntil) return;
     this.busy = true;
     try {
       const spin = this.spin;
@@ -208,13 +220,22 @@ export class SpeakerController {
       if (expected < 0 || expected >= spin.durationMs) return;
       const st = await this.player.getState();
       if (!st || st.uri !== spin.track.uri || st.paused) {
+        // A buffering hiccup reads as paused for a moment; restart only if it lasts two checks.
+        if (++this.offTrackChecks < 2) return;
         await this.player.play(spin.track.uri, expected);
+        this.settle();
         return;
       }
+      this.offTrackChecks = 0;
       const action = this.drift.decide(expected, st.positionMs);
       this.set({ driftMs: Math.round(action.driftMs) });
-      if (action.kind === 'seek') await this.player.seek(action.positionMs);
-      else if (action.kind === 'reload') await this.player.play(spin.track.uri, action.positionMs);
+      if (action.kind === 'seek') {
+        await this.player.seek(action.positionMs);
+        this.settle();
+      } else if (action.kind === 'reload') {
+        await this.player.play(spin.track.uri, action.positionMs);
+        this.settle();
+      }
     } catch (e) {
       this.set({ message: (e as Error).message });
     } finally {

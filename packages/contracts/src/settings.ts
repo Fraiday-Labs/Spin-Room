@@ -100,8 +100,12 @@ export const TIMING = {
   clockSamples: 5,
   /** Drift correction loop. */
   driftCheckMs: 5000,
-  driftSeekMs: 500,
-  driftReloadMs: 3000,
+  /** Seek only after two checks in a row this far off: smaller corrections are audible skips for no real gain. */
+  driftSeekMs: 1500,
+  /** Restart the track after two checks in a row this far off. */
+  driftReloadMs: 5000,
+  /** After a play or seek, give Spotify this long to buffer before judging drift again. */
+  driftSettleMs: 6000,
   /** History kept per room (FR-R6). */
   historyLimit: 200,
   /** Up next panel length. */

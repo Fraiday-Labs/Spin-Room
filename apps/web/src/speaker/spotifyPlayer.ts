@@ -1,10 +1,31 @@
 import type { PlayerAdapter, PlayerState } from './types';
 
 /* Minimal typings for the Spotify Web Playback SDK. */
-interface SdkState {
+interface SdkTrack {
+  uri: string;
+  /** Set when Spotify relinked the track (a regional copy of the one requested). */
+  linked_from?: { uri: string | null } | null;
+  linked_from_uri?: string | null;
+}
+export interface SdkState {
   paused: boolean;
   position: number;
-  track_window: { current_track: { uri: string } | null };
+  /** Local time (ms) the state was captured; the position is as of then. */
+  timestamp?: number;
+  track_window: { current_track: SdkTrack | null };
+}
+
+/**
+ * Normalize an SDK state: the URI we asked for even when Spotify plays a relinked copy
+ * (otherwise every check looks like the wrong track and restarts it), and the position
+ * advanced to `now` when the state is a moment old.
+ */
+export function readSdkState(s: SdkState, now: number): PlayerState {
+  const t = s.track_window.current_track;
+  const uri = t ? (t.linked_from?.uri ?? t.linked_from_uri ?? t.uri) : null;
+  const age = typeof s.timestamp === 'number' ? now - s.timestamp : 0;
+  const positionMs = !s.paused && age > 0 && age < 30_000 ? s.position + age : s.position;
+  return { uri, positionMs, paused: s.paused };
 }
 interface SdkPlayer {
   connect(): Promise<boolean>;
@@ -114,8 +135,7 @@ export class SpotifyPlayer implements PlayerAdapter {
   }
   async getState(): Promise<PlayerState | null> {
     const s = await this.player?.getCurrentState();
-    if (!s) return null;
-    return { uri: s.track_window.current_track?.uri ?? null, positionMs: s.position, paused: s.paused };
+    return s ? readSdkState(s, Date.now()) : null;
   }
   async setVolume(v: number) {
     await this.player?.setVolume(Math.min(1, Math.max(0, v)));
