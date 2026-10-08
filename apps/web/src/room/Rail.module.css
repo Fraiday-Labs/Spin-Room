@@ -205,3 +205,29 @@
   margin: -4px 0 0;
   font-size: 0.85em;
 }
+
+/* Search result already in the set. */
+.added {
+  color: var(--ok);
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border: 2px solid var(--ok);
+  border-radius: var(--radius);
+  animation: added-pop 240ms ease-out;
+}
+@keyframes added-pop {
+  from {
+    transform: scale(0.85);
+    opacity: 0.4;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .added {
+    animation: none;
+  }
+}

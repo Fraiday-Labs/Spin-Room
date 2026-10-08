@@ -240,3 +240,18 @@ test('a DJ can clear their whole set', async ({ page }) => {
   await addTrack(page, 'Pixel Rain');
   await expect(page.getByTestId('my-set').locator('li')).toHaveCount(1);
 });
+
+test('search results show when a track is added, and offer Add again once it is removed', async ({ page }) => {
+  await signInViaUi(page, uid('adder'));
+  await expect(page).toHaveURL(/\/lobby/);
+  await page.getByTestId('room-name').fill(`Adder ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/adder-/);
+  await addTrack(page, 'Neon Tide');
+  const results = page.getByTestId('search-results');
+  await expect(results.getByText('✓ Added')).toBeVisible();
+  await expect(results.getByRole('button', { name: 'Add Neon Tide' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Remove Neon Tide' }).click();
+  await expect(page.getByTestId('my-set').locator('li')).toHaveCount(0);
+  await expect(results.getByRole('button', { name: 'Add Neon Tide' })).toBeVisible();
+});

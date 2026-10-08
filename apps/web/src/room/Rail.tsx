@@ -280,6 +280,8 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   });
   const [linking, setLinking] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [adding, setAdding] = useState<ReadonlySet<string>>(new Set());
+  const [justAdded, setJustAdded] = useState<ReadonlyMap<string, string>>(new Map());
   const playlists = useQuery({ queryKey: ['playlists'], queryFn: () => api.call('me.playlists'), enabled: linking });
 
   const reorder = useDragReorder<HTMLOListElement>((from, to) => {
@@ -306,12 +308,32 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
       notify(e instanceof ApiError ? e.message : errorMessage(e));
     }
   };
-  const add = (t: Track) => run(() => api.call('crate.add', { params: { slug }, body: { trackUri: t.uri } }));
+  const add = async (t: Track) => {
+    setAdding((a) => new Set(a).add(t.uri));
+    try {
+      const next = await api.call('crate.add', { params: { slug }, body: { trackUri: t.uri } });
+      update(next);
+      // Remember which set entry it became: Spotify can hand back a relinked URI, so the set may not list this exact one.
+      const item = next.items.at(-1);
+      if (item) setJustAdded((a) => new Map(a).set(t.uri, item.id));
+    } catch (e) {
+      notify(e instanceof ApiError ? e.message : errorMessage(e));
+    } finally {
+      setAdding((a) => {
+        const n = new Set(a);
+        n.delete(t.uri);
+        return n;
+      });
+    }
+  };
   const c = crate.data;
   const drag = reorder.drag;
   const shown = c ? (drag ? moveItem(c.items, drag.from, drag.to) : c.items) : [];
   const nextId = c?.items[c.position]?.id;
   const draggingId = drag ? c?.items[drag.from]?.id : undefined;
+  const inSetUris = new Set(c?.items.map((it) => it.track.uri));
+  const inSetIds = new Set(c?.items.map((it) => it.id));
+  const isAdded = (uri: string) => inSetUris.has(uri) || inSetIds.has(justAdded.get(uri) ?? '');
   return (
     <div className="stack">
       {c?.notice && <div className="notice">{c.notice}</div>}
@@ -390,9 +412,15 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
                   {t.explicit && ' · E'}
                 </span>
               </span>
-              <button className="btn" onClick={() => void add(t)} aria-label={`Add ${t.title}`}>
-                Add
-              </button>
+              {isAdded(t.uri) ? (
+                <span className={s.added} role="status" aria-label={`${t.title} added to your set`}>
+                  ✓ Added
+                </span>
+              ) : (
+                <button className="btn" onClick={() => void add(t)} disabled={adding.has(t.uri)} aria-label={`Add ${t.title}`}>
+                  {adding.has(t.uri) ? 'Adding…' : 'Add'}
+                </button>
+              )}
             </li>
           ))}
           {results.data.length === 0 && <li className="muted">No matches.</li>}

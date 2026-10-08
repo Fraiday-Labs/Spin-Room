@@ -44,4 +44,5 @@ export async function addTrack(page: Page, query: string) {
     .first()
     .click();
   await expect(page.getByTestId('my-set')).toContainText(query);
+  await expect(page.getByRole('status', { name: `${query} added to your set` }).first()).toBeVisible();
 }
