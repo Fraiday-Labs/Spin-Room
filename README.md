@@ -211,7 +211,15 @@ Route one public origin as follows; `deploy/nginx.conf` is an example:
 
 Everything runs on free plans. The static web app is on Vercel; **one** free Render web service runs the API, the remote MCP server and the Slack app in one process ([`apps/server`](apps/server)), with a free Render Key Value for Redis; Postgres and avatar storage are on Supabase's free plan. Vercel rewrites `/v1/*` (Slack included) and the OAuth paths to Render ([`apps/web/vercel.json`](apps/web/vercel.json)), so REST calls, cookies, CSRF and the Spotify callback stay on the web origin. Rewrites can't carry WebSocket upgrades, so the room's live socket connects straight to Render (`VITE_LIVE_ORIGIN`) with a one-time ticket from `POST /v1/rooms/{slug}/live-ticket` in place of the cookie.
 
-1. **Supabase.** Create a free project. Copy the **Session pooler** connection string (Connect → Session pooler; it works over IPv4) and append `?sslmode=require`. In Storage, create a private bucket `avatars`, enable the S3 connection (Storage → Settings) and create an access key; note the endpoint (`https://<ref>.storage.supabase.co/storage/v1/s3`) and region.
+1. **Supabase.** Create a free project. Copy the **Session pooler** connection string (Connect → Session pooler; it works over IPv4) and append `?sslmode=require`. In Storage, create a private bucket `avatars`, enable the S3 connection (Storage → Settings) and create an access key; note the endpoint (`https://<ref>.storage.supabase.co/storage/v1/s3`) and region. Then, in the SQL editor, close Supabase's auto-generated REST API over Spinroom's tables (the server connects to Postgres directly as their owner and never uses it; by default every new table in `public` is readable and writable with the public anon key):
+
+   ```sql
+   alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated;
+   alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
+   alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
+   revoke usage on schema public from anon, authenticated;
+   ```
+
 2. **Render.** New → Blueprint → this repository ([`render.yaml`](render.yaml)). Enter `PUBLIC_ORIGIN` (the Vercel URL you'll use, e.g. `https://spinroom-web.vercel.app`), `DATABASE_URL`, the `S3_*` values, and (later) the Slack app credentials. It starts in fake Spotify mode for a smoke test; migrations run on boot.
 3. **Vercel.** New project from this repository, root directory `apps/web` (framework and commands come from `vercel.json`). Set `VITE_LIVE_ORIGIN=wss://spinroom.onrender.com`. If Render gave the service another hostname, update the rewrites in `apps/web/vercel.json` and `MCP_RESOURCE_URL` in `render.yaml`.
 4. **Keep it awake.** Add a free uptime monitor (UptimeRobot, cron-job.org…) for `https://spinroom.onrender.com/healthz?deep=1` every 5–10 minutes. It keeps the Render instance from sleeping (one always-on instance fits the 750 free hours a month) and gives Supabase the daily database activity that stops a free project from pausing.
