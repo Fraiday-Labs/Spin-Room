@@ -7,15 +7,15 @@
   "rewrites": [
     {
       "source": "/v1/:path*",
-      "destination": "https://spinroom.onrender.com/v1/:path*"
+      "destination": "https://spinroom-za0l.onrender.com/v1/:path*"
     },
     {
       "source": "/oauth/:step(authorize|token|register|revoke)",
-      "destination": "https://spinroom.onrender.com/oauth/:step"
+      "destination": "https://spinroom-za0l.onrender.com/oauth/:step"
     },
     {
       "source": "/.well-known/oauth-authorization-server",
-      "destination": "https://spinroom.onrender.com/.well-known/oauth-authorization-server"
+      "destination": "https://spinroom-za0l.onrender.com/.well-known/oauth-authorization-server"
     },
     {
       "source": "/((?!assets/|art/).*)",
