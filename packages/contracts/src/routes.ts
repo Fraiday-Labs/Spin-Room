@@ -2,7 +2,7 @@ import { z } from 'zod';
 import {
   ApiTokenSchema,
   AvatarImportReportSchema,
-  AVATAR_FAVORITE_VIEWS,
+  AvatarFavoritesSchema,
   AvatarViewChoicesSchema,
   AvatarViewsSchema,
   AvatarReportSchema,
@@ -768,11 +768,11 @@ export const routes = {
     method: 'PUT',
     path: '/v1/avatars/{id}/views',
     auth: 'user',
-    summary: 'Choose which view of my uploaded avatar plays on the floor, at the booth, when DJing, and so on, and shortlist my favourite views.',
+    summary: 'Choose which pose of my uploaded avatar shows on the floor, at the booth, when DJing, and so on, and shortlist my favourite poses.',
     params: z.object({ id: IdSchema }),
     body: z.object({
       choices: AvatarViewChoicesSchema.default({}),
-      favorites: z.array(z.number().int().min(0).max(63)).max(AVATAR_FAVORITE_VIEWS).optional(),
+      favorites: AvatarFavoritesSchema.optional(),
     }),
     response: AvatarViewsSchema,
   }),

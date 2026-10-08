@@ -73,28 +73,39 @@ export const AvatarSchema = AvatarRefSchema.extend({
 });
 export type Avatar = z.infer<typeof AvatarSchema>;
 
-/** The states an owner can point at any view (row) of their uploaded sheet. */
+/**
+ * Uploaded avatars are still poses: every figure on a sheet is a view, named by a pose key,
+ * `row * POSE_STRIDE + frame` (row and frame within the sheet as found).
+ */
+export const POSE_STRIDE = 32;
+export const poseKey = (row: number, frame: number) => row * POSE_STRIDE + frame;
+export const poseOf = (key: number) => ({ row: Math.floor(key / POSE_STRIDE), frame: key % POSE_STRIDE });
+const PoseKeySchema = z
+  .number()
+  .int()
+  .min(0)
+  .max(64 * POSE_STRIDE - 1);
+
+/** The states an owner can point at any pose of their uploaded sheet. */
 export const AVATAR_VIEW_STATES = ['idle', 'booth', 'dj', 'hype', 'skip', 'wave'] as const;
 export const AvatarViewChoicesSchema = z.object(
-  Object.fromEntries(AVATAR_VIEW_STATES.map((s) => [s, z.number().int().min(0).max(63).optional()])) as Record<
-    (typeof AVATAR_VIEW_STATES)[number],
-    z.ZodOptional<z.ZodNumber>
-  >,
+  Object.fromEntries(AVATAR_VIEW_STATES.map((s) => [s, PoseKeySchema.optional()])) as Record<(typeof AVATAR_VIEW_STATES)[number], z.ZodOptional<z.ZodNumber>>,
 );
 export type AvatarViewChoices = z.infer<typeof AvatarViewChoicesSchema>;
 
-/** How many favourite views an owner can shortlist from a sheet. */
+/** How many favourite poses an owner can shortlist from a sheet. */
 export const AVATAR_FAVORITE_VIEWS = 5;
+export const AvatarFavoritesSchema = z.array(PoseKeySchema).max(AVATAR_FAVORITE_VIEWS);
 
 /** Every non-empty row of an uploaded sheet, for picking which one plays where. */
 export const AvatarViewsSchema = z.object({
-  /** Sheet with one row per view, `cell`-sized frames, in `views` order. */
+  /** Sheet with one row per sheet row, `cell`-sized poses side by side, in `views` order. */
   sheetUrl: z.string(),
   cell: z.object({ w: z.number().int(), h: z.number().int() }),
   views: z.array(z.object({ row: z.number().int(), name: z.string(), frames: z.number().int() })),
-  /** The source row each state plays (the defaults filled in). */
+  /** The pose (key) each state shows (the defaults filled in). */
   choices: z.record(z.string(), z.number().int()),
-  /** The owner's favourite views (source rows): the shortlist each place's picker shows. Empty: all. */
+  /** The owner's favourite poses (keys): the shortlist each place's picker shows. Empty: all. */
   favorites: z.array(z.number().int()),
   avatar: AvatarSchema,
 });

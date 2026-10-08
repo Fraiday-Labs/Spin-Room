@@ -3,13 +3,14 @@ import type { CSSProperties } from 'react';
 import s from './AvatarSprite.module.css';
 
 /**
- * Plays one row of a sprite sheet with CSS `steps()` — no JS timers.
- * `width` is the displayed width; height follows the cell ratio.
+ * Plays one row of a sprite sheet with CSS `steps()` — no JS timers — or, with `frame`, shows
+ * that one frame still. `width` is the displayed width; height follows the cell ratio.
  */
 export function SheetSprite({
   sheetUrl,
   cell,
   row,
+  frame,
   frames,
   cols,
   rowCount,
@@ -23,6 +24,8 @@ export function SheetSprite({
   sheetUrl: string;
   cell: { w: number; h: number };
   row: number;
+  /** Show just this frame, still. */
+  frame?: number;
   frames: number;
   cols: number;
   rowCount: number;
@@ -44,6 +47,7 @@ export function SheetSprite({
     '--strip': `${-frames * width}px`,
     animationDuration: `${Math.max(0.4, frames * 0.16)}s`,
     animationPlayState: paused || frames < 2 ? 'paused' : undefined,
+    ...(frame !== undefined ? { animation: 'none', backgroundPositionX: `${-frame * width}px` } : {}),
     opacity: dimmed ? 0.55 : undefined,
     imageRendering: pixelated ? 'pixelated' : 'auto',
   } as CSSProperties;

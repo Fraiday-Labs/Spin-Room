@@ -1,4 +1,4 @@
-import { SpinroomError } from '@spinroom/contracts';
+import { poseKey, SpinroomError } from '@spinroom/contracts';
 import { and, eq, isNotNull, lt, ne } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
 import { avatars, blobs, users } from '../db/schema.js';
@@ -10,8 +10,11 @@ import { AvatarImportError, buildRuntimeSheet, readSpriteKit, sniff, type BuiltS
  * Bump when the sheet builder changes how uploads look, so avatars saved earlier are rebuilt
  * from their originals at the next boot. 2: neighbouring frames' scraps are cleared.
  * 3: odd-sized sheets are cut along the gaps in the art. 4: each figure is found on its own.
+ * 5: uploads are still poses; picks and favourites are pose keys instead of row numbers.
  */
-export const AVATAR_BUILD = 4;
+export const AVATAR_BUILD = 5;
+/** First build whose picks are pose keys. */
+const POSE_BUILD = 5;
 
 export async function putBlob(ctx: AppContext, data: Buffer, prefix: string, ext: string, contentType: string): Promise<{ key: string; sha: string }> {
   const sha = sha256(data);
@@ -32,6 +35,9 @@ export async function putBlob(ctx: AppContext, data: Buffer, prefix: string, ext
  * picks. The art is the same upload that was already reviewed, so the review status stays.
  */
 export async function rebuild(ctx: AppContext, a: AvatarRow, picks: Record<string, number>): Promise<AvatarRow> {
+  // Older picks named a row; they become the first pose of that row.
+  const fromRows = a.build < POSE_BUILD;
+  if (fromRows) picks = Object.fromEntries(Object.entries(picks).map(([state, row]) => [state, poseKey(row, 0)]));
   const original = await ctx.storage.get(a.originalKey!);
   if (!original) throw new SpinroomError('not_found', 'The original upload for this avatar is missing — upload it again.');
   let built: BuiltSheet;
@@ -55,6 +61,7 @@ export async function rebuild(ctx: AppContext, a: AvatarRow, picks: Record<strin
       views: built.views,
       viewsUrl: viewsBlob.key,
       choices: built.choices,
+      ...(fromRows && a.favorites ? { favorites: a.favorites.map((row) => poseKey(row, 0)) } : {}),
       build: AVATAR_BUILD,
     })
     .where(eq(avatars.id, a.id))

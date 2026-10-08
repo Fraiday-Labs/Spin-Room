@@ -1,6 +1,6 @@
-import { AVATAR_LIMITS, AVATAR_MAPPING, PET_FORMAT, RUNTIME_SHEET, type AvatarState, type AvatarValidationIssue } from '@spinroom/contracts';
+import { AVATAR_LIMITS, AVATAR_MAPPING, PET_FORMAT, poseKey, poseOf, RUNTIME_SHEET, type AvatarState, type AvatarValidationIssue } from '@spinroom/contracts';
 import { unzipSync } from 'fflate';
-import sharp, { type Metadata, type OverlayOptions, type Sharp } from 'sharp';
+import sharp, { type Metadata, type OverlayOptions } from 'sharp';
 
 /**
  * ChatGPT / Codex pet import (FR-A1–A8). Pure functions over buffers: no storage, no DB.
@@ -207,8 +207,10 @@ export function detectLayout(w: number, h: number, manual?: { cols?: number; row
   );
 }
 
-/** Most rows / columns a sheet may have. */
+/** Most columns a sheet may have. */
 const MAX_GRID = 16;
+/** Most rows (views) a sheet may have; view picks are stored as row numbers up to 63. */
+const MAX_ROWS = 64;
 /** A row or column may be this much shorter or longer than the average one. */
 const BAND_SLACK = 0.4;
 /**
@@ -301,10 +303,30 @@ const UNEVEN_WEIGHT = 0.5;
  * Rows: of the counts whose rows are a sensible height (`[shortest, tallest]`), the one whose cuts
  * are cleanest and most evenly spaced (an empty row can be cut more than one way).
  */
-function rowBands(busy: Float64Array, [shortest, tallest]: [number, number]): number[] | null {
+function rowBands(busy: Float64Array, range: [number, number]): number[] | null {
+  // Tall sheets: search a shrunken profile (each line the quietest of its block, so gaps survive),
+  // then move each cut to the quietest line near it at full size.
+  const f = Math.ceil(busy.length / ROW_SEARCH_LINES);
+  if (f <= 1) return rowBandsAt(busy, range);
+  const small = new Float64Array(Math.ceil(busy.length / f)).map((_, i) => Math.min(...busy.subarray(i * f, (i + 1) * f)));
+  const coarse = rowBandsAt(small, [range[0] / f, range[1] / f]);
+  if (!coarse) return null;
+  return coarse.map((e, i) => {
+    if (i === 0) return 0;
+    if (i === coarse.length - 1) return busy.length;
+    let at = Math.min(busy.length - 1, e * f);
+    for (let y = Math.max(0, (e - 1) * f); y < Math.min(busy.length, (e + 1) * f); y++) if (busy[y]! < busy[at]!) at = y;
+    return at;
+  });
+}
+
+/** Row search works on at most this many lines (cost grows with the square of it). */
+const ROW_SEARCH_LINES = 1200;
+
+function rowBandsAt(busy: Float64Array, [shortest, tallest]: [number, number]): number[] | null {
   const max = Math.max(...busy);
   let best: { edges: number[]; score: number } | null = null;
-  for (let n = 1; n <= MAX_GRID; n++) {
+  for (let n = Math.max(1, Math.floor(busy.length / tallest)); n <= Math.min(MAX_ROWS, Math.ceil(busy.length / shortest)); n++) {
     const height = busy.length / n;
     if (height > tallest || height < shortest) continue;
     const cut = bestCuts(busy, n);
@@ -573,7 +595,7 @@ export interface BuiltSheet {
   /** Every non-empty source row, and a small sheet of them (one row each, in this order). */
   views: SourceView[];
   viewsSheet: Buffer;
-  /** The source row each state plays. */
+  /** The pose (key) each state shows. */
   choices: Record<string, number>;
   frameCounts: Record<string, number>;
   issues: AvatarValidationIssue[];
@@ -591,8 +613,6 @@ const WEBP_LADDER: readonly (readonly [number, number])[] = [
   [62, 50],
   [55, 40],
 ];
-/** When thinning a busy sheet, rows with fewer frames than this keep them all. */
-const THIN_KEEP_UNDER = 5;
 
 export async function buildRuntimeSheet(
   input: Buffer,
@@ -618,12 +638,10 @@ export async function buildRuntimeSheet(
   const srcRaw = exact ? null : await sharp(input).ensureAlpha().raw().toBuffer();
   const layout = detectLayout(size.w, size.h, manualGrid, srcRaw ?? undefined);
   const w = layout.cols * PET_FORMAT.cellW;
-  const h = layout.rows * PET_FORMAT.cellH;
   // Other sizes: each frame is scaled into a standard 192 × 208 cell, keeping its proportions.
-  if (srcRaw) input = await normalizeCells(srcRaw, size, layout);
+  const cells = srcRaw ? await normalizeCells(srcRaw, size, layout) : await sharp(input).ensureAlpha().raw().toBuffer();
   // Art often spills a little past its cell; drop the neighbours' scraps before anything else.
-  const raw = isolateCells(await sharp(input).ensureAlpha().raw().toBuffer(), w, layout);
-  const clean = () => sharp(raw, { raw: { width: w, height: h, channels: 4 } });
+  const raw = isolateCells(cells, w, layout);
   const counts = countFrames(raw, w, layout);
 
   const issues: AvatarValidationIssue[] = [];
@@ -633,112 +651,73 @@ export async function buildRuntimeSheet(
   if (!counts[idleRow])
     throw new AvatarImportError('idle_empty', 'The idle row (first row) is empty. Every pet needs idle frames — check the sheet or re-download it.');
 
-  const plan: { state: AvatarState; srcRow: number; frames: number; dimmed?: boolean }[] = [];
+  // Uploaded avatars are still poses: each state shows one figure (row, frame) from the sheet.
+  const plan: { state: AvatarState; row: number; frame: number; dimmed?: boolean }[] = [];
   const frameCounts: Record<string, number> = {};
   for (const m of AVATAR_MAPPING.states) {
     const idx = rowIndex(m.row);
     const frames = idx >= 0 && idx < layout.rows ? (counts[idx] ?? 0) : 0;
     frameCounts[m.row] = frames;
-    const pick = picks[m.state];
-    if (pick !== undefined && pick < layout.rows && counts[pick]) plan.push({ state: m.state, srcRow: pick, frames: counts[pick] });
-    else if (frames > 0) plan.push({ state: m.state, srcRow: idx, frames });
+    const pick = picks[m.state] === undefined ? null : poseOf(picks[m.state]!);
+    if (pick && pick.row < layout.rows && pick.frame < (counts[pick.row] ?? 0)) plan.push({ state: m.state, ...pick });
+    else if (frames > 0) plan.push({ state: m.state, row: idx, frame: 0 });
     else {
       issues.push({
         level: 'warning',
         code: `row_empty_${m.row}`,
-        message: `The ${m.row} row is empty, so ${m.state === 'away' ? 'away' : m.state} will use the idle animation.`,
+        message: `The ${m.row} row is empty, so ${m.state === 'away' ? 'away' : m.state} will use the idle pose.`,
       });
-      plan.push({ state: m.state, srcRow: idleRow, frames: counts[idleRow]!, ...(m.dimWhenFallback ? { dimmed: true } : {}) });
+      plan.push({ state: m.state, row: idleRow, frame: 0, ...(m.dimWhenFallback ? { dimmed: true } : {}) });
     }
   }
 
   const cw = RUNTIME_SHEET.cellW;
   const ch = RUNTIME_SHEET.cellH;
-  const cellCache = new Map<string, Buffer>();
   const cellAt = async (row: number, frame: number) => {
-    const key = `${row}:${frame}`;
-    let cell = cellCache.get(key);
-    if (!cell) {
-      cell = await clean()
-        .extract({ left: frame * PET_FORMAT.cellW, top: row * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
-        .resize(cw, ch, { kernel: 'lanczos3' })
-        .png()
-        .toBuffer();
-      cellCache.set(key, cell);
-    }
-    return cell;
-  };
-  /** Frame indices kept per row: all of them, or every other one for long rows (busy sheets). */
-  const keptFrames = (frames: number, thin: boolean) =>
-    Array.from({ length: frames }, (_, i) => i).filter((i) => !thin || frames <= THIN_KEEP_UNDER || i % 2 === 0);
-  // States that play the same source row share one sheet row.
-  const sources = [...new Set(plan.map((p) => p.srcRow))];
-  const sheetRow = (srcRow: number) => sources.indexOf(srcRow);
-  const compose = async (thin: boolean) => {
-    const composites: OverlayOptions[] = [];
-    const kept = sources.map((src) => keptFrames(counts[src]!, thin));
-    for (let r = 0; r < sources.length; r++) {
-      const frames = kept[r]!;
-      for (let f = 0; f < frames.length; f++) composites.push({ input: await cellAt(sources[r]!, frames[f]!), left: f * cw, top: r * ch });
-    }
-    const maxFrames = Math.max(...kept.map((k) => k.length));
-    const flat = await sharp({ create: { width: maxFrames * cw, height: sources.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-      .composite(composites)
+    const { cellW: sw, cellH: sh } = PET_FORMAT;
+    return sharp(cropRaw(raw, w, frame * sw, row * sh, sw, sh), { raw: { width: sw, height: sh, channels: 4 } })
+      .resize(cw, ch, { kernel: 'lanczos3' })
       .png()
       .toBuffer();
-    return { flat, frames: kept.map((k) => k.length) };
   };
-
-  // Detailed, anti-aliased art (e.g. ChatGPT pet sheets) is dominated by the alpha channel, so
-  // step colour and alpha quality down together; as a last resort, drop every other frame.
+  // States showing the same pose share one cell; the runtime sheet is one cell per pose, stacked.
+  const poses = [...new Set(plan.map((p) => poseKey(p.row, p.frame)))];
+  const composites: OverlayOptions[] = [];
+  for (let i = 0; i < poses.length; i++) {
+    const { row, frame } = poseOf(poses[i]!);
+    composites.push({ input: await cellAt(row, frame), left: 0, top: i * ch });
+  }
+  const flat = await sharp({ create: { width: cw, height: poses.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(composites)
+    .png()
+    .toBuffer();
   let sheet: Buffer | null = null;
-  let rowFrames = sources.map((src) => counts[src]!);
-  for (const thin of [false, true]) {
-    const built = await compose(thin);
-    for (const [quality, alphaQuality] of WEBP_LADDER) {
-      // Re-encoding through sharp drops all metadata (FR-A6).
-      const out = await sharp(built.flat).webp({ quality, alphaQuality, effort: 6 }).toBuffer();
-      if (out.length <= RUNTIME_SHEET.maxBytes) {
-        sheet = out;
-        break;
-      }
-    }
-    if (sheet) {
-      rowFrames = built.frames;
-      if (thin)
-        issues.push({
-          level: 'warning',
-          code: 'frames_reduced',
-          message: 'This pet is very detailed, so long animations keep every other frame to stay small enough to load quickly.',
-        });
+  // Detailed, anti-aliased art is dominated by the alpha channel: step both qualities down together.
+  for (const [quality, alphaQuality] of WEBP_LADDER) {
+    // Re-encoding through sharp drops all metadata (FR-A6).
+    const out = await sharp(flat).webp({ quality, alphaQuality, effort: 6 }).toBuffer();
+    if (out.length <= RUNTIME_SHEET.maxBytes) {
+      sheet = out;
       break;
     }
   }
-  if (!sheet)
-    throw new AvatarImportError(
-      'sheet_too_large',
-      'This pet is too detailed to shrink under 150 KB, even with fewer frames. Try a simpler pet or one with fewer frames.',
-    );
+  if (!sheet) throw new AvatarImportError('sheet_too_large', 'This pet is too detailed to shrink under 150 KB. Try a simpler pet.');
 
-  const firstIdle = await cellAt(idleRow, 0);
-  const thumb = await sharp(firstIdle)
+  const thumb = await sharp(await cellAt(idleRow, 0))
     .resize(RUNTIME_SHEET.thumbSize, RUNTIME_SHEET.thumbSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png({ compressionLevel: 9 })
     .toBuffer();
 
   const views: SourceView[] = counts.flatMap((frames, row) => (frames ? [{ row, name: petRows[row] ?? `row-${row + 1}`, frames }] : []));
-  const viewsSheet = await buildViewsSheet(clean, views, layout.cols);
+  const viewsSheet = await buildViewsSheet(raw, w, views, layout.cols);
 
   return {
     sheet,
     thumb,
-    rows: plan.map((p) => {
-      const at = sheetRow(p.srcRow);
-      return { state: p.state, frames: rowFrames[at]!, at, ...(p.dimmed ? { dimmed: true } : {}) };
-    }),
+    rows: plan.map((p) => ({ state: p.state, frames: 1, at: poses.indexOf(poseKey(p.row, p.frame)), ...(p.dimmed ? { dimmed: true } : {}) })),
     views,
     viewsSheet,
-    choices: Object.fromEntries(plan.map((p) => [p.state, p.srcRow])),
+    choices: Object.fromEntries(plan.map((p) => [p.state, poseKey(p.row, p.frame)])),
     frameCounts,
     issues,
     layout,
@@ -746,77 +725,74 @@ export async function buildRuntimeSheet(
   };
 }
 
-/** A small sheet with one row per view, so owners can see every animation and pick one. */
-async function buildViewsSheet(source: () => Sharp, views: SourceView[], cols: number): Promise<Buffer> {
-  const { w, h } = VIEW_CELL;
-  const composites: OverlayOptions[] = [];
-  for (let r = 0; r < views.length; r++) {
-    for (let f = 0; f < views[r]!.frames; f++) {
-      const cell = await source()
-        .extract({ left: f * PET_FORMAT.cellW, top: views[r]!.row * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
-        .resize(w, h, { kernel: 'lanczos3' })
-        .png()
-        .toBuffer();
-      composites.push({ input: cell, left: f * w, top: r * h });
-    }
-  }
-  return sharp({ create: { width: cols * w, height: Math.max(1, views.length) * h, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite(composites)
+/** Copy a box out of a raw RGBA image (much cheaper than a sharp pipeline over a large sheet). */
+function cropRaw(raw: Buffer, w: number, left: number, top: number, width: number, height: number): Buffer {
+  const out = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y++) raw.copy(out, y * width * 4, ((top + y) * w + left) * 4, ((top + y) * w + left + width) * 4);
+  return out;
+}
+
+/** A small sheet of every pose (one sheet row per row of figures), so owners can pick any of them. */
+async function buildViewsSheet(raw: Buffer, w: number, views: SourceView[], cols: number): Promise<Buffer> {
+  const { w: vw, h: vh } = VIEW_CELL;
+  const rows = raw.length / 4 / w / PET_FORMAT.cellH;
+  // Shrink the whole sheet once, then keep the rows that have figures.
+  const small = await sharp(raw, { raw: { width: w, height: rows * PET_FORMAT.cellH, channels: 4 } })
+    .resize(cols * vw, rows * vh, { fit: 'fill', kernel: 'lanczos3' })
+    .raw()
+    .toBuffer();
+  const strip = cols * vw * vh * 4;
+  const out = Buffer.concat(views.map((v) => small.subarray(v.row * strip, (v.row + 1) * strip)));
+  return sharp(views.length ? out : Buffer.alloc(cols * vw * vh * 4), { raw: { width: cols * vw, height: Math.max(1, views.length) * vh, channels: 4 } })
     .webp({ quality: 80, alphaQuality: 80, effort: 6 })
     .toBuffer();
 }
 
 /**
- * Rebuild a sheet of any size as standard 192 × 208 cells: each frame is cut around its figure
- * and scaled by one factor for the whole sheet, centred in its cell. Row r, frame c of `frames`
- * lands in cell (r, c).
+ * Rebuild a sheet of any size as standard 192 × 208 cells (raw RGBA): each frame is cut around
+ * its figure and scaled by one factor for the whole sheet, centred in its cell. Row r, frame c of
+ * `frames` lands in cell (r, c).
  */
 async function normalizeCells(raw: Buffer, size: { w: number; h: number }, layout: Layout): Promise<Buffer> {
   const { cellW, cellH } = PET_FORMAT;
   const frames = layout.frames ?? evenFrames(size.w, size.h, layout.cols, layout.rows);
   const scale = Math.min(cellW / frames.cropW, cellH / frames.cropH);
-  const src = () => sharp(raw, { raw: { width: size.w, height: size.h, channels: 4 } });
-  const composites: OverlayOptions[] = [];
+  // Scale the whole sheet once; every frame is then copied out of it directly.
+  const sw = Math.max(1, Math.round(size.w * scale));
+  const sh = Math.max(1, Math.round(size.h * scale));
+  const scaled = await sharp(raw, { raw: { width: size.w, height: size.h, channels: 4 } })
+    .resize(sw, sh, { fit: 'fill', kernel: 'lanczos3' })
+    .raw()
+    .toBuffer();
+  const outW = layout.cols * cellW;
+  const out = Buffer.alloc(outW * layout.rows * cellH * 4);
   for (let r = 0; r < frames.rows.length; r++) {
     const row = frames.rows[r]!;
-    const rowH = row.bottom - row.top;
     for (let c = 0; c < row.spans.length; c++) {
       const [a, b] = row.spans[c]!;
       // Keep only art nearer this figure than its neighbours (fists out can touch the next frame).
-      const keepFrom = c > 0 ? (row.spans[c - 1]![1] + a) / 2 : -Infinity;
-      const keepTo = c < row.spans.length - 1 ? (b + row.spans[c + 1]![0]) / 2 : Infinity;
-      // The crop box, clipped to the image; whatever falls outside stays transparent.
-      const x0 = (a + b) / 2 - frames.cropW / 2;
-      const y0 = row.top;
+      const keepFrom = c > 0 ? ((row.spans[c - 1]![1] + a) / 2) * scale : -Infinity;
+      const keepTo = c < row.spans.length - 1 ? ((b + row.spans[c + 1]![0]) / 2) * scale : Infinity;
+      // The crop box (scaled), clipped to the image; whatever falls outside stays transparent.
+      const x0 = ((a + b) / 2 - frames.cropW / 2) * scale;
+      const y0 = row.top * scale;
       const left = Math.max(0, Math.round(x0));
-      const top = Math.max(0, row.top);
-      const right = Math.min(size.w, Math.round(x0 + frames.cropW));
-      const bottom = Math.min(size.h, row.bottom);
-      if (right - left < 2 || bottom - top < 2) continue;
-      const width = Math.max(1, Math.round((right - left) * scale));
-      const height = Math.max(1, Math.round((bottom - top) * scale));
-      // Clear neighbours' pieces at the edges of the cut before it's scaled and centred.
+      const top = Math.max(0, Math.round(y0));
+      const right = Math.min(sw, Math.round(x0 + frames.cropW * scale));
+      const bottom = Math.min(sh, Math.round(row.bottom * scale));
       const pw = right - left;
       const ph = bottom - top;
-      const box = await src().extract({ left, top, width: pw, height: ph }).raw().toBuffer();
+      if (pw < 2 || ph < 2) continue;
+      const box = cropRaw(scaled, sw, left, top, pw, ph);
       for (let y = 0; y < ph; y++)
         for (let x = 0; x < pw; x++) if (left + x < keepFrom || left + x >= keepTo) box.fill(0, (y * pw + x) * 4, (y * pw + x) * 4 + 4);
-      const cut = isolateCells(box, pw, { version: null, cols: 1, rows: 1 }, pw, ph);
-      const piece = await sharp(cut, { raw: { width: pw, height: ph, channels: 4 } })
-        .resize(width, height, { fit: 'fill', kernel: 'lanczos3' })
-        .png()
-        .toBuffer();
-      const offX = (cellW - frames.cropW * scale) / 2 + (left - x0) * scale;
-      const offY = (cellH - rowH * scale) / 2 + (top - y0) * scale;
-      composites.push({
-        input: piece,
-        left: c * cellW + Math.max(0, Math.min(cellW - width, Math.round(offX))),
-        top: r * cellH + Math.max(0, Math.min(cellH - height, Math.round(offY))),
-      });
+      // Clear neighbours' pieces at the edges of the cut, then centre it in its cell.
+      const piece = isolateCells(box, pw, { version: null, cols: 1, rows: 1 }, pw, ph);
+      const offX = Math.max(0, Math.min(cellW - pw, Math.round((cellW - frames.cropW * scale) / 2 + (left - x0))));
+      const offY = Math.max(0, Math.min(cellH - ph, Math.round((cellH - (row.bottom - row.top) * scale) / 2 + (top - y0))));
+      const w = Math.min(pw, cellW);
+      for (let y = 0; y < Math.min(ph, cellH); y++) piece.copy(out, ((r * cellH + offY + y) * outW + c * cellW + offX) * 4, y * pw * 4, (y * pw + w) * 4);
     }
   }
-  return sharp({ create: { width: layout.cols * cellW, height: layout.rows * cellH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-    .composite(composites)
-    .png()
-    .toBuffer();
+  return out;
 }

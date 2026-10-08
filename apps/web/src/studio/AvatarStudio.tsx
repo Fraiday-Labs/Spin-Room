@@ -71,7 +71,7 @@ export function AvatarStudio({ me }: { me: Me }) {
         await qc.invalidateQueries({ queryKey: ['me'] });
         setMsg(
           (r.avatar.status === 'approved' ? 'Saved and in use.' : 'Saved! Others will see it after a quick safety review — until then they see your preset.') +
-            ' Use “Choose views” above to pick how you look on the floor, at the booth and more.',
+            ' Use “Choose poses” above to pick how you look on the floor, at the booth and more.',
         );
         setReport(null);
         setFiles([]);
@@ -100,7 +100,7 @@ export function AvatarStudio({ me }: { me: Me }) {
         {wearing && (
           <div className="row" data-testid="avatar-actions">
             <button className="btn" onClick={() => setEditing(editing === wearing.id ? null : wearing.id)} aria-expanded={editing === wearing.id}>
-              Choose views for “{wearing.name}”
+              Choose poses for “{wearing.name}”
             </button>
             {me.isAdmin && (
               <button
@@ -233,9 +233,7 @@ export function AvatarStudio({ me }: { me: Me }) {
               {report.preview.rows.map((r) => (
                 <figure key={r.state} className={s.state}>
                   <AvatarSprite avatar={report.preview!} state={r.state} width={72} />
-                  <figcaption>
-                    {STATE_LABEL[r.state]} <span className="muted">· {r.frames} frames</span>
-                  </figcaption>
+                  <figcaption>{STATE_LABEL[r.state]}</figcaption>
                 </figure>
               ))}
             </div>

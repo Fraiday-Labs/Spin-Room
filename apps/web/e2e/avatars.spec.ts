@@ -44,7 +44,7 @@ test('invalid sheets get a named error and fix', async ({ browser }) => {
   );
 });
 
-test('pick which view of an uploaded sheet plays on the floor, at the booth and more', async ({ browser }) => {
+test('pick which still pose of an uploaded sheet shows on the floor, at the booth and more', async ({ browser }) => {
   const p = await newUserPage(browser, uid('viewpicker'));
   await p.goto('/profile/avatar');
   // A v2 sheet: the nine standard rows plus two extra ones (like back views).
@@ -53,45 +53,47 @@ test('pick which view of an uploaded sheet plays on the floor, at the booth and 
     .setInputFiles({ name: 'kid.png', mimeType: 'image/png', buffer: await sheet(1536, 2288, [6, 8, 8, 4, 5, 8, 6, 6, 6, 6, 8]) });
   await p.getByTestId('rights').check();
   await p.getByTestId('save-avatar').click();
-  await expect(p.getByRole('status')).toContainText(/Choose views/);
+  await expect(p.getByRole('status')).toContainText(/Choose poses/);
 
-  await p.getByRole('button', { name: /Choose views for/ }).click();
+  // Every figure on the sheet is its own still pose: 6+8+8+4+5+8+6+6+6+6+8 = 71.
+  await p.getByRole('button', { name: /Choose poses for/ }).click();
   const editor = p.getByTestId('views-editor');
-  await expect(editor).toContainText('Your sheet has 11 views');
+  await expect(editor).toContainText('Your sheet has 71 poses');
   const floor = editor.getByRole('radiogroup', { name: 'On the dance floor' });
-  await expect(floor.getByRole('radio')).toHaveCount(11);
-  await expect(floor.getByRole('radio', { name: /Standing/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(floor.getByRole('radio')).toHaveCount(71);
+  await expect(floor.getByRole('radio', { name: /: Pose 1$/ })).toHaveAttribute('aria-checked', 'true');
   await expect(editor.getByTestId('save-views')).toBeDisabled();
 
-  await floor.getByRole('radio', { name: /View 10/ }).click();
+  // The first figure of row 10 on the floor; the 3rd figure of row 11 for DJing.
+  await floor.getByRole('radio', { name: /: Pose 58$/ }).click();
   await editor
     .getByRole('radiogroup', { name: 'DJing (your track is playing)' })
-    .getByRole('radio', { name: /View 11/ })
+    .getByRole('radio', { name: /: Pose 66$/ })
     .click();
   await editor.getByTestId('save-views').click();
   await expect(editor.getByRole('status')).toContainText('Saved');
 
-  // Star favourites: each place then offers just those (plus what it plays now).
-  const favs = editor.getByRole('group', { name: 'Favorite views' });
-  for (const name of ['View 10', 'View 11', 'Waving']) await favs.getByRole('button', { name: `Favorite: ${name}` }).click();
+  // Star favourites: each place then offers just those (plus what it shows now).
+  const favs = editor.getByRole('group', { name: 'Favorite poses' });
+  for (const n of [58, 66, 25]) await favs.getByRole('button', { name: `Favorite: Pose ${n}`, exact: true }).click();
   await expect(editor.getByTestId('fav-count')).toContainText('3 of 5');
-  await expect(floor.getByRole('radio')).toHaveCount(3); // View 10 (picked) + View 11 + Waving
+  await expect(floor.getByRole('radio')).toHaveCount(3);
   await editor.getByTestId('show-all-views').check();
-  await expect(floor.getByRole('radio')).toHaveCount(11);
+  await expect(floor.getByRole('radio')).toHaveCount(71);
   await editor.getByTestId('show-all-views').uncheck();
   await editor.getByTestId('save-views').click();
   await expect(editor.getByRole('status')).toContainText('Saved');
 
-  // The picks stick, and the avatar now plays different rows on the floor and at the booth.
+  // The picks stick, and the avatar shows different stills on the floor and at the booth.
   await p.reload();
-  await p.getByRole('button', { name: /Choose views for/ }).click();
-  await expect(p.getByRole('radiogroup', { name: 'On the dance floor' }).getByRole('radio', { name: /View 10/ })).toHaveAttribute('aria-checked', 'true');
+  await p.getByRole('button', { name: /Choose poses for/ }).click();
+  await expect(p.getByRole('radiogroup', { name: 'On the dance floor' }).getByRole('radio', { name: /: Pose 58$/ })).toHaveAttribute('aria-checked', 'true');
   await expect(p.getByTestId('fav-count')).toContainText('3 of 5');
   await expect(p.getByRole('radiogroup', { name: 'On the dance floor' }).getByRole('radio')).toHaveCount(3);
   const me = await p.evaluate(async () => (await fetch('/v1/me')).json());
   const at = (s: string) => me.avatar.rows.find((r: { state: string }) => r.state === s).at;
   expect(at('idle')).not.toBe(at('booth'));
-  expect(me.avatar.rows.find((r: { state: string }) => r.state === 'dj').frames).toBe(8);
+  expect(me.avatar.rows.every((r: { frames: number }) => r.frames === 1)).toBe(true);
 });
 
 test('a site admin makes an uploaded avatar a default that everyone can pick', async ({ browser }) => {
@@ -135,13 +137,13 @@ test('avatar actions show only for the avatar you have selected', async ({ brows
   }
   // Wearing Beta (saved last): only Beta's actions.
   const actions = p.getByTestId('avatar-actions');
-  await expect(actions).toContainText('Choose views for “Beta”');
+  await expect(actions).toContainText('Choose poses for “Beta”');
   await expect(actions).toContainText('Delete “Beta”');
   await expect(p.getByText(/“Alpha”/)).toHaveCount(0);
 
   // Switch to Alpha: the actions follow.
   await p.getByRole('radiogroup', { name: 'Avatar' }).getByRole('radio', { name: 'Alpha' }).click();
-  await expect(actions).toContainText('Choose views for “Alpha”');
+  await expect(actions).toContainText('Choose poses for “Alpha”');
   await expect(p.getByText(/“Beta”/)).toHaveCount(0);
 
   // A built-in avatar has none.

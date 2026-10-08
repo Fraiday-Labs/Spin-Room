@@ -135,3 +135,12 @@
 .viewOpt.fav {
   border-color: var(--amber);
 }
+/* Every pose on a sheet: a wrapping grid that scrolls when the sheet is big. */
+.poseGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}

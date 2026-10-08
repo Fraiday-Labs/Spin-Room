@@ -1,4 +1,4 @@
-import { AVATAR_LIMITS, DEFAULT_PRESET_ID, SpinroomError, type AvatarImportReport, type AvatarViews } from '@spinroom/contracts';
+import { AVATAR_LIMITS, DEFAULT_PRESET_ID, poseKey, SpinroomError, type AvatarImportReport, type AvatarViews } from '@spinroom/contracts';
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { MultipartFile } from '@fastify/multipart';
 import type { AppContext } from '../context.js';
@@ -199,22 +199,23 @@ export const avatarHandlers: Handlers = {
   'avatars.views': async (c) => {
     const { userId } = requireUser(c);
     let a = await ownUpload(c.ctx, c.params.id, userId);
-    // Avatars saved before views existed: build them from the stored upload once.
-    if (!a.views || !a.viewsUrl || !a.choices) a = await rebuild(c.ctx, a, a.choices ?? {});
+    // Avatars saved by an older sheet builder (or before views existed) are brought up to date first.
+    if (!a.views || !a.viewsUrl || !a.choices || a.build < AVATAR_BUILD) a = await rebuild(c.ctx, a, a.choices ?? {});
     return viewsOf(c.ctx, a);
   },
 
   'avatars.setViews': async (c) => {
     const { userId } = requireUser(c);
-    const a = await ownUpload(c.ctx, c.params.id, userId);
+    let a = await ownUpload(c.ctx, c.params.id, userId);
+    if (a.build < AVATAR_BUILD) a = await rebuild(c.ctx, a, a.choices ?? {});
     const picks = Object.fromEntries(Object.entries(c.body.choices).filter(([, v]) => v !== undefined)) as Record<string, number>;
     const merged = { ...(a.choices ?? {}), ...picks };
     const changed = Object.entries(merged).some(([state, row]) => a.choices?.[state] !== row);
     let row = changed || !a.views ? await rebuild(c.ctx, a, merged) : a;
     if (c.body.favorites) {
-      // Only views the sheet has, once each, in the order picked.
-      const rows = new Set((row.views ?? []).map((v) => v.row));
-      const favorites = [...new Set(c.body.favorites)].filter((r) => rows.has(r));
+      // Only poses the sheet has, once each, in the order picked.
+      const poses = new Set((row.views ?? []).flatMap((v) => Array.from({ length: v.frames }, (_, f) => poseKey(v.row, f))));
+      const favorites = [...new Set(c.body.favorites)].filter((k) => poses.has(k));
       const [saved] = await c.ctx.db.update(avatars).set({ favorites }).where(eq(avatars.id, a.id)).returning();
       row = saved!;
     }

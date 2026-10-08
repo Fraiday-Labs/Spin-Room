@@ -1,5 +1,5 @@
 import type { AvatarViewChoices, AvatarViews } from '@spinroom/contracts';
-import { AVATAR_FAVORITE_VIEWS, AVATAR_VIEW_STATES } from '@spinroom/contracts';
+import { AVATAR_FAVORITE_VIEWS, AVATAR_VIEW_STATES, poseKey } from '@spinroom/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '../lib/api';
@@ -16,21 +16,22 @@ const PLACES: Record<(typeof AVATAR_VIEW_STATES)[number], string> = {
   wave: 'Saying hi (your member card)',
 };
 
-/** ChatGPT pet row names → friendly labels. Unnamed extra rows read "View N". */
-const VIEW_NAMES: Record<string, string> = {
-  idle: 'Standing',
-  'running-right': 'Run right',
-  'running-left': 'Run left',
-  waving: 'Waving',
-  jumping: 'Jumping',
-  failed: 'Tumble',
-  waiting: 'Waiting',
-  running: 'Running',
-  review: 'Thinking',
-};
-const viewName = (v: AvatarViews['views'][number]) => VIEW_NAMES[v.name] ?? `View ${v.row + 1}`;
+interface Pose {
+  key: number;
+  /** 1-based, in reading order: "Pose 7". */
+  n: number;
+  /** Row of the views sheet, and frame within it. */
+  sheetRow: number;
+  frame: number;
+}
 
-/** Pick which view (row) of an uploaded sheet plays in each place. */
+/** Every figure on the sheet, in reading order. */
+function posesOf(v: AvatarViews): Pose[] {
+  let n = 0;
+  return v.views.flatMap((view, sheetRow) => Array.from({ length: view.frames }, (_, frame) => ({ key: poseKey(view.row, frame), n: ++n, sheetRow, frame })));
+}
+
+/** Pick which still pose of an uploaded sheet shows in each place, from up to 5 favourites. */
 export function ViewsEditor({ avatarId, onClose }: { avatarId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const views = useQuery({ queryKey: ['avatars', 'views', avatarId], queryFn: () => api.call('avatars.views', { params: { id: avatarId } }) });
@@ -45,18 +46,19 @@ export function ViewsEditor({ avatarId, onClose }: { avatarId: string; onClose: 
     setFavs(views.data.favorites);
   }, [views.data]);
 
-  if (views.isLoading) return <p className="muted">Loading views…</p>;
+  if (views.isLoading) return <p className="muted">Loading poses…</p>;
   if (views.error) return <p className="notice error">{errorMessage(views.error)}</p>;
   const v = views.data!;
+  const poses = posesOf(v);
   const cols = Math.max(1, ...v.views.map((x) => x.frames));
-  const sameFavs = favs.length === v.favorites.length && favs.every((r, i) => r === v.favorites[i]);
+  const sameFavs = favs.length === v.favorites.length && favs.every((k, i) => k === v.favorites[i]);
   const changed = !sameFavs || AVATAR_VIEW_STATES.some((st) => draft[st] !== v.choices[st]);
   const full = favs.length >= AVATAR_FAVORITE_VIEWS;
-  const toggleFav = (row: number) => setFavs((f) => (f.includes(row) ? f.filter((r) => r !== row) : f.length < AVATAR_FAVORITE_VIEWS ? [...f, row] : f));
-  // Each place offers the favourites (plus whatever it plays now), or every view.
-  const offered = (st: string) => (showAll || !favs.length ? v.views : v.views.filter((x) => favs.includes(x.row) || draft[st] === x.row));
-  const sprite = (view: (typeof v.views)[number]) => (
-    <SheetSprite sheetUrl={v.sheetUrl} cell={v.cell} row={v.views.indexOf(view)} frames={view.frames} cols={cols} rowCount={v.views.length} width={56} />
+  const toggleFav = (key: number) => setFavs((f) => (f.includes(key) ? f.filter((k) => k !== key) : f.length < AVATAR_FAVORITE_VIEWS ? [...f, key] : f));
+  // Each place offers the favourites (plus whatever it shows now), or every pose.
+  const offered = (st: string) => (showAll || !favs.length ? poses : poses.filter((p) => favs.includes(p.key) || draft[st] === p.key));
+  const sprite = (p: Pose) => (
+    <SheetSprite sheetUrl={v.sheetUrl} cell={v.cell} row={p.sheetRow} frame={p.frame} frames={1} cols={cols} rowCount={v.views.length} width={56} />
   );
 
   const save = async () => {
@@ -67,7 +69,7 @@ export function ViewsEditor({ avatarId, onClose }: { avatarId: string; onClose: 
       qc.setQueryData(['avatars', 'views', avatarId], await api.call('avatars.setViews', { params: { id: avatarId }, body: { choices, favorites: favs } }));
       await qc.invalidateQueries({ queryKey: ['avatars', 'mine'] });
       await qc.invalidateQueries({ queryKey: ['me'] });
-      setMsg('Saved — rooms show your new views right away.');
+      setMsg('Saved — rooms show your new poses right away.');
     } catch (e) {
       setMsg(errorMessage(e));
     } finally {
@@ -77,37 +79,37 @@ export function ViewsEditor({ avatarId, onClose }: { avatarId: string; onClose: 
 
   return (
     <div className="stack" data-testid="views-editor">
-      <h3>Views for “{v.avatar.name}”</h3>
-      {v.views.length < 2 ? (
-        <p className="muted">This sheet has only one view, so it plays everywhere.</p>
+      <h3>Poses for “{v.avatar.name}”</h3>
+      {poses.length < 2 ? (
+        <p className="muted">This sheet has only one pose, so it shows everywhere.</p>
       ) : (
         <>
           <fieldset className={s.place}>
             <legend>
-              Your favorite views{' '}
+              Your favorite poses{' '}
               <span className="muted" data-testid="fav-count">
                 · {favs.length} of {AVATAR_FAVORITE_VIEWS}
               </span>
             </legend>
             <p className="muted" style={{ margin: '0 0 8px' }}>
-              Your sheet has {v.views.length} views. Star up to {AVATAR_FAVORITE_VIEWS} favorites, and each place below offers just those.
+              Your sheet has {poses.length} poses. Star up to {AVATAR_FAVORITE_VIEWS} favorites, and each place below offers just those.
             </p>
-            <div className={s.viewList} role="group" aria-label="Favorite views">
-              {v.views.map((view) => {
-                const on = favs.includes(view.row);
+            <div className={s.poseGrid} role="group" aria-label="Favorite poses">
+              {poses.map((p) => {
+                const on = favs.includes(p.key);
                 return (
                   <button
-                    key={view.row}
+                    key={p.key}
                     type="button"
                     aria-pressed={on}
-                    aria-label={`Favorite: ${viewName(view)}`}
+                    aria-label={`Favorite: Pose ${p.n}`}
                     disabled={!on && full}
                     className={`${s.viewOpt} ${on ? s.fav : ''}`}
-                    onClick={() => toggleFav(view.row)}
+                    onClick={() => toggleFav(p.key)}
                   >
-                    {sprite(view)}
+                    {sprite(p)}
                     <span>
-                      {on ? '★' : '☆'} {viewName(view)}
+                      {on ? '★' : '☆'} {p.n}
                     </span>
                   </button>
                 );
@@ -117,25 +119,25 @@ export function ViewsEditor({ avatarId, onClose }: { avatarId: string; onClose: 
           {favs.length > 0 && (
             <label className="row" style={{ gap: 6 }}>
               <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} data-testid="show-all-views" />
-              <span>Show all {v.views.length} views in each place</span>
+              <span>Show all {poses.length} poses in each place</span>
             </label>
           )}
           {AVATAR_VIEW_STATES.map((st) => (
             <fieldset key={st} className={s.place}>
               <legend>{PLACES[st]}</legend>
-              <div className={s.viewList} role="radiogroup" aria-label={PLACES[st]}>
-                {offered(st).map((view) => (
+              <div className={showAll || !favs.length ? s.poseGrid : s.viewList} role="radiogroup" aria-label={PLACES[st]}>
+                {offered(st).map((p) => (
                   <button
-                    key={view.row}
+                    key={p.key}
                     type="button"
                     role="radio"
-                    aria-checked={draft[st] === view.row}
-                    aria-label={`${PLACES[st]}: ${viewName(view)}`}
+                    aria-checked={draft[st] === p.key}
+                    aria-label={`${PLACES[st]}: Pose ${p.n}`}
                     className={s.viewOpt}
-                    onClick={() => setDraft((d) => ({ ...d, [st]: view.row }))}
+                    onClick={() => setDraft((d) => ({ ...d, [st]: p.key }))}
                   >
-                    {sprite(view)}
-                    <span>{viewName(view)}</span>
+                    {sprite(p)}
+                    <span>{p.n}</span>
                   </button>
                 ))}
               </div>
@@ -144,9 +146,9 @@ export function ViewsEditor({ avatarId, onClose }: { avatarId: string; onClose: 
         </>
       )}
       <div className="row">
-        {v.views.length >= 2 && (
+        {poses.length >= 2 && (
           <button className="btn btn-primary" disabled={!changed || busy} onClick={() => void save()} data-testid="save-views">
-            {busy ? 'Saving…' : 'Save views'}
+            {busy ? 'Saving…' : 'Save poses'}
           </button>
         )}
         <button className="btn btn-ghost" onClick={onClose}>
