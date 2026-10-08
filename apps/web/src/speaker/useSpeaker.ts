@@ -1,6 +1,6 @@
 import type { RoomEvent, RoomSnapshot } from '@spinroom/contracts';
 import { ApiError, ServerClock } from '@spinroom/sdk';
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { api } from '../lib/api';
 import { SpeakerController } from './controller';
 import { FakePlayer } from './fakePlayer';
@@ -28,6 +28,10 @@ const OFF_VIEW: SpeakerView = { status: 'off', message: null, driftMs: null, vol
 
 /** One speaker controller per room page. */
 export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' | 'fake' | undefined) {
+  // The device name is read when the speaker starts. Keep it out of the controller's identity:
+  // recreating the controller when the room's name loads (or changes) would drop the live spin.
+  const nameRef = useRef(roomName);
+  nameRef.current = roomName;
   const controller = useMemo(() => {
     if (!spotifyMode) return null;
     const player = spotifyMode === 'fake' ? new FakePlayer() : new SpotifyPlayer(spotifyToken);
@@ -42,9 +46,13 @@ export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' |
           await api.call('speakers.close', { params: { id } });
         },
       },
-      { deviceName: `Spinroom — ${roomName}` },
+      {
+        get deviceName() {
+          return `Spinroom — ${nameRef.current}`;
+        },
+      },
     );
-  }, [slug, roomName, spotifyMode]);
+  }, [slug, spotifyMode]);
 
   const view = useSyncExternalStore<SpeakerView>(
     (cb) => {

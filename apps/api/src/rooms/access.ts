@@ -21,6 +21,7 @@ export function toRoom(row: RoomRow): Room {
     settings: roomSettings(row),
     createdAt: row.createdAt,
     closedAt: row.closedAt ?? null,
+    linkSharing: !!row.shareToken,
   };
 }
 

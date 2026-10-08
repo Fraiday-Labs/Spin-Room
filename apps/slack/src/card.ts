@@ -9,11 +9,11 @@ const abs = (publicUrl: string, url: string | null | undefined) => (!url ? null 
 /** Slack mrkdwn escaping. */
 export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** The live now-playing card for a linked channel. */
-export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemeral?: boolean } = {}): { text: string; blocks: Block[] } {
+/** The live now-playing card for a linked channel. `joinUrl` is the room link behind its "Join room" button. */
+export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemeral?: boolean; joinUrl?: string } = {}): { text: string; blocks: Block[] } {
   const spin = snap.currentSpin;
   const names = new Map(snap.members.map((m) => [m.user.id, m.user]));
-  const roomUrl = `${publicUrl}/r/${snap.room.slug}`;
+  const joinUrl = opts.joinUrl ?? `${publicUrl}/r/${snap.room.slug}?speaker=1`;
   const blocks: Block[] = [];
   let text: string;
   if (spin) {
@@ -26,7 +26,7 @@ export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemer
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*<${trackUrl}|${esc(spin.track.title)}>*\n${esc(spin.track.artists.join(', '))}\n_${esc(snap.room.name)}_ · <${roomUrl}|open room>`,
+        text: `*<${trackUrl}|${esc(spin.track.title)}>*\n${esc(spin.track.artists.join(', '))}\n_${esc(snap.room.name)}_`,
       },
       ...(art?.startsWith('https://')
         ? { accessory: { type: 'image', image_url: art, alt_text: `Album art for ${spin.track.album || spin.track.title}` } }
@@ -54,7 +54,7 @@ export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemer
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${esc(snap.room.name)}*\n${snap.status === 'paused' ? 'Paused — nobody has a speaker on.' : 'Booth open — step up and play something.'} <${roomUrl}|Open room>`,
+        text: `*${esc(snap.room.name)}*\n${snap.status === 'paused' ? 'Paused — nobody has a speaker on.' : 'Booth open — step up and play something.'}`,
       },
     });
   }
@@ -63,15 +63,35 @@ export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemer
     type: 'actions',
     block_id: `sr_actions:${slug}`,
     elements: [
-      { type: 'button', action_id: 'sr_hype', text: { type: 'plain_text', text: '▲ Hype' }, style: 'primary', value: slug },
-      { type: 'button', action_id: 'sr_skip', text: { type: 'plain_text', text: '▼ Skip' }, style: 'danger', value: slug },
+      { type: 'button', action_id: 'sr_speaker', text: { type: 'plain_text', text: '🎧 Join room' }, style: 'primary', url: joinUrl, value: slug },
+      { type: 'button', action_id: 'sr_hype', text: { type: 'plain_text', text: '▲ Hype' }, value: slug },
+      { type: 'button', action_id: 'sr_skip', text: { type: 'plain_text', text: '▼ Skip' }, value: slug },
       { type: 'button', action_id: 'sr_dj', text: { type: 'plain_text', text: 'Join DJ queue' }, value: slug },
-      { type: 'button', action_id: 'sr_speaker', text: { type: 'plain_text', text: 'Open speaker' }, url: `${roomUrl}?speaker=1`, value: slug },
       { type: 'button', action_id: 'sr_add', text: { type: 'plain_text', text: 'Add to my set' }, value: slug },
     ],
   });
   if (opts.ephemeral) blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: 'Only you can see this.' }] });
   return { text, blocks };
+}
+
+/** A standalone "Join <room>" message for `/spinroom button`: post it, pin it, share it. */
+export function joinButtonMessage(room: { name: string; description: string; slug: string }, joinUrl: string): { text: string; blocks: Block[] } {
+  return {
+    text: `Join ${room.name} on Spinroom`,
+    blocks: [
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: `*🎶 ${esc(room.name)}*${room.description ? `\n${esc(room.description)}` : ''}\nListen together and take turns DJing.` },
+      },
+      {
+        type: 'actions',
+        block_id: `sr_join:${room.slug}`,
+        elements: [
+          { type: 'button', action_id: 'sr_speaker', text: { type: 'plain_text', text: '🎧 Join room' }, style: 'primary', url: joinUrl, value: room.slug },
+        ],
+      },
+    ],
+  };
 }
 
 export function connectBlocks(url: string, why = 'Connect your Spinroom account to vote, DJ and add songs from Slack.'): Block[] {

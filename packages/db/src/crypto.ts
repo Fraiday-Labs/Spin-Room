@@ -6,6 +6,11 @@ export function hmac(secret: string, data: string): string {
   return createHmac('sha256', secret).update(data).digest('base64url');
 }
 
+/** Signs the Slack card's "Join room" link: lets members of a linked channel into the room. */
+export function slackJoinSignature(secret: string, p: { teamId: string; channelId: string; roomId: string }): string {
+  return hmac(secret, `slackjoin|${p.teamId}|${p.channelId}|${p.roomId}`);
+}
+
 export function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);

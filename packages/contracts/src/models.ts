@@ -102,8 +102,17 @@ export const RoomSchema = z.object({
   createdAt: TimestampSchema,
   /** Set while the owner has closed the room (hidden, no one can join; reopenable). */
   closedAt: TimestampSchema.nullable(),
+  /** Invite-only rooms: "Anyone with the link" can join (the link itself comes from rooms.shareLink). */
+  linkSharing: z.boolean(),
 });
 export type Room = z.infer<typeof RoomSchema>;
+
+export const ShareLinkSchema = z.object({
+  /** The link to share: public rooms and link-shared rooms let anyone in; otherwise it works for members only. */
+  url: z.string(),
+  linkSharing: z.boolean(),
+});
+export type ShareLink = z.infer<typeof ShareLinkSchema>;
 
 export const RoomSummarySchema = RoomSchema.pick({
   id: true,

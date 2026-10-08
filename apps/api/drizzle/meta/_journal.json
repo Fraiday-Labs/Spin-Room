@@ -29,6 +29,13 @@
       "when": 1791449958300,
       "tag": "0003_profile_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791476345090,
+      "tag": "0004_room_share_link",
+      "breakpoints": true
     }
   ]
 }

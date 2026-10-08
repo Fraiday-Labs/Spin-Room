@@ -1,0 +1,68 @@
+.dialog {
+  background: var(--indigo);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  width: min(560px, 92vw);
+  display: grid;
+  gap: 16px;
+}
+.dialog:not([open]) {
+  display: none;
+}
+.dialog::backdrop {
+  background: rgb(5 6 18 / 0.7);
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.close {
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.h {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.linkRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.linkRow :global(.input) {
+  flex: 1;
+  min-width: 0;
+}
+.code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.access {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0;
+}
+.access select {
+  max-width: 300px;
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

@@ -149,6 +149,7 @@ const SLACK_COMMANDS: [string, string][] = [
   ['/spinroom add <search>', 'Add a song to your set'],
   ['/spinroom dj · /spinroom undj', 'Join or leave the DJ queue'],
   ['/spinroom invite @someone', 'DM a teammate an invite link'],
+  ['/spinroom button [room]', 'Post a “Join room” button for the channel: one click takes people into the room'],
   ['/spinroom speaker', 'DM yourself the speaker link (listening happens in a browser tab)'],
 ];
 

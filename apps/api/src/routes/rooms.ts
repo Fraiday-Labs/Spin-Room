@@ -1,10 +1,10 @@
 import { DEFAULT_ROOM_SETTINGS, RoomSettingsSchema, SpinroomError, type Invite, type RoomSummary } from '@spinroom/contracts';
 import { and, desc, eq, ilike, inArray, isNull, or } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
-import { invites, roomMembers, rooms, spins, users } from '../db/schema.js';
+import { invites, roomMembers, rooms, slackLinks, spins, users } from '../db/schema.js';
 import type { AuthInfo } from '../http/auth.js';
 import { requireUser, type Handlers } from '../http/router.js';
-import { sha256 } from '../lib/crypto.js';
+import { safeEqual, sha256, slackJoinSignature } from '../lib/crypto.js';
 import { newId, randomToken } from '../lib/ids.js';
 import { LIVE_TICKET_TTL_MS, liveTicketKey } from '../rooms/live-ticket.js';
 import { assertCanView, assertMod, assertOwner, ensureMember, isMod, isSiteAdmin, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
@@ -82,6 +82,38 @@ async function acceptInvite(ctx: AppContext, token: string, userId: string): Pro
       .where(eq(invites.id, inv.id));
   }
   return room;
+}
+
+/** The link to hand out: public rooms are open anyway; invite-only rooms carry the key while link sharing is on. */
+function shareLinkOf(ctx: AppContext, room: RoomRow) {
+  const base = `${ctx.cfg.PUBLIC_ORIGIN}/r/${room.slug}`;
+  const linkSharing = !!room.shareToken;
+  return { url: room.visibility === 'invite_only' && room.shareToken ? `${base}?key=${room.shareToken}` : base, linkSharing };
+}
+
+/**
+ * Let someone into an invite-only room they aren't a member of yet when they hold the room's
+ * share key ("anyone with the link") or a signed link from a Slack channel linked to the room.
+ */
+async function grantByLink(ctx: AppContext, room: RoomRow, userId: string, body: { key?: string; slack?: { teamId: string; channelId: string; sig: string } }) {
+  if (room.visibility !== 'invite_only' || room.closedAt) return;
+  if (await memberRow(ctx, room.id, userId)) return;
+  let ok = false;
+  if (body.key && room.shareToken && safeEqual(body.key, room.shareToken)) ok = true;
+  if (!ok && body.slack) {
+    const { teamId, channelId, sig } = body.slack;
+    const expected = slackJoinSignature(ctx.cfg.SERVICE_SECRET_SLACK, { teamId, channelId, roomId: room.id });
+    if (safeEqual(sig, expected)) {
+      // Only while that channel is still linked to this room.
+      const link = await ctx.db.query.slackLinks.findFirst({ where: and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)) });
+      ok = link?.roomId === room.id;
+    }
+  }
+  if (!ok) {
+    if (body.key || body.slack) throw new SpinroomError('invalid_invite', 'That link no longer works — ask someone in the room for a fresh one');
+    return;
+  }
+  await ctx.db.insert(roomMembers).values({ roomId: room.id, userId, role: 'member', joinedAt: ctx.clock.now() }).onConflictDoNothing();
 }
 
 function summaryOf(r: RoomRow, live: RoomLiveSummary | undefined, myRole: RoomSummary['myRole']): RoomSummary {
@@ -260,10 +292,39 @@ export const roomHandlers: Handlers = {
       if (r.id !== room.id) throw new SpinroomError('invalid_invite', 'That invite is for a different room');
       room = r;
     }
+    await grantByLink(ctx, room, auth.userId, body);
     await ensureMember(ctx, room, auth.userId);
     await touchRemote(ctx, auth, room);
     ctx.services.analytics.track('room_joined', { userId: auth.userId, roomId: room.id, props: { surface: auth.surface } });
     return ctx.services.rooms.snapshot(room, auth.userId);
+  },
+
+  'rooms.shareLink': async (c) => {
+    const { userId } = requireUser(c);
+    const room = await roomBySlug(c.ctx, c.params.slug);
+    await ensureMember(c.ctx, room, userId);
+    return shareLinkOf(c.ctx, room);
+  },
+
+  'rooms.setLinkSharing': async (c) => {
+    const { userId } = requireUser(c);
+    const room = await roomBySlug(c.ctx, c.params.slug);
+    await assertMod(c.ctx, room, userId);
+    const shareToken = c.body.enabled ? (room.shareToken ?? randomToken('rk', 18)) : null;
+    const [updated] = await c.ctx.db.update(rooms).set({ shareToken }).where(eq(rooms.id, room.id)).returning();
+    return shareLinkOf(c.ctx, updated!);
+  },
+
+  'rooms.resetShareLink': async (c) => {
+    const { userId } = requireUser(c);
+    const room = await roomBySlug(c.ctx, c.params.slug);
+    await assertMod(c.ctx, room, userId);
+    const [updated] = await c.ctx.db
+      .update(rooms)
+      .set({ shareToken: randomToken('rk', 18) })
+      .where(eq(rooms.id, room.id))
+      .returning();
+    return shareLinkOf(c.ctx, updated!);
   },
 
   'rooms.leave': async (c) => {

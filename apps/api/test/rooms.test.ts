@@ -1,7 +1,8 @@
 import type { RoomEvent } from '@spinroom/contracts';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { chatMessages, crateItems, invites, roomMembers, spins } from '../src/db/schema.js';
+import { chatMessages, crateItems, invites, roomMembers, slackLinks, spins } from '../src/db/schema.js';
+import { slackJoinSignature } from '../src/lib/crypto.js';
 import { ManualClock } from '../src/lib/clock.js';
 import { sha256 } from '../src/lib/crypto.js';
 import { FakeSpotifyGateway, FAKE_CATALOG } from '../src/spotify/fake.js';
@@ -74,6 +75,58 @@ describe('rooms and invites', () => {
     const inv = (await alice.req('POST', `/v1/rooms/${room.slug}/invites`, { expiresInMs: 60_000 })).json();
     clock.advance(61_000);
     expect((await bob.req('POST', `/v1/rooms/${room.slug}/join`, { invite: inv.url })).json().code).toBe('invalid_invite');
+  });
+});
+
+describe('share links ("anyone with the link")', () => {
+  it('lets anyone with the link into an invite-only room, and resetting or turning it off stops old links', async () => {
+    t = await createTestApp();
+    const alice = await login(t, 'alice');
+    const bob = await login(t, 'bob');
+    const carol = await login(t, 'carol');
+    const { room } = await createRoom(alice, { visibility: 'invite_only' });
+    const base = `/v1/rooms/${room.slug}`;
+    expect((await bob.req('POST', `${base}/join`, {})).json().code).toBe('not_member');
+
+    // Off by default: the link only works for members.
+    const off = (await alice.req('GET', `${base}/share-link`)).json();
+    expect(off).toEqual({ linkSharing: false, url: expect.stringMatching(new RegExp(`/r/${room.slug}$`)) });
+    expect((await bob.req('PUT', `${base}/share-link`, { enabled: true })).statusCode).toBe(403);
+
+    const on = (await alice.req('PUT', `${base}/share-link`, { enabled: true })).json();
+    expect(on.linkSharing).toBe(true);
+    const key = new URL(on.url).searchParams.get('key')!;
+    expect(key).toMatch(/^rk_/);
+    const joined = (await bob.req('POST', `${base}/join`, { key })).json();
+    expect(joined.me.role).toBe('member');
+    expect(joined.room.linkSharing).toBe(true);
+    // Any member can copy the same link.
+    expect((await bob.req('GET', `${base}/share-link`)).json().url).toBe(on.url);
+    expect((await carol.req('POST', `${base}/join`, { key: 'rk_wrong' })).json().code).toBe('invalid_invite');
+
+    const reset = (await alice.req('POST', `${base}/share-link/reset`)).json();
+    expect(reset.url).not.toBe(on.url);
+    expect((await carol.req('POST', `${base}/join`, { key })).json().code).toBe('invalid_invite');
+    await alice.req('PUT', `${base}/share-link`, { enabled: false });
+    const newKey = new URL(reset.url).searchParams.get('key')!;
+    expect((await carol.req('POST', `${base}/join`, { key: newKey })).json().code).toBe('invalid_invite');
+    // Existing members keep their access.
+    expect((await bob.req('POST', `${base}/join`, {})).statusCode).toBe(200);
+  });
+
+  it('lets members of a linked Slack channel in with a signed link, only while it stays linked', async () => {
+    t = await createTestApp();
+    const alice = await login(t, 'alice');
+    const dave = await login(t, 'dave');
+    const { room } = await createRoom(alice, { visibility: 'invite_only' });
+    const slack = { teamId: 'T1', channelId: 'C1', sig: slackJoinSignature(t.ctx.cfg.SERVICE_SECRET_SLACK, { teamId: 'T1', channelId: 'C1', roomId: room.id }) };
+    const join = (body: object) => dave.req('POST', `/v1/rooms/${room.slug}/join`, body);
+    // Not linked yet: refused.
+    expect((await join({ slack })).json().code).toBe('invalid_invite');
+    await t.ctx.db.insert(slackLinks).values({ teamId: 'T1', channelId: 'C1', roomId: room.id, createdAt: Date.now() });
+    expect((await join({ slack: { ...slack, sig: 'forged' } })).json().code).toBe('invalid_invite');
+    expect((await join({ slack: { ...slack, channelId: 'C2' } })).json().code).toBe('invalid_invite');
+    expect((await join({ slack })).json().me.role).toBe('member');
   });
 });
 

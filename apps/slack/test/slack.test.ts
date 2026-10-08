@@ -248,6 +248,44 @@ describe('Slack app (Journey 4)', () => {
     expect((await s.command('U-ALICE', 'unlink')).text).toBe('Unlinked.');
   });
 
+  it('"Join room" lets channel members into an invite-only room in one click; /spinroom button posts it', async () => {
+    const s = await setup();
+    const alice = await login(t, 'alice', { displayName: 'Alice' });
+    const carol = await login(t, 'carol', { displayName: 'Carol' });
+    await connect(s, 'U-ALICE', alice);
+    const { room } = (await alice.req('POST', '/v1/rooms', { name: 'Secret Sessions', visibility: 'invite_only' })).json();
+
+    // Unlinked channel + invite-only room without link sharing: no button that wouldn't work.
+    expect((await s.command('U-ALICE', `button ${room.slug}`, 'C9')).text).toContain('is invite-only');
+
+    await s.command('U-ALICE', `link ${room.slug}`);
+    const card = s.slack.calls.find((c) => c.method === 'chat.postMessage' && c.body.channel === 'C1')!;
+    const joinUrl = (raw: unknown) => new URL(JSON.stringify(raw).match(/"text":"🎧 Join room"[^}]*\},"style":"primary","url":"([^"]+)"/)![1]!.replace(/\\u0026/g, '&'));
+    const url = joinUrl(card.body.blocks);
+    expect(url.pathname).toBe(`/r/${room.slug}`);
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({ speaker: '1', via: 'slack', team: 'T1', channel: 'C1' });
+
+    // Carol isn't a member and never connected Slack: the link alone gets her in.
+    const slack = { teamId: 'T1', channelId: 'C1', sig: url.searchParams.get('sig')! };
+    expect((await carol.req('POST', `/v1/rooms/${room.slug}/join`, {})).json().code).toBe('not_member');
+    expect((await carol.req('POST', `/v1/rooms/${room.slug}/join`, { slack })).json().me.role).toBe('member');
+
+    // /spinroom button posts the same link for everyone in the channel.
+    const posted = await s.command('U-ALICE', 'button');
+    expect(posted.response_type).toBe('in_channel');
+    expect(joinUrl(posted.blocks).searchParams.get('sig')).toBe(slack.sig);
+
+    // Elsewhere, with "Anyone with the link" on, it uses the room's share link.
+    await alice.req('PUT', `/v1/rooms/${room.slug}/share-link`, { enabled: true });
+    const elsewhere = joinUrl((await s.command('U-ALICE', `button ${room.slug}`, 'C9')).blocks);
+    expect(elsewhere.searchParams.get('key')).toMatch(/^rk_/);
+
+    // Unlinking the channel retires its links.
+    await s.command('U-ALICE', 'unlink');
+    const dave = await login(t, 'dave');
+    expect((await dave.req('POST', `/v1/rooms/${room.slug}/join`, { slack })).json().code).toBe('invalid_invite');
+  });
+
   it('serves track search options for the Add to my set modal', async () => {
     const s = await setup();
     const alice = await login(t, 'alice');

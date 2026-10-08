@@ -12,9 +12,11 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
     await page.getByLabel('Who can join').selectOption('invite_only');
     await page.getByTestId('create-room').click();
     await expect(page).toHaveURL(/\/r\/friday-/);
-    await page.getByRole('button', { name: 'Invite' }).click();
+    await page.getByTestId('share-room').click();
+    await page.getByRole('button', { name: 'Create a one-time invite' }).click();
     const inviteUrl = (await page.locator('code', { hasText: '/invite/' }).textContent())!;
     expect(inviteUrl).toMatch(/\/invite\/inv_/);
+    await page.getByRole('button', { name: 'Done' }).click();
     await page.getByTestId('start-speaker').click();
     await expect(page.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
 
@@ -45,11 +47,13 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
     await friend.waitForTimeout(2000);
     await friend.getByTestId('start-speaker').click();
     await expect(friend.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
-    const pos = await friend.evaluate(async () => {
-      const sp = (window as unknown as { __speaker: { player: { getState(): Promise<{ positionMs: number; uri: string } | null> } } }).__speaker;
-      return sp.player.getState();
-    });
-    expect(pos?.uri).toMatch(/^spotify:track:/);
+    const state = () =>
+      friend.evaluate(async () => {
+        const sp = (window as unknown as { __speaker: { player: { getState(): Promise<{ positionMs: number; uri: string } | null> } } }).__speaker;
+        return sp.player.getState();
+      });
+    await expect.poll(async () => (await state())?.uri ?? null).toMatch(/^spotify:track:/);
+    const pos = await state();
     expect(pos!.positionMs).toBeGreaterThan(1500);
 
     // Friend joins the DJ queue: empty set → My set tab, search, add, then join.
@@ -350,4 +354,41 @@ test('rooms are created from the "Create +" modal', async ({ browser }) => {
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/modal-/);
   await expect(page.getByTestId('stage')).toBeVisible();
+});
+
+test('"Anyone with the link" lets someone straight into an invite-only room, even before they sign in', async ({ page, browser }) => {
+  const owner = await newUserPage(browser, uid('sharer'));
+  await owner.goto('/lobby');
+  await owner.getByTestId('open-create-room').click();
+  await owner.getByTestId('room-name').fill(`Linky ${run}`);
+  await owner.getByLabel('Who can join').selectOption('invite_only');
+  await owner.getByTestId('create-room').click();
+  await expect(owner).toHaveURL(/\/r\/linky-/);
+  const roomPath = new URL(owner.url()).pathname;
+
+  await owner.getByTestId('share-room').click();
+  const dialog = owner.getByRole('dialog', { name: /Share/ });
+  await expect(dialog.getByLabel('General access')).toHaveValue('restricted');
+  await expect(dialog.getByTestId('share-url')).toHaveValue(new RegExp(`${roomPath}$`));
+  await dialog.getByLabel('General access').selectOption('link');
+  await expect(dialog.getByTestId('share-url')).toHaveValue(/\?key=rk_/);
+  const shareUrl = await dialog.getByTestId('share-url').inputValue();
+  await expect(dialog.getByText('Anyone who has this link can join the room.')).toBeVisible();
+
+  // A friend who isn't signed in opens the link, signs in, and lands in the room.
+  await page.goto(new URL(shareUrl).pathname + new URL(shareUrl).search);
+  await page.getByTestId('link-sign-in').click();
+  await page.getByRole('button', { name: 'Continue to test sign-in' }).click();
+  await page.getByLabel('Spotify user ID').fill(uid('linkfriend'));
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByTestId('stage')).toBeVisible();
+  // In, and the key is no longer in the address bar.
+  await expect(page).toHaveURL(new RegExp(`${roomPath}$`));
+
+  // Resetting the link stops the old one working for newcomers.
+  await dialog.getByRole('button', { name: 'Reset link' }).click();
+  await expect(dialog.getByTestId('share-url')).not.toHaveValue(shareUrl);
+  const latecomer = await newUserPage(browser, uid('late'));
+  await latecomer.goto(new URL(shareUrl).pathname + new URL(shareUrl).search);
+  await expect(latecomer.getByText(/That link no longer works/)).toBeVisible();
 });

@@ -27,14 +27,6 @@
 .spacer {
   flex: 1;
 }
-.inviteBar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 6px 12px;
-  background: #241c52;
-  flex-wrap: wrap;
-}
 .inviteBar code {
   word-break: break-all;
 }

@@ -1,10 +1,10 @@
 import { App, HTTPReceiver, LogLevel, webApi, type types, type RespondFn } from '@slack/bolt';
 import type { RoomEvent } from '@spinroom/contracts';
-import { createAesSealer, tables, type Db } from '@spinroom/db';
+import { createAesSealer, slackJoinSignature, tables, type Db } from '@spinroom/db';
 import { eq } from 'drizzle-orm';
 import { ApiError, formatMs, type SpinroomClient } from '@spinroom/sdk';
 import type { Redis } from 'ioredis';
-import { buildCard, connectBlocks, esc, type Block } from './card.js';
+import { buildCard, connectBlocks, esc, joinButtonMessage, type Block } from './card.js';
 
 type WebClient = webApi.WebClient;
 const kb = (b: Block[]) => b as unknown as types.KnownBlock[];
@@ -21,6 +21,7 @@ const HELP = [
   '`/spinroom add <search>` — add a song to your set',
   '`/spinroom dj` · `/spinroom undj` — join or leave the DJ queue',
   '`/spinroom invite @user` — DM someone an invite link',
+  '`/spinroom button [room]` — post a “Join room” button anyone in this channel can click',
   '`/spinroom speaker` — DM yourself the speaker link (listening happens in a browser tab)',
 ].join('\n');
 
@@ -104,6 +105,16 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
   const errText = (e: unknown) => (e instanceof ApiError ? e.message : 'Something went wrong — try again.');
 
   // ---------------------------------------------------------------- card sync
+  /**
+   * The "Join room" link for a channel linked to a room: signed so the people in the channel can
+   * get into the room even when it's invite-only (only while the channel stays linked).
+   */
+  function channelJoinUrl(slug: string, roomId: string, teamId: string, channelId: string) {
+    const sig = slackJoinSignature(cfg.serviceSecret, { teamId, channelId, roomId });
+    const q = new URLSearchParams({ speaker: '1', via: 'slack', team: teamId, channel: channelId, sig });
+    return `${cfg.publicUrl}/r/${slug}?${q.toString()}`;
+  }
+
   async function renderCard(teamId: string, channelId: string, opts: { repost?: boolean } = {}) {
     const link = await links.forChannel(teamId, channelId);
     if (!link?.linkedBySlackUser) return;
@@ -111,7 +122,7 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     const a = slug ? await access.client(teamId, link.linkedBySlackUser) : null;
     if (!a || !slug) return;
     const snap = await a.client.call('rooms.get', { params: { slug } });
-    const card = buildCard(snap, cfg.publicUrl);
+    const card = buildCard(snap, cfg.publicUrl, { joinUrl: channelJoinUrl(slug, link.roomId, teamId, channelId) });
     const client = await clientFor(teamId);
     if (link.cardMessageTs && !opts.repost && link.messagesSinceCard < snap.room.settings.slackRepostAfter) {
       await client.chat.update({ channel: channelId, ts: link.cardMessageTs, text: card.text, blocks: kb(card.blocks) });
@@ -189,7 +200,9 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
       switch (sub) {
         case 'now': {
           const snap = await sr.call('rooms.join', { params: { slug }, body: {} });
-          const card = buildCard(snap, cfg.publicUrl, { ephemeral: true });
+          const link = await links.forChannel(team, channel);
+          const joinUrl = link?.roomId === snap.room.id ? channelJoinUrl(slug, snap.room.id, team, channel) : undefined;
+          const card = buildCard(snap, cfg.publicUrl, { ephemeral: true, joinUrl });
           return void (await respond({ response_type: 'ephemeral', text: card.text, blocks: kb(card.blocks) }));
         }
         case 'hype':
@@ -229,6 +242,25 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
             if (im.channel?.id) await client.chat.postMessage({ channel: im.channel.id, text: `<@${command.user_id}> invited you: ${inv.message}` });
           }
           return void (await respond({ response_type: 'ephemeral', text: `Invite sent to ${who.map((u) => `<@${u}>`).join(', ')}.` }));
+        }
+        case 'button': {
+          // Linked channel: the signed channel link. Otherwise the room's own share link, which only
+          // lets newcomers in if the room is public or has "Anyone with the link" turned on.
+          const snap = await sr.call('rooms.join', { params: { slug }, body: {} });
+          const link = await links.forChannel(team, channel);
+          let joinUrl: string;
+          if (link?.roomId === snap.room.id) joinUrl = channelJoinUrl(slug, snap.room.id, team, channel);
+          else {
+            const share = await sr.call('rooms.shareLink', { params: { slug } });
+            if (snap.room.visibility === 'invite_only' && !share.linkSharing)
+              return void (await respond({
+                response_type: 'ephemeral',
+                text: `*${esc(snap.room.name)}* is invite-only, so a button here would only work for people already in it. Link this channel first (\`/spinroom link ${slug}\`), or turn on *Anyone with the link* in the room’s Share menu.`,
+              }));
+            joinUrl = `${share.url}${share.url.includes('?') ? '&' : '?'}speaker=1`;
+          }
+          const msg = joinButtonMessage(snap.room, joinUrl);
+          return void (await respond({ response_type: 'in_channel', text: msg.text, blocks: kb(msg.blocks) }));
         }
         case 'speaker': {
           const im = await client.conversations.open({ users: command.user_id });

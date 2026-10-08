@@ -100,8 +100,9 @@ export class SpeakerController {
       this.set({ status: 'live' });
       this.loop = this.t.setInterval(() => void this.correct(), TIMING.driftCheckMs);
       this.beat = this.t.setInterval(() => void this.heartbeat(), TIMING.heartbeatMs);
-      await this.heartbeat();
+      // Audio first (fastest join-to-audio), then report in; the heartbeat carries joinToAudioMs.
       if (this.spin) await this.playCurrent();
+      await this.heartbeat();
     } catch (e) {
       this.set({ status: 'error', message: (e as Error).message });
       throw e;

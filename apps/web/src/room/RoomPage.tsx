@@ -3,17 +3,25 @@ import { ApiError } from '@spinroom/sdk';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
-import { CopyButton } from '../components/CopyButton';
 import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { useSpeaker } from '../speaker/useSpeaker';
 import { MemberCard } from './MemberCard';
 import { PlayerPanel } from './PlayerPanel';
 import { Rail, type RailTab } from './Rail';
+import { ShareDialog } from './ShareDialog';
 import { SpeakerBanner } from './SpeakerBanner';
 import { Stage } from './Stage';
 import { useLiveRoom } from './store';
 import s from './RoomPage.module.css';
+
+/** The current URL minus the one-time join parameters. */
+function cleanUrl(params: URLSearchParams) {
+  const next = new URLSearchParams(params);
+  for (const k of ['key', 'via', 'team', 'channel', 'sig', 'invite']) next.delete(k);
+  const q = next.toString();
+  return location.pathname + (q ? `?${q}` : '');
+}
 
 interface Toast {
   id: number;
@@ -26,6 +34,15 @@ export default function RoomPage({ slug }: { slug: string }) {
   const me = useMe();
   const cfg = useQuery({ queryKey: ['auth-config'], queryFn: () => api.call('auth.config') });
   const [joinError, setJoinError] = useState<string | null>(null);
+  // How this visit was invited in: a one-time invite, the room's share link, or a Slack channel's Join button.
+  const invite = params.get('invite') ?? undefined;
+  const key = params.get('key') ?? undefined;
+  const slackGrant =
+    params.get('via') === 'slack' && params.get('team') && params.get('channel') && params.get('sig')
+      ? { teamId: params.get('team')!, channelId: params.get('channel')!, sig: params.get('sig')! }
+      : undefined;
+  const hasLinkGrant = !!(key || slackGrant);
+  const joinBody = { ...(invite ? { invite } : {}), ...(key ? { key } : {}), ...(slackGrant ? { slack: slackGrant } : {}) };
   const [joined, setJoined] = useState(false);
   const userId = me.data?.id ?? null;
 
@@ -36,15 +53,18 @@ export default function RoomPage({ slug }: { slug: string }) {
       setJoined(true); // anonymous viewers can watch public rooms
       return;
     }
-    const invite = params.get('invite') ?? undefined;
     api
-      .call('rooms.join', { params: { slug }, body: invite ? { invite } : {} })
-      .then(() => setJoined(true))
+      .call('rooms.join', { params: { slug }, body: joinBody })
+      .then(() => {
+        setJoined(true);
+        // The key / Slack signature did their job; keep them out of the address bar.
+        if (hasLinkGrant) history.replaceState(null, '', cleanUrl(params));
+      })
       .catch((e) => setJoinError(errorMessage(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, me.isLoading, userId]);
 
-  const live = useLiveRoom(slug, userId, joined && !joinError);
+  const live = useLiveRoom(slug, userId, joined && !joinError && !(hasLinkGrant && !me.data));
   const snap = live.snapshot;
   const speaker = useSpeaker(slug, snap?.room.name ?? slug, me.data && !me.data.remoteOnly ? cfg.data?.spotifyMode : undefined);
 
@@ -80,10 +100,12 @@ export default function RoomPage({ slug }: { slug: string }) {
       }
     });
   }, [live.store, userId, notify, navigate]);
+  // Hand the current spin to the speaker, including when the speaker is created after the room
+  // loaded (auth config arriving later, e.g. a first visit from a share or Slack link).
   useEffect(() => {
     if (snap) speaker.onRoom(snap, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap?.currentSpin?.id]);
+  }, [snap?.currentSpin?.id, speaker.controller]);
 
   const vote = useCallback(
     async (value: VoteValue | null) => {
@@ -135,8 +157,20 @@ export default function RoomPage({ slug }: { slug: string }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [vote, toggleQueue, snap?.me?.vote]);
 
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
+  // Someone followed a share or Slack link but isn't signed in yet: sign in, then come straight back.
+  if (!me.isLoading && !me.data && hasLinkGrant) {
+    return (
+      <div className="page stack" style={{ maxWidth: 560 }}>
+        <h1>You’re invited to a Spinroom room</h1>
+        <p className="muted">Sign in with Spotify to join. You’ll come right back here.</p>
+        <a className="btn btn-spotify" style={{ justifySelf: 'start' }} href={signInUrl()} data-testid="link-sign-in">
+          Sign in with Spotify to join
+        </a>
+      </div>
+    );
+  }
   if (joinError || live.error) {
     return (
       <div className="page stack">
@@ -187,18 +221,8 @@ export default function RoomPage({ slug }: { slug: string }) {
           autoFocus={params.get('speaker') === '1'}
         />
         {me.data && (
-          <button
-            className="btn"
-            onClick={async () => {
-              try {
-                const inv = await api.call('invites.create', { params: { slug }, body: {} });
-                setInviteUrl(inv.url);
-              } catch (e) {
-                notify(errorMessage(e));
-              }
-            }}
-          >
-            Invite
+          <button className="btn" onClick={() => setSharing(true)} data-testid="share-room">
+            Share
           </button>
         )}
         {isMod && (
@@ -212,16 +236,6 @@ export default function RoomPage({ slug }: { slug: string }) {
           </a>
         )}
       </header>
-      {inviteUrl && (
-        <div className={s.inviteBar} role="status">
-          <span>Invite link (expires in {Math.round(snap.room.settings.inviteTtlMs / 86_400_000)} days):</span>
-          <code>{inviteUrl}</code>
-          <CopyButton text={inviteUrl} />
-          <button className="btn btn-ghost" onClick={() => setInviteUrl(null)} aria-label="Dismiss">
-            ✕
-          </button>
-        </div>
-      )}
       <div className={s.main}>
         <div className={s.center}>
           <div className={s.stage}>
@@ -269,6 +283,7 @@ export default function RoomPage({ slug }: { slug: string }) {
           </div>
         ))}
       </div>
+      {sharing && <ShareDialog snap={snap} canManage={isMod} onClose={() => setSharing(false)} />}
       {selected && (
         <ErrorBoundary where="member-card" resetKey={selected.user.id} fallback={() => null}>
           <MemberCard

@@ -152,8 +152,8 @@ Tools: `list_rooms`, `join_room`, `leave_room`, `now_playing`, `vote`, `search_t
 1. Create the app from [`apps/slack/manifest.yml`](apps/slack/manifest.yml) after replacing `spinroom.example.com` with your origin. Then set the `SLACK_*` variables and run `apps/slack`.
 2. Install it per workspace at `<origin>/v1/integrations/slack/install`.
 3. In a channel, an owner or moderator runs `/spinroom link <room>`. A now-playing card appears and is edited in place, at most once every 3 s per channel. It is reposted after 50 newer messages.
-4. Card buttons: **Hype**, **Skip**, **Join DJ queue**, **Open speaker**, **Add to my set**. The last opens a Spotify search modal.
-5. Slash commands: `now`, `hype`, `skip`, `add <search>`, `dj`, `undj`, `invite @user`, `speaker`, `unlink`, `help`.
+4. Card buttons: **🎧 Join room**, **Hype**, **Skip**, **Join DJ queue**, **Add to my set** (opens a Spotify search modal). **Join room** carries a link signed for that channel, so anyone in it gets into the room in one click, invite-only rooms included, for as long as the channel stays linked.
+5. Slash commands: `now`, `hype`, `skip`, `add <search>`, `dj`, `undj`, `invite @user`, `button [room]` (posts a standalone **Join room** button), `speaker`, `unlink`, `help`.
 6. Each Slack user connects once with the **Connect Spinroom** button. It is a signed link that's valid for 15 minutes.
 
 The manifest adds `channels:history` and `groups:history` to the PRD's scopes. Spinroom only uses them to count newer messages so it can repost the card. Before promoting a workplace "office radio", check Spotify's personal, non-commercial use terms.

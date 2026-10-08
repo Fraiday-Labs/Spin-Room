@@ -13,7 +13,7 @@ features:
     - command: /spinroom
       url: https://spinroom.example.com/v1/integrations/slack/commands
       description: Link a room, vote, DJ, add songs, invite
-      usage_hint: 'link <room> | now | hype | skip | add <search> | dj | undj | invite @user | speaker'
+      usage_hint: 'link <room> | now | hype | skip | add <search> | dj | undj | invite @user | button [room] | speaker'
       should_escape: true
 oauth_config:
   redirect_urls:

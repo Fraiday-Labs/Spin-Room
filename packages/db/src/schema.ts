@@ -81,6 +81,8 @@ export const rooms = pgTable('rooms', {
   createdAt: ms('created_at').notNull(),
   /** Closed by the owner: hidden from the directory, nobody can join, reopenable. */
   closedAt: ms('closed_at'),
+  /** "Anyone with the link" key for invite-only rooms; null while link sharing is off. */
+  shareToken: text('share_token'),
 });
 
 export const roomMembers = pgTable(
