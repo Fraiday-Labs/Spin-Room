@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { createAesSealer, pkceChallenge } from '../src/lib/crypto.js';
+import { createAesSealer, encryptionKey, pkceChallenge } from '../src/lib/crypto.js';
 import { RealSpotifyGateway } from '../src/spotify/real.js';
 import { cookiesFrom, createTestApp, login, type TestApp } from './helpers.js';
 
@@ -158,6 +158,14 @@ describe('crypto', () => {
     const sealed = s.seal('secret-token');
     expect(sealed).not.toContain('secret');
     expect(s.open(sealed)).toBe('secret-token');
+  });
+  it('accepts a base64 32-byte key or any long random secret, and refuses short ones', () => {
+    const b64 = Buffer.alloc(32, 7).toString('base64');
+    // A base64 key keeps its exact bytes, so values sealed before stay readable.
+    expect(encryptionKey(b64)).toEqual(Buffer.alloc(32, 7));
+    const generated = createAesSealer('Kq3vX9pT2wLm8RzN4bYc7HdF1sJ6gEaU0oQiVtWx');
+    expect(generated.open(generated.seal('tok'))).toBe('tok');
+    expect(() => createAesSealer('too-short')).toThrow(/32/);
   });
   it('computes S256 challenges', () => {
     expect(pkceChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk')).toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');

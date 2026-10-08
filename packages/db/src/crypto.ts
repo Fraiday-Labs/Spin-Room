@@ -19,9 +19,19 @@ export interface Sealer {
 }
 
 /** AES-256-GCM: `v1.<iv>.<tag>.<ciphertext>` (base64url parts). */
-export function createAesSealer(keyB64: string): Sealer {
-  const key = Buffer.from(keyB64, 'base64');
-  if (key.length !== 32) throw new Error('ENCRYPTION_KEY must decode to 32 bytes');
+/**
+ * The 32-byte AES key from ENCRYPTION_KEY: base64 of exactly 32 bytes (`openssl rand -base64 32`),
+ * or any other secret of 32+ characters (e.g. a host's "Generate" button), hashed with SHA-256.
+ */
+export function encryptionKey(secret: string): Buffer {
+  const decoded = Buffer.from(secret, 'base64');
+  if (decoded.length === 32 && decoded.toString('base64') === secret) return decoded;
+  if (secret.length >= 32) return createHash('sha256').update(secret, 'utf8').digest();
+  throw new Error('ENCRYPTION_KEY must be base64 of 32 bytes or a random secret of at least 32 characters');
+}
+
+export function createAesSealer(keySecret: string): Sealer {
+  const key = encryptionKey(keySecret);
   return {
     seal(plain) {
       const iv = randomBytes(12);
