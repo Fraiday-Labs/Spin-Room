@@ -83,6 +83,9 @@ export const AvatarViewChoicesSchema = z.object(
 );
 export type AvatarViewChoices = z.infer<typeof AvatarViewChoicesSchema>;
 
+/** How many favourite views an owner can shortlist from a sheet. */
+export const AVATAR_FAVORITE_VIEWS = 5;
+
 /** Every non-empty row of an uploaded sheet, for picking which one plays where. */
 export const AvatarViewsSchema = z.object({
   /** Sheet with one row per view, `cell`-sized frames, in `views` order. */
@@ -91,6 +94,8 @@ export const AvatarViewsSchema = z.object({
   views: z.array(z.object({ row: z.number().int(), name: z.string(), frames: z.number().int() })),
   /** The source row each state plays (the defaults filled in). */
   choices: z.record(z.string(), z.number().int()),
+  /** The owner's favourite views (source rows): the shortlist each place's picker shows. Empty: all. */
+  favorites: z.array(z.number().int()),
   avatar: AvatarSchema,
 });
 export type AvatarViews = z.infer<typeof AvatarViewsSchema>;

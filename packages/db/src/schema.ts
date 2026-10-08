@@ -24,6 +24,8 @@ export const avatars = pgTable(
     viewsUrl: text('views_url'),
     /** Owner's picks: state → source row. Missing states use the default mapping. */
     choices: jsonb('choices').$type<Record<string, number> | null>(),
+    /** Owner's favourite views (source rows), up to AVATAR_FAVORITE_VIEWS: the shortlist they pick from. */
+    favorites: jsonb('favorites').$type<number[] | null>(),
     /** Sheet-builder version that made `sheetUrl`; older uploads are rebuilt at boot. */
     build: integer('build').notNull().default(1),
     /** Uploaded by a site admin and offered to everyone alongside the built-in presets. */

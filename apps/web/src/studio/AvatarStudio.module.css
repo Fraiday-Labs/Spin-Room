@@ -128,3 +128,10 @@
   border-color: var(--cyan);
   background: #182040;
 }
+.viewOpt:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.viewOpt.fav {
+  border-color: var(--amber);
+}

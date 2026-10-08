@@ -71,10 +71,23 @@ test('pick which view of an uploaded sheet plays on the floor, at the booth and 
   await editor.getByTestId('save-views').click();
   await expect(editor.getByRole('status')).toContainText('Saved');
 
+  // Star favourites: each place then offers just those (plus what it plays now).
+  const favs = editor.getByRole('group', { name: 'Favorite views' });
+  for (const name of ['View 10', 'View 11', 'Waving']) await favs.getByRole('button', { name: `Favorite: ${name}` }).click();
+  await expect(editor.getByTestId('fav-count')).toContainText('3 of 5');
+  await expect(floor.getByRole('radio')).toHaveCount(3); // View 10 (picked) + View 11 + Waving
+  await editor.getByTestId('show-all-views').check();
+  await expect(floor.getByRole('radio')).toHaveCount(11);
+  await editor.getByTestId('show-all-views').uncheck();
+  await editor.getByTestId('save-views').click();
+  await expect(editor.getByRole('status')).toContainText('Saved');
+
   // The picks stick, and the avatar now plays different rows on the floor and at the booth.
   await p.reload();
   await p.getByRole('button', { name: /Choose views for/ }).click();
   await expect(p.getByRole('radiogroup', { name: 'On the dance floor' }).getByRole('radio', { name: /View 10/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(p.getByTestId('fav-count')).toContainText('3 of 5');
+  await expect(p.getByRole('radiogroup', { name: 'On the dance floor' }).getByRole('radio')).toHaveCount(3);
   const me = await p.evaluate(async () => (await fetch('/v1/me')).json());
   const at = (s: string) => me.avatar.rows.find((r: { state: string }) => r.state === s).at;
   expect(at('idle')).not.toBe(at('booth'));

@@ -251,6 +251,15 @@ describe('choosing views (which sheet row plays where)', () => {
     // Unchanged states keep their picks on the next save.
     expect((await u.req('PUT', `/v1/avatars/${id}/views`, { choices: { wave: 3 } })).json().choices).toMatchObject({ idle: 9, dj: 10, wave: 3 });
 
+    // A shortlist of favourite views: kept in order, only views the sheet has, once each, at most 5.
+    const before = (await u.req('GET', `/v1/avatars/${id}/views`)).json();
+    const fav = (await u.req('PUT', `/v1/avatars/${id}/views`, { favorites: [9, 10, 2, 8, 9] })).json();
+    expect(fav.favorites).toEqual([9, 10, 2]); // row 8 is empty on this sheet
+    expect(fav.choices).toEqual(before.choices);
+    expect(fav.avatar.sheetUrl).toBe(before.avatar.sheetUrl); // nothing to rebuild
+    expect((await u.req('PUT', `/v1/avatars/${id}/views`, { favorites: [0, 1, 2, 3, 4, 5] })).statusCode).toBe(400);
+    expect((await u.req('GET', `/v1/avatars/${id}/views`)).json().favorites).toEqual([9, 10, 2]);
+
     // The new sheet is what the owner wears.
     const me = (await u.req('GET', '/v1/me')).json();
     expect(at(me.avatar, 'idle')).toBe(at(set.avatar, 'idle'));

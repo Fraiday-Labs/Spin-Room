@@ -1,0 +1,1 @@
+ALTER TABLE "avatars" ADD COLUMN "favorites" jsonb;

@@ -208,7 +208,17 @@ export const avatarHandlers: Handlers = {
     const { userId } = requireUser(c);
     const a = await ownUpload(c.ctx, c.params.id, userId);
     const picks = Object.fromEntries(Object.entries(c.body.choices).filter(([, v]) => v !== undefined)) as Record<string, number>;
-    return viewsOf(c.ctx, await rebuild(c.ctx, a, { ...(a.choices ?? {}), ...picks }));
+    const merged = { ...(a.choices ?? {}), ...picks };
+    const changed = Object.entries(merged).some(([state, row]) => a.choices?.[state] !== row);
+    let row = changed || !a.views ? await rebuild(c.ctx, a, merged) : a;
+    if (c.body.favorites) {
+      // Only views the sheet has, once each, in the order picked.
+      const rows = new Set((row.views ?? []).map((v) => v.row));
+      const favorites = [...new Set(c.body.favorites)].filter((r) => rows.has(r));
+      const [saved] = await c.ctx.db.update(avatars).set({ favorites }).where(eq(avatars.id, a.id)).returning();
+      row = saved!;
+    }
+    return viewsOf(c.ctx, row);
   },
 
   'avatars.report': async (c) => {
@@ -340,6 +350,7 @@ function viewsOf(ctx: AppContext, a: AvatarRow): AvatarViews {
     cell: { w: VIEW_CELL.w, h: VIEW_CELL.h },
     views: a.views ?? [],
     choices: a.choices ?? {},
+    favorites: a.favorites ?? [],
     avatar: avatarFull(ctx, a),
   };
 }
