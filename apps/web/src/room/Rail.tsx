@@ -204,10 +204,10 @@ function Queue(props: {
             onClick={props.onQueueToggle}
             disabled={props.queueBusy || (!inBooth && !snap.me?.inQueue && cooldown > 0)}
             data-testid="queue-toggle"
+            title="Keyboard shortcut: Q"
           >
             {inBooth ? 'Step down from the booth' : snap.me?.inQueue ? 'Leave DJ queue' : 'Join DJ queue'}
           </button>
-          <span className="muted">Q</span>
           {cooldown > 0 && <span className="badge badge-warn">Bounced — rejoin in {formatMs(cooldown)}</span>}
           {me.remoteOnly && <span className="muted">DJing needs Spotify Premium.</span>}
         </div>
