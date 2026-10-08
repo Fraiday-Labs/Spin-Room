@@ -89,14 +89,37 @@
   gap: 8px;
   justify-items: end;
 }
-.votes {
+.controlRow {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .vote {
-  min-width: 112px;
+  min-width: 84px;
   min-height: 48px;
+  gap: 10px;
   font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.volumeGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 14px;
+  padding-left: 18px;
+  border-left: 2px solid var(--border);
+}
+.mute {
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  color: var(--cyan);
 }
 .count {
   font-variant-numeric: tabular-nums;
@@ -110,4 +133,21 @@
 .volume {
   width: 120px;
   accent-color: var(--cyan);
+}
+@media (max-width: 720px) {
+  .controlRow {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+  .volumeGroup {
+    margin-left: 2px;
+    padding-left: 10px;
+    gap: 8px;
+  }
+  .vote {
+    min-width: 72px;
+  }
+  .volume {
+    width: 84px;
+  }
 }

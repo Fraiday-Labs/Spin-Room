@@ -1,5 +1,6 @@
 import type { RoomSnapshot, VoteValue } from '@spinroom/contracts';
 import { formatMs } from '@spinroom/sdk';
+import { PixelIcon } from '../components/PixelIcon';
 import { useNow } from './store';
 import s from './PlayerPanel.module.css';
 
@@ -86,27 +87,52 @@ export function PlayerPanel(props: {
         )}
       </div>
       <div className={s.controls}>
-        <div className={s.votes}>
+        <div className={s.controlRow}>
           <button
             className={`btn btn-hype ${s.vote}`}
             aria-pressed={myVote === 'hype'}
+            aria-label={`Hype (thumbs up), ${snap.tally.hype}`}
             disabled={!spin || !!props.voteDisabledReason}
             title={props.voteDisabledReason ?? 'Hype (H)'}
             onClick={() => props.onVote(myVote === 'hype' ? null : 'hype')}
             data-testid="vote-hype"
           >
-            <span aria-hidden="true">▲</span> Hype <span className={s.count}>{snap.tally.hype}</span>
+            <PixelIcon name="thumbUp" size={30} />
+            <span className={s.count}>{snap.tally.hype}</span>
           </button>
           <button
             className={`btn btn-skip ${s.vote}`}
             aria-pressed={myVote === 'skip'}
+            aria-label={`Skip (thumbs down), ${snap.tally.skip}`}
             disabled={!spin || !!props.voteDisabledReason}
             title={props.voteDisabledReason ?? 'Skip (S)'}
             onClick={() => props.onVote(myVote === 'skip' ? null : 'skip')}
             data-testid="vote-skip"
           >
-            <span aria-hidden="true">▼</span> Skip <span className={s.count}>{snap.tally.skip}</span>
+            <PixelIcon name="thumbDown" size={30} />
+            <span className={s.count}>{snap.tally.skip}</span>
           </button>
+          <div className={s.volumeGroup}>
+            <button
+              className={`btn btn-ghost ${s.mute}`}
+              aria-pressed={props.muted}
+              onClick={() => props.onVolume(props.volume, !props.muted)}
+              aria-label={props.muted ? 'Unmute' : 'Mute'}
+              title={props.muted ? 'Unmute' : 'Mute'}
+            >
+              <PixelIcon name={props.muted || props.volume === 0 ? 'speakerMuted' : 'speaker'} size={30} />
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={props.volume}
+              aria-label="Local volume"
+              onChange={(e) => props.onVolume(Number(e.target.value), false)}
+              className={s.volume}
+            />
+          </div>
         </div>
         <div className={s.row}>
           <span className="muted" title="Members with a live speaker or who listened recently">
@@ -117,26 +143,6 @@ export function PlayerPanel(props: {
               Skip spin
             </button>
           )}
-        </div>
-        <div className={s.row}>
-          <button
-            className="btn btn-ghost"
-            aria-pressed={props.muted}
-            onClick={() => props.onVolume(props.volume, !props.muted)}
-            aria-label={props.muted ? 'Unmute' : 'Mute'}
-          >
-            {props.muted ? '🔇' : '🔊'}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={props.volume}
-            aria-label="Local volume"
-            onChange={(e) => props.onVolume(Number(e.target.value), false)}
-            className={s.volume}
-          />
         </div>
       </div>
     </section>

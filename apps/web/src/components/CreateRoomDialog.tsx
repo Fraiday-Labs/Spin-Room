@@ -72,9 +72,10 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
           <label className="field">
             Auto-skip when Skip reaches
             <select className="input" value={skipRatio} onChange={(e) => setSkipRatio(Number(e.target.value))}>
+              <option value={0.25}>25% of listeners</option>
               <option value={0.5}>50% of listeners</option>
-              <option value={0.67}>Two thirds</option>
-              <option value={0.75}>75%</option>
+              <option value={0.75}>75% of listeners</option>
+              <option value={1}>100% of listeners</option>
             </select>
           </label>
           <label className="field">
