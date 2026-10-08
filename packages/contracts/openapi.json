@@ -6183,6 +6183,144 @@
         ]
       }
     },
+    "/v1/rooms/{slug}/live-ticket": {
+      "post": {
+        "operationId": "rooms.liveTicket",
+        "summary": "One-time ticket (30 s) for opening the live socket from another origin: wss://…/v1/rooms/{slug}/live?ticket=…",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ticket": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "ticket",
+                    "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "bad_request",
+                        "validation_failed",
+                        "invalid_client_id",
+                        "unauthenticated",
+                        "session_expired",
+                        "csrf_failed",
+                        "forbidden",
+                        "not_premium",
+                        "banned",
+                        "muted",
+                        "not_member",
+                        "origin_rejected",
+                        "upload_revoked",
+                        "not_found",
+                        "room_not_found",
+                        "spin_not_current",
+                        "conflict",
+                        "slug_taken",
+                        "already_in_queue",
+                        "speaker_exists",
+                        "invalid_invite",
+                        "room_full",
+                        "crate_empty",
+                        "on_cooldown",
+                        "speaker_missing",
+                        "track_too_long",
+                        "track_unplayable",
+                        "track_explicit",
+                        "cannot_vote_own_spin",
+                        "not_present",
+                        "avatar_invalid",
+                        "avatar_limit",
+                        "rights_not_confirmed",
+                        "payload_too_large",
+                        "rate_limited",
+                        "quota_exceeded",
+                        "spotify_error",
+                        "spotify_auth_failed",
+                        "internal"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          }
+        ]
+      }
+    },
     "/v1/rooms/{slug}/members": {
       "get": {
         "operationId": "rooms.members",
