@@ -75,7 +75,8 @@ export const meHandlers: Handlers = {
   'me.setAvatar': async (c) => {
     const { userId } = requireUser(c);
     const a = await c.ctx.db.query.avatars.findFirst({ where: eq(avatars.id, c.body.avatarId) });
-    if (!a || (a.kind === 'custom' && a.ownerId !== userId) || a.status === 'removed' || a.status === 'rejected') {
+    const offered = a?.kind === 'preset' || a?.ownerId === userId || (a?.featured && a.status === 'approved');
+    if (!a || !offered || a.status === 'removed' || a.status === 'rejected') {
       throw new SpinroomError('not_found', 'Avatar not found');
     }
     await c.ctx.db

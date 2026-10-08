@@ -80,3 +80,30 @@ test('pick which view of an uploaded sheet plays on the floor, at the booth and 
   expect(at('idle')).not.toBe(at('booth'));
   expect(me.avatar.rows.find((r: { state: string }) => r.state === 'dj').frames).toBe(8);
 });
+
+test('a site admin makes an uploaded avatar a default that everyone can pick', async ({ browser }) => {
+  const admin = await newUserPage(browser, 'e2e-site-admin');
+  await admin.goto('/profile/avatar');
+  await admin
+    .getByTestId('avatar-file')
+    .setInputFiles({ name: 'robot.png', mimeType: 'image/png', buffer: await sheet(1536, 1872, [6, 6, 6, 4, 5, 3, 2, 6, 0]) });
+  const name = `Robot ${uid('')}`;
+  await admin.getByLabel('Name').fill(name);
+  await admin.getByTestId('rights').check();
+  await admin.getByTestId('save-avatar').click();
+  await expect(admin.getByRole('status')).toContainText(/Saved/);
+  await admin
+    .getByRole('button', { name: `Delete “${name}”` })
+    .locator('xpath=..')
+    .getByRole('button', { name: 'Make default for everyone' })
+    .click();
+  await expect(admin.getByRole('status')).toContainText(`“${name}” is now a default everyone can pick.`);
+
+  const friend = await newUserPage(browser, uid('picker'));
+  await friend.goto('/profile/avatar');
+  const choice = friend.getByRole('radiogroup', { name: 'Avatar' }).getByRole('radio', { name: name });
+  await choice.click();
+  await expect(choice).toHaveAttribute('aria-checked', 'true');
+  // Regular members don't get the admin button.
+  await expect(friend.getByRole('button', { name: 'Make default for everyone' })).toHaveCount(0);
+});

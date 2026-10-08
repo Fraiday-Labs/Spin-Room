@@ -236,7 +236,9 @@ describe('frames don’t bleed into each other', () => {
   it('rebuilds avatars made by an older sheet builder at boot, keeping view picks', async () => {
     t = await createTestApp();
     const u = await login(t, 'alice');
-    const saved = (await upload(u, [{ filename: 's.webp', data: await makeSheet({ h: 2288, rows: [...V1_ROWS, 6, 8], format: 'webp' }) }], '?rightsConfirmed=true')).json();
+    const saved = (
+      await upload(u, [{ filename: 's.webp', data: await makeSheet({ h: 2288, rows: [...V1_ROWS, 6, 8], format: 'webp' }) }], '?rightsConfirmed=true')
+    ).json();
     const id = saved.avatar.id;
     await u.req('PUT', `/v1/avatars/${id}/views`, { choices: { idle: 9 } });
     await t.ctx.db.update(avatars).set({ build: 1 }).where(eq(avatars.id, id));
@@ -244,6 +246,40 @@ describe('frames don’t bleed into each other', () => {
     const row = await t.ctx.db.query.avatars.findFirst({ where: eq(avatars.id, id) });
     expect(row).toMatchObject({ build: AVATAR_BUILD, choices: expect.objectContaining({ idle: 9 }) });
     expect(await refreshAvatars(t.ctx)).toBe(0);
+  });
+});
+
+describe('defaults a site admin offers to everyone', () => {
+  it('lets an admin make an upload a default anyone can pick, and take it back', async () => {
+    t = await createTestApp({ cfg: { ADMIN_SPOTIFY_IDS: 'admin' } });
+    const admin = await login(t, 'admin');
+    const bob = await login(t, 'bob');
+    const bobsPreset = (await bob.req('GET', '/v1/me')).json().avatar.id;
+    const robot = (await upload(admin, [{ filename: 'robot.png', data: await makeSheet({ rows: V1_ROWS }) }], '?rightsConfirmed=true&name=Robot')).json()
+      .avatar;
+    expect(robot).toMatchObject({ status: 'pending', featured: false });
+    // Not offered yet: Bob can't see or pick it.
+    expect((await bob.req('GET', '/v1/avatars/presets')).json().some((a: { id: string }) => a.id === robot.id)).toBe(false);
+    expect((await bob.req('PUT', '/v1/me/avatar', { avatarId: robot.id })).statusCode).toBe(404);
+    // Only admins can offer avatars, and only their own uploads.
+    expect((await bob.req('PUT', `/v1/admin/avatars/${robot.id}/featured`, { featured: true })).statusCode).toBe(403);
+
+    const featured = (await admin.req('PUT', `/v1/admin/avatars/${robot.id}/featured`, { featured: true })).json();
+    expect(featured).toMatchObject({ featured: true, status: 'approved' });
+    const presets = (await bob.req('GET', '/v1/avatars/presets')).json();
+    expect(presets.at(-1)).toMatchObject({ id: robot.id, name: 'Robot', featured: true });
+    expect((await bob.req('PUT', '/v1/me/avatar', { avatarId: robot.id })).json().avatar.id).toBe(robot.id);
+
+    // Defaults don't use up the admin's own upload slots.
+    for (let i = 0; i < 5; i++)
+      expect((await upload(admin, [{ filename: `s${i}.png`, data: await makeSheet({ rows: [i + 1] }) }], '?rightsConfirmed=true')).json().avatar).toBeTruthy();
+
+    // Taking it back: Bob returns to his preset; the admin keeps theirs.
+    await admin.req('PUT', '/v1/me/avatar', { avatarId: robot.id });
+    await admin.req('PUT', `/v1/admin/avatars/${robot.id}/featured`, { featured: false });
+    expect((await bob.req('GET', '/v1/me')).json().avatar.id).toBe(bobsPreset);
+    expect((await admin.req('GET', '/v1/me')).json().avatar.id).toBe(robot.id);
+    expect((await bob.req('GET', '/v1/avatars/presets')).json().some((a: { id: string }) => a.id === robot.id)).toBe(false);
   });
 });
 

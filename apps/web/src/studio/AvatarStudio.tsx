@@ -86,7 +86,8 @@ export function AvatarStudio({ me }: { me: Me }) {
 
   const errors = report?.issues.filter((i) => i.level === 'error') ?? [];
   const warnings = report?.issues.filter((i) => i.level === 'warning') ?? [];
-  const count = mine.data?.length ?? 0;
+  // Defaults I offer to everyone don't count toward my upload limit.
+  const count = mine.data?.filter((a) => !a.featured).length ?? 0;
 
   return (
     <div className="stack">
@@ -100,9 +101,27 @@ export function AvatarStudio({ me }: { me: Me }) {
                 <button className="btn" onClick={() => setEditing(editing === a.id ? null : a.id)} aria-expanded={editing === a.id}>
                   Choose views for “{a.name}”
                 </button>
+                {me.isAdmin && (
+                  <button
+                    className="btn"
+                    aria-pressed={a.featured}
+                    onClick={async () => {
+                      try {
+                        await api.call('admin.featureAvatar', { params: { id: a.id }, body: { featured: !a.featured } });
+                        await qc.invalidateQueries({ queryKey: ['avatars'] });
+                        setMsg(a.featured ? `“${a.name}” is no longer a default.` : `“${a.name}” is now a default everyone can pick.`);
+                      } catch (e) {
+                        setMsg(errorMessage(e));
+                      }
+                    }}
+                  >
+                    {a.featured ? 'Remove from defaults' : 'Make default for everyone'}
+                  </button>
+                )}
                 <button
                   className="btn btn-ghost"
                   onClick={async () => {
+                    if (a.featured && !confirm(`“${a.name}” is a default. Deleting it also switches everyone using it back to their own avatar.`)) return;
                     if (editing === a.id) setEditing(null);
                     await api.call('avatars.delete', { params: { id: a.id } });
                     await qc.invalidateQueries({ queryKey: ['avatars'] });

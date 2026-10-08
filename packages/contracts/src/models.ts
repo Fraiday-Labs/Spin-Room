@@ -65,6 +65,8 @@ export type AvatarRef = z.infer<typeof AvatarRefSchema>;
 
 export const AvatarSchema = AvatarRefSchema.extend({
   ownerId: IdSchema.nullable(),
+  /** A site admin's upload offered to everyone as a default. */
+  featured: z.boolean(),
   status: AvatarStatusSchema,
   sourceFormat: AvatarSourceFormatSchema,
   createdAt: TimestampSchema,

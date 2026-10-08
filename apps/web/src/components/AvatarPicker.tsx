@@ -16,7 +16,9 @@ export function AvatarPicker({ me, onError }: { me: Me; onError?: (m: string) =>
       onError?.(errorMessage(e));
     }
   };
-  const all = [...(presets.data ?? []), ...(mine.data ?? []).filter((a) => a.status !== 'rejected')];
+  // Defaults first (built-in, then ones a site admin offers), then my own uploads.
+  const defaults = presets.data ?? [];
+  const all = [...defaults, ...(mine.data ?? []).filter((a) => a.status !== 'rejected' && !defaults.some((d) => d.id === a.id))];
   return (
     <div className={s.grid} role="radiogroup" aria-label="Avatar">
       {all.map((a) => (

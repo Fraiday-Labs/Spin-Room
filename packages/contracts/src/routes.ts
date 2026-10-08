@@ -731,7 +731,13 @@ export const routes = {
     response: AvatarImportReportSchema,
     kind: 'multipart',
   }),
-  'avatars.presets': route({ method: 'GET', path: '/v1/avatars/presets', auth: 'none', summary: 'Built-in avatars.', response: z.array(AvatarSchema) }),
+  'avatars.presets': route({
+    method: 'GET',
+    path: '/v1/avatars/presets',
+    auth: 'none',
+    summary: 'Default avatars anyone can pick: the built-in ones, then ones a site admin made default.',
+    response: z.array(AvatarSchema),
+  }),
   'avatars.mine': route({ method: 'GET', path: '/v1/avatars/mine', auth: 'user', summary: 'My custom avatars.', response: z.array(AvatarSchema) }),
   'avatars.get': route({
     method: 'GET',
@@ -789,6 +795,15 @@ export const routes = {
     summary: 'Approve, reject or remove an avatar everywhere.',
     params: z.object({ id: IdSchema }),
     body: z.object({ decision: z.enum(['approve', 'reject', 'remove']), note: z.string().max(500).optional() }),
+    response: AvatarSchema,
+  }),
+  'admin.featureAvatar': route({
+    method: 'PUT',
+    path: '/v1/admin/avatars/{id}/featured',
+    auth: 'admin',
+    summary: 'Offer one of my uploaded avatars to everyone as a default (or stop offering it).',
+    params: z.object({ id: IdSchema }),
+    body: z.object({ featured: z.boolean() }),
     response: AvatarSchema,
   }),
 } as const;

@@ -26,6 +26,8 @@ export const avatars = pgTable(
     choices: jsonb('choices').$type<Record<string, number> | null>(),
     /** Sheet-builder version that made `sheetUrl`; older uploads are rebuilt at boot. */
     build: integer('build').notNull().default(1),
+    /** Uploaded by a site admin and offered to everyone alongside the built-in presets. */
+    featured: boolean('featured').notNull().default(false),
     petJson: jsonb('pet_json').$type<Record<string, unknown> | null>(),
     status: text('status', { enum: ['pending', 'approved', 'rejected', 'removed'] }).notNull(),
     createdAt: ms('created_at').notNull(),

@@ -27,7 +27,7 @@ export function avatarRef(ctx: AppContext, a: AvatarRow): AvatarRef {
 }
 
 export function avatarFull(ctx: AppContext, a: AvatarRow): Avatar {
-  return { ...avatarRef(ctx, a), ownerId: a.ownerId, status: a.status, sourceFormat: a.sourceFormat, createdAt: a.createdAt };
+  return { ...avatarRef(ctx, a), ownerId: a.ownerId, status: a.status, sourceFormat: a.sourceFormat, featured: a.featured, createdAt: a.createdAt };
 }
 
 export function createUserService(ctx: AppContext) {

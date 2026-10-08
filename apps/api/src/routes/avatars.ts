@@ -104,7 +104,8 @@ export const avatarHandlers: Handlers = {
       const mine = await ctx.db
         .select({ id: avatars.id })
         .from(avatars)
-        .where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed')));
+        // Defaults a site admin offers to everyone don't count toward their own limit.
+        .where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed'), eq(avatars.featured, false)));
       if (mine.length >= AVATAR_LIMITS.customPerUser)
         throw new SpinroomError('avatar_limit', `You can keep up to ${AVATAR_LIMITS.customPerUser} custom avatars — delete one first.`);
       const viewsBlob = await putBlob(ctx, built.viewsSheet, 'views', 'webp', 'image/webp');
@@ -159,8 +160,13 @@ export const avatarHandlers: Handlers = {
   },
 
   'avatars.presets': async ({ ctx }) => {
-    const rows = await ctx.db.select().from(avatars).where(eq(avatars.kind, 'preset')).orderBy(asc(avatars.id));
-    return rows.map((r) => avatarFull(ctx, r));
+    const presets = await ctx.db.select().from(avatars).where(eq(avatars.kind, 'preset')).orderBy(asc(avatars.id));
+    const featured = await ctx.db
+      .select()
+      .from(avatars)
+      .where(and(eq(avatars.featured, true), eq(avatars.status, 'approved')))
+      .orderBy(asc(avatars.createdAt));
+    return [...presets, ...featured].map((r) => avatarFull(ctx, r));
   },
 
   'avatars.mine': async (c) => {
@@ -243,6 +249,37 @@ export const avatarHandlers: Handlers = {
           avatar: avatarFull(ctx, byId.get(r.avatarId)!),
         })),
     };
+  },
+
+  'admin.featureAvatar': async (c) => {
+    const { userId } = requireUser(c);
+    const { ctx, body } = c;
+    const a = await ctx.db.query.avatars.findFirst({ where: eq(avatars.id, c.params.id) });
+    if (!a || a.kind !== 'custom' || a.ownerId !== userId || a.status === 'removed' || a.status === 'rejected')
+      throw new SpinroomError('not_found', 'Avatar not found');
+    // An admin offering their own upload to everyone approves it at the same time.
+    const [row] = await ctx.db
+      .update(avatars)
+      .set({ featured: body.featured, ...(body.featured ? { status: 'approved' as const } : {}) })
+      .where(eq(avatars.id, a.id))
+      .returning();
+    ctx.services.users.invalidateAvatar(a.id);
+    if (body.featured) await ctx.services.rooms.onProfileChanged(userId);
+    else {
+      // People who picked it as a default go back to their own preset; the owner keeps it.
+      const wearing = await ctx.db
+        .select()
+        .from(users)
+        .where(and(eq(users.avatarId, a.id), ne(users.id, userId)));
+      for (const u of wearing) {
+        await ctx.db
+          .update(users)
+          .set({ avatarId: u.presetAvatarId || DEFAULT_PRESET_ID })
+          .where(eq(users.id, u.id));
+        await ctx.services.rooms.onProfileChanged(u.id);
+      }
+    }
+    return avatarFull(ctx, row!);
   },
 
   'admin.reviewAvatar': async (c) => {
