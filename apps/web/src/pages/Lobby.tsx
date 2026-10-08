@@ -41,9 +41,20 @@ export default function Lobby() {
       )}
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0 }}>Hey {me.data.displayName}</h1>
-        <button className="btn btn-primary" onClick={() => setCreating(true)} data-testid="open-create-room">
-          Create +
-        </button>
+        <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+          <input
+            className="input"
+            style={{ width: 240, maxWidth: '45vw' }}
+            type="search"
+            placeholder="Search rooms"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search public rooms"
+          />
+          <button className="btn btn-primary" style={{ flex: 'none' }} onClick={() => setCreating(true)} data-testid="open-create-room">
+            Create +
+          </button>
+        </div>
       </div>
 
       <section className="stack">
@@ -57,17 +68,7 @@ export default function Lobby() {
       </section>
 
       <section className="stack">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0 }}>Public rooms</h2>
-          <input
-            className="input"
-            style={{ maxWidth: 280 }}
-            placeholder="Search rooms"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label="Search public rooms"
-          />
-        </div>
+        <h2 style={{ margin: 0 }}>Public rooms</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
           {pub.data?.rooms.map((r) => (
             <RoomCard key={r.id} room={r} />
