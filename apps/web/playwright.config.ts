@@ -9,6 +9,8 @@ const ORIGIN = `http://127.0.0.1:${WEB_PORT}`;
 // proxy, the live socket goes straight to the API on another site (localhost ≠ 127.0.0.1), so
 // it can't use the session cookie and must use a one-time ticket.
 const LIVE_ORIGIN = process.env.E2E_SPLIT_ORIGIN ? `ws://localhost:${API_PORT}` : '';
+// E2E_SERVER=all runs the all-in-one server (API + MCP + Slack in one process) instead of the API.
+const SERVER_DIR = process.env.E2E_SERVER === 'all' ? '../server' : '../api';
 const SYSTEM_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 export default defineConfig({
@@ -28,7 +30,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'npx tsx src/main.ts',
-      cwd: '../api',
+      cwd: SERVER_DIR,
       url: `http://127.0.0.1:${API_PORT}/healthz`,
       reuseExistingServer: false,
       timeout: 60_000,

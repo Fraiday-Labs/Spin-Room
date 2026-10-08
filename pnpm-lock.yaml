@@ -125,6 +125,73 @@ importers:
         specifier: ^8.5.1
         version: 8.5.1(postcss@8.5.29)(tsx@4.23.15)(typescript@6.0.3)
 
+  apps/server:
+    dependencies:
+      '@fastify/cookie':
+        specifier: ^11.1.2
+        version: 11.1.2
+      '@fastify/multipart':
+        specifier: ^10.1.2
+        version: 10.1.2
+      '@fastify/websocket':
+        specifier: ^11.3.3
+        version: 11.3.3
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.32.1
+        version: 1.32.1(zod@4.6.5)
+      '@slack/bolt':
+        specifier: ^5.1.0
+        version: 5.1.0(@types/express@5.0.6)(undici@8.11.2)
+      '@spinroom/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@spinroom/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@spinroom/room-engine':
+        specifier: workspace:*
+        version: link:../../packages/room-engine
+      '@spinroom/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(postgres@3.4.9)
+      fastify:
+        specifier: ^5.12.5
+        version: 5.12.5
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
+      ioredis:
+        specifier: ^5.4.2
+        version: 5.11.1
+      jose:
+        specifier: ^6.2.12
+        version: 6.2.12
+      postgres:
+        specifier: ^3.4.9
+        version: 3.4.9
+      sharp:
+        specifier: ^0.35.5
+        version: 0.35.5(@types/node@22.20.5)
+      uuidv7:
+        specifier: ^1.2.1
+        version: 1.2.1
+      ws:
+        specifier: ^8.22.0
+        version: 8.22.0
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@types/ws':
+        specifier: ^8.18.2
+        version: 8.18.2
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(postcss@8.5.29)(tsx@4.23.15)(typescript@6.0.3)
+
   apps/slack:
     dependencies:
       '@slack/bolt':

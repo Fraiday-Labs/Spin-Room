@@ -14,6 +14,8 @@ export const ConfigSchema = z.object({
    */
   WEB_ORIGINS: z.string().default(''),
   DATABASE_URL: z.string().default('postgres://spinroom:spinroom@localhost:5432/spinroom'),
+  /** Postgres pool size (keep the sum across services under the database's connection limit). */
+  DB_POOL_MAX: z.coerce.number().int().min(1).default(10),
   REDIS_URL: z.string().default('redis://localhost:6379/0'),
   /** HMAC key for session JWTs (≥ 32 chars). */
   SESSION_SECRET: z.string().min(32).default('dev-session-secret-change-me-0123456789abcdef'),

@@ -1,7 +1,7 @@
 # Multi-target image: docker build --target api|mcp|slack|web .
-# The default (last) target, `server`, holds all three Node services; pick one with the command
-# (`node api/dist/main.js`, `node mcp/dist/http.js`, `node slack/dist/main.js`), which suits hosts
-# that build one Dockerfile per service without a target option (render.yaml).
+# The default (last) target, `server`, holds the Node services; pick one with the command:
+# `node server/dist/main.js` (API + MCP + Slack in one process, for a single free instance) or
+# `node api/dist/main.js`, `node mcp/dist/http.js`, `node slack/dist/main.js` (one per service).
 FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /repo
@@ -12,9 +12,12 @@ RUN pnpm install --frozen-lockfile \
  && pnpm --filter @spinroom/api build \
  && pnpm --filter spinroom-mcp build \
  && pnpm --filter @spinroom/slack build \
+ && pnpm --filter @spinroom/server build \
  && pnpm --filter @spinroom/api deploy --prod --legacy /out/api \
  && pnpm --filter spinroom-mcp deploy --prod --legacy /out/mcp \
- && pnpm --filter @spinroom/slack deploy --prod --legacy /out/slack
+ && pnpm --filter @spinroom/slack deploy --prod --legacy /out/slack \
+ && pnpm --filter @spinroom/server deploy --prod --legacy /out/server \
+ && cp -r apps/api/drizzle /out/server/drizzle
 
 FROM node:22-slim AS api
 WORKDIR /app
@@ -53,5 +56,7 @@ WORKDIR /app
 COPY --from=build /out/api ./api
 COPY --from=build /out/mcp ./mcp
 COPY --from=build /out/slack ./slack
-ENV NODE_ENV=production MIGRATIONS_DIR=/app/api/drizzle
-CMD ["node", "api/dist/main.js"]
+COPY --from=build /out/server ./server
+# Migrations ship with both the API and the all-in-one server; either path holds the same files.
+ENV NODE_ENV=production MIGRATIONS_DIR=/app/server/drizzle
+CMD ["node", "server/dist/main.js"]

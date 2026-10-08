@@ -1,0 +1,38 @@
+{
+  "name": "@spinroom/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "All-in-one server: the API, MCP server and Slack app in one process (free-tier hosting).",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/main.ts",
+    "start": "node dist/main.js",
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/multipart": "^10.1.2",
+    "@fastify/websocket": "^11.3.3",
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@slack/bolt": "^5.1.0",
+    "@spinroom/contracts": "workspace:*",
+    "@spinroom/db": "workspace:*",
+    "@spinroom/room-engine": "workspace:*",
+    "@spinroom/sdk": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "fastify": "^5.12.5",
+    "fflate": "^0.8.3",
+    "ioredis": "^5.4.2",
+    "jose": "^6.2.12",
+    "postgres": "^3.4.9",
+    "sharp": "^0.35.5",
+    "uuidv7": "^1.2.1",
+    "ws": "^8.22.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.2",
+    "tsup": "^8.5.1"
+  }
+}

@@ -8,7 +8,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import WebSocket from 'ws';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createTestApp, login, type TestApp } from '../../api/test/helpers.js';
-import { createMcpHttpServer } from '../src/http.js';
+import { createMcpHttpServer } from '../src/remote.js';
 import { createSpinroomServer, parseRoomArg } from '../src/tools.js';
 
 let t: TestApp;

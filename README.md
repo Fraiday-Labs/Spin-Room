@@ -41,6 +41,7 @@ The product spec is [docs/PRD.md](docs/PRD.md), the build plan is [docs/BUILD_PL
 | `apps/web`             | Lobby, room (stage, player panel, rail), speaker, avatar studio, settings, Connect agent, OAuth consent.                                                     |
 | `apps/mcp`             | `spinroom-mcp`: 17 tools, a now-playing resource with subscriptions, and the `spinroom_session` prompt.                                                      |
 | `apps/slack`           | Install, account linking, `/spinroom` commands, live card, buttons, modal.                                                                                   |
+| `apps/server`          | The API, MCP server and Slack app in one process on one port, for a single free instance (see Deploying).                                                    |
 | `tools/art`            | All built-in pixel art, generated in code (`pnpm art`).                                                                                                      |
 
 Key guarantees:
@@ -106,6 +107,7 @@ Every variable is listed with comments in [`.env.example`](.env.example). The mo
 | `SESSION_SECRET`                                                                       | HMAC key for session JWTs (required in production).                                    |
 | `ENCRYPTION_KEY`                                                                       | 32-byte base64 key sealing Spotify and Slack tokens at rest (required in production).  |
 | `SPOTIFY_MODE`                                                                         | `real` or `fake` (fake is refused in production unless `ALLOW_FAKE_SPOTIFY=1`).        |
+| `DB_POOL_MAX`                                                                          | Postgres pool size (keep the total under the database's connection limit).             |
 | `WEB_ORIGINS`                                                                          | Extra web origins allowed to open the live socket (`PUBLIC_ORIGIN` always is).         |
 | `VITE_LIVE_ORIGIN` (web build)                                                         | Live socket origin when the web app is hosted apart from the API (`wss://api.host`).   |
 | `SERVICE_SECRET_SLACK`, `SERVICE_SECRET_MCP`                                           | Credentials the Slack and MCP services use for token exchange.                         |
@@ -191,7 +193,7 @@ These still need real accounts or people:
 
 ## Deploying
 
-Each service deploys separately (`Dockerfile` targets `api`, `mcp`, `slack`, `web`; the default target `server` holds all three Node services and picks one by command). Two layouts work.
+Each service deploys separately (`Dockerfile` targets `api`, `mcp`, `slack`, `web`); the default target `server` holds the Node services and picks one by command, including `node server/dist/main.js`, which runs all three in one process. The layouts below all work.
 
 ### Single origin (any container host)
 
@@ -205,16 +207,30 @@ Route one public origin as follows; `deploy/nginx.conf` is an example:
 | everything else                                                                          | web (SPA) |
 | `mcp.<domain>/mcp`, `mcp.<domain>/.well-known/oauth-protected-resource`                  | mcp       |
 
-### Web on Vercel, services on Render
+### Free tier: Vercel + Render + Supabase
 
-The static web app runs on Vercel; the API, MCP and Slack services run as always-on containers on Render, with Render Postgres and Key Value. Vercel rewrites `/v1/*` and the OAuth paths to the services ([`apps/web/vercel.json`](apps/web/vercel.json)), so REST calls, cookies, CSRF and the Spotify callback stay on the web origin. Rewrites can't carry WebSocket upgrades, so the room's live socket connects straight to the API (`VITE_LIVE_ORIGIN`) with a one-time ticket from `POST /v1/rooms/{slug}/live-ticket` in place of the cookie.
+Everything runs on free plans. The static web app is on Vercel; **one** free Render web service runs the API, the remote MCP server and the Slack app in one process ([`apps/server`](apps/server)), with a free Render Key Value for Redis; Postgres and avatar storage are on Supabase's free plan. Vercel rewrites `/v1/*` (Slack included) and the OAuth paths to Render ([`apps/web/vercel.json`](apps/web/vercel.json)), so REST calls, cookies, CSRF and the Spotify callback stay on the web origin. Rewrites can't carry WebSocket upgrades, so the room's live socket connects straight to Render (`VITE_LIVE_ORIGIN`) with a one-time ticket from `POST /v1/rooms/{slug}/live-ticket` in place of the cookie.
 
-1. **Render.** New → Blueprint → this repository ([`render.yaml`](render.yaml)). Enter `PUBLIC_ORIGIN` (the Vercel URL you'll use, e.g. `https://spinroom-web.vercel.app`), the `S3_*` values for avatar storage (Cloudflare R2, Supabase Storage, S3…), and the Slack app credentials. It starts in fake Spotify mode for a smoke test.
-2. **Vercel.** New project from this repository, root directory `apps/web` (framework and commands come from `vercel.json`). Set `VITE_LIVE_ORIGIN=wss://spinroom-api.onrender.com`. If Render gave a service a different hostname, update the rewrites in `apps/web/vercel.json` and `MCP_RESOURCE_URL` in `render.yaml`.
-3. **Smoke test** at the Vercel URL: fake sign-in, create a room, join from a second browser, vote; the live socket should update within a second. `GET /.well-known/oauth-authorization-server` should report the Vercel URL as issuer.
-4. **Go live.** In your Spotify app, add `<PUBLIC_ORIGIN>/v1/auth/spotify/callback` as a redirect URI; then on Render set `SPOTIFY_MODE=real` and delete `ALLOW_FAKE_SPOTIFY`. Point the Slack app's request URLs at `<PUBLIC_ORIGIN>/v1/integrations/slack/{events,interactivity,commands,options}` and add `https://spinroom-mcp.onrender.com/mcp` to your MCP clients.
+1. **Supabase.** Create a free project. Copy the **Session pooler** connection string (Connect → Session pooler; it works over IPv4) and append `?sslmode=require`. In Storage, create a private bucket `avatars`, enable the S3 connection (Storage → Settings) and create an access key; note the endpoint (`https://<ref>.storage.supabase.co/storage/v1/s3`) and region.
+2. **Render.** New → Blueprint → this repository ([`render.yaml`](render.yaml)). Enter `PUBLIC_ORIGIN` (the Vercel URL you'll use, e.g. `https://spinroom-web.vercel.app`), `DATABASE_URL`, the `S3_*` values, and (later) the Slack app credentials. It starts in fake Spotify mode for a smoke test; migrations run on boot.
+3. **Vercel.** New project from this repository, root directory `apps/web` (framework and commands come from `vercel.json`). Set `VITE_LIVE_ORIGIN=wss://spinroom.onrender.com`. If Render gave the service another hostname, update the rewrites in `apps/web/vercel.json` and `MCP_RESOURCE_URL` in `render.yaml`.
+4. **Keep it awake.** Add a free uptime monitor (UptimeRobot, cron-job.org…) for `https://spinroom.onrender.com/healthz?deep=1` every 5–10 minutes. It keeps the Render instance from sleeping (one always-on instance fits the 750 free hours a month) and gives Supabase the daily database activity that stops a free project from pausing.
+5. **Smoke test** at the Vercel URL: fake sign-in, create a room, join from a second browser, vote; the live socket should update within a second. `GET /.well-known/oauth-authorization-server` should report the Vercel URL as issuer. Upload a custom avatar.
+6. **Go live.** In your Spotify app, add `<PUBLIC_ORIGIN>/v1/auth/spotify/callback` as a redirect URI; then on Render set `SPOTIFY_MODE=real` and delete `ALLOW_FAKE_SPOTIFY`. Point the Slack app's request URLs at `<PUBLIC_ORIGIN>/v1/integrations/slack/{events,interactivity,commands,options}` and add `https://spinroom.onrender.com/mcp` to your MCP clients.
 
-Preview deployments get their own `*.vercel.app` URL; add each one you want to use to `WEB_ORIGINS` on the API (pages on other origins can't open the live socket).
+**Limits of the free layout.** It suits a group of friends (a few rooms, dozens of listeners), not a public launch:
+
+- Without the uptime monitor, the service sleeps after 15 idle minutes; the next visitor waits about a minute and Slack commands sent while it wakes time out.
+- 512 MB RAM and a shared CPU on Render (the server idles around 160 MB; avatar processing is slower).
+- Supabase free: 500 MB of database and about 1 GB of avatar storage; a project paused for inactivity has to be restored from its dashboard.
+- Free Key Value doesn't persist; after a restart the API rebuilds room state from Postgres.
+- Vercel's Hobby plan is for non-commercial use.
+
+Preview deployments get their own `*.vercel.app` URL; add each one you want to use to `WEB_ORIGINS` (pages on other origins can't open the live socket).
+
+### Scaling up on Render
+
+[`deploy/render-scaled.yaml`](deploy/render-scaled.yaml) runs the API, MCP and Slack as separate paid, always-on services with Render Postgres and Key Value (New → Blueprint, file path `deploy/render-scaled.yaml`). Point the Vercel rewrites at `spinroom-api` (and `/v1/integrations/slack/*` at `spinroom-slack`, listed before `/v1/*`), set `VITE_LIVE_ORIGIN=wss://spinroom-api.onrender.com`, and use `https://spinroom-mcp.onrender.com/mcp` for MCP clients.
 
 ### Notes
 

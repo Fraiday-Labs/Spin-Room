@@ -39,7 +39,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Create per-suite test databases
         run: |
-          for db in spinroom_test_mcp spinroom_test_slack spinroom_e2e; do
+          for db in spinroom_test_mcp spinroom_test_slack spinroom_test_server spinroom_e2e; do
             psql -h localhost -U spinroom -d spinroom_test -c "CREATE DATABASE $db"
           done
       - run: pnpm lint
@@ -52,7 +52,7 @@ jobs:
       - name: Art builds within budget
         run: pnpm art
       - name: Build apps
-        run: pnpm --filter @spinroom/web build && pnpm --filter @spinroom/api build && pnpm --filter spinroom-mcp build && pnpm --filter @spinroom/slack build
+        run: pnpm --filter @spinroom/web build && pnpm --filter @spinroom/api build && pnpm --filter spinroom-mcp build && pnpm --filter @spinroom/slack build && pnpm --filter @spinroom/server build
       - name: Bundle budget (300 KB gzipped initial JS)
         run: pnpm size
       - name: Install Playwright Chromium
@@ -62,12 +62,13 @@ jobs:
         env:
           CI: '1'
           PW_BUNDLED: '1'
-      - name: End-to-end journeys, split hosting (live socket on another origin, ticket auth)
+      - name: End-to-end journeys, free-tier layout (all-in-one server; live socket on another origin, ticket auth)
         run: pnpm e2e
         env:
           CI: '1'
           PW_BUNDLED: '1'
           E2E_SPLIT_ORIGIN: '1'
+          E2E_SERVER: all
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

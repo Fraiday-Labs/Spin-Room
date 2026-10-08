@@ -2,7 +2,8 @@ import cookie from '@fastify/cookie';
 import multipart from '@fastify/multipart';
 import websocket from '@fastify/websocket';
 import { AVATAR_LIMITS } from '@spinroom/contracts';
-import Fastify, { type FastifyInstance } from 'fastify';
+import { sql } from 'drizzle-orm';
+import Fastify, { type FastifyInstance, type FastifyServerFactory } from 'fastify';
 import type { Redis } from 'ioredis';
 import type { Config } from './config.js';
 import type { AppContext } from './context.js';
@@ -35,6 +36,8 @@ export interface BuildOptions {
   clock?: Clock;
   spotify?: SpotifyGateway;
   storage?: Storage;
+  /** Custom HTTP server (the all-in-one server routes MCP and Slack paths before Fastify). */
+  serverFactory?: FastifyServerFactory;
 }
 
 export function createStorage(cfg: Config): Storage {
@@ -59,6 +62,7 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
     trustProxy: true,
     bodyLimit: 1024 * 1024,
     genReqId: () => crypto.randomUUID(),
+    ...(o.serverFactory ? { serverFactory: o.serverFactory } : {}),
   });
 
   const ctx = {
@@ -99,7 +103,18 @@ export async function buildApp(o: BuildOptions): Promise<{ app: FastifyInstance;
   registerOAuth(app, ctx);
   registerLive(app, ctx);
   registerAssetRoutes(app, ctx);
-  app.get('/healthz', async () => ({ ok: true }));
+  // `?deep=1` also touches Postgres and Redis: uptime monitors use it so a free-tier database
+  // sees daily activity (and a broken dependency shows up as a failed check).
+  app.get<{ Querystring: { deep?: string } }>('/healthz', async (req, reply) => {
+    if (!req.query.deep) return { ok: true };
+    try {
+      await Promise.all([ctx.db.execute(sql`select 1`), ctx.redis.ping()]);
+      return { ok: true, db: true, redis: true };
+    } catch (e) {
+      req.log.error({ err: e }, 'deep health check failed');
+      return reply.code(503).send({ ok: false });
+    }
+  });
 
   return { app, ctx };
 }

@@ -382,13 +382,19 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     app,
     receiver,
     cards,
-    async start(port = cfg.port) {
+    /** Node request listener for the Slack routes, for embedding in another HTTP server. */
+    requestListener: receiver.requestListener,
+    /** Follow room events without opening a port (embedded mode). */
+    async attach() {
       await subscribeRoomEvents(deps.sub, (roomId, ev) => void onRoomEvent(roomId, ev).catch((e) => app.logger.warn('event handling failed', e)));
+    },
+    async start(port = cfg.port) {
+      await this.attach();
       return app.start(port);
     },
     async stop() {
       cards.stop();
-      await app.stop();
+      await app.stop().catch(() => {});
     },
   };
 }

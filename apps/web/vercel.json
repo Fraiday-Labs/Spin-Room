@@ -5,21 +5,57 @@
   "buildCommand": "pnpm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/v1/integrations/slack/:path*", "destination": "https://spinroom-slack.onrender.com/v1/integrations/slack/:path*" },
-    { "source": "/v1/:path*", "destination": "https://spinroom-api.onrender.com/v1/:path*" },
-    { "source": "/oauth/:step(authorize|token|register|revoke)", "destination": "https://spinroom-api.onrender.com/oauth/:step" },
-    { "source": "/.well-known/oauth-authorization-server", "destination": "https://spinroom-api.onrender.com/.well-known/oauth-authorization-server" },
-    { "source": "/((?!assets/|art/).*)", "destination": "/index.html" }
+    {
+      "source": "/v1/:path*",
+      "destination": "https://spinroom.onrender.com/v1/:path*"
+    },
+    {
+      "source": "/oauth/:step(authorize|token|register|revoke)",
+      "destination": "https://spinroom.onrender.com/oauth/:step"
+    },
+    {
+      "source": "/.well-known/oauth-authorization-server",
+      "destination": "https://spinroom.onrender.com/.well-known/oauth-authorization-server"
+    },
+    {
+      "source": "/((?!assets/|art/).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
-    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-    { "source": "/art/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400" }] },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/art/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "DENY" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
       ]
     }
   ]

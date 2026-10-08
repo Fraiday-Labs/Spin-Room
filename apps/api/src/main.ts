@@ -5,7 +5,7 @@ import { runMigrations } from './db/migrate.js';
 import { createRedis } from './lib/redis.js';
 
 const cfg = loadConfig();
-const { db, close } = createDb(cfg.DATABASE_URL);
+const { db, close } = createDb(cfg.DATABASE_URL, cfg.DB_POOL_MAX);
 if (process.env.MIGRATE_ON_BOOT !== '0') await runMigrations(db);
 const redis = createRedis(cfg.REDIS_URL);
 const sub = createRedis(cfg.REDIS_URL);
