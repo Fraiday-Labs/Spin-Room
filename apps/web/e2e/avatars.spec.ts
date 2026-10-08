@@ -48,7 +48,9 @@ test('pick which view of an uploaded sheet plays on the floor, at the booth and 
   const p = await newUserPage(browser, uid('viewpicker'));
   await p.goto('/profile/avatar');
   // A v2 sheet: the nine standard rows plus two extra ones (like back views).
-  await p.getByTestId('avatar-file').setInputFiles({ name: 'kid.png', mimeType: 'image/png', buffer: await sheet(1536, 2288, [6, 8, 8, 4, 5, 8, 6, 6, 6, 6, 8]) });
+  await p
+    .getByTestId('avatar-file')
+    .setInputFiles({ name: 'kid.png', mimeType: 'image/png', buffer: await sheet(1536, 2288, [6, 8, 8, 4, 5, 8, 6, 6, 6, 6, 8]) });
   await p.getByTestId('rights').check();
   await p.getByTestId('save-avatar').click();
   await expect(p.getByRole('status')).toContainText(/Choose views/);
@@ -62,7 +64,10 @@ test('pick which view of an uploaded sheet plays on the floor, at the booth and 
   await expect(editor.getByTestId('save-views')).toBeDisabled();
 
   await floor.getByRole('radio', { name: /View 10/ }).click();
-  await editor.getByRole('radiogroup', { name: 'DJing (your track is playing)' }).getByRole('radio', { name: /View 11/ }).click();
+  await editor
+    .getByRole('radiogroup', { name: 'DJing (your track is playing)' })
+    .getByRole('radio', { name: /View 11/ })
+    .click();
   await editor.getByTestId('save-views').click();
   await expect(editor.getByRole('status')).toContainText('Saved');
 

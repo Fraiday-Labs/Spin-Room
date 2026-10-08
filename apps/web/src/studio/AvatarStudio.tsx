@@ -91,7 +91,7 @@ export function AvatarStudio({ me }: { me: Me }) {
   return (
     <div className="stack">
       <section className="card stack">
-        <h2>Choose your avatar</h2>
+        <h2>Your Avatar</h2>
         <AvatarPicker me={me} onError={setMsg} />
         {mine.data && mine.data.length > 0 && (
           <div className="row">

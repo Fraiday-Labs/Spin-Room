@@ -322,17 +322,17 @@ test('a site admin can open settings in, and delete, a room someone else owns', 
   await expect(card).toHaveCount(0);
 });
 
-test('avatar choice lives on the profile page, above the ChatGPT pet studio', async ({ browser }) => {
+test('avatar choice lives only in the avatar studio, above the ChatGPT pet section', async ({ browser }) => {
   const page = await newUserPage(browser, uid('avatarfan'));
-  await page.goto('/lobby');
-  await expect(page.getByRole('heading', { name: 'My rooms' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Your avatar' })).toHaveCount(0);
   await page.goto('/profile');
-  await expect(page.getByRole('heading', { name: 'Your avatar' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Display' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /your avatar/i })).toHaveCount(0);
+  await expect(page.getByRole('radiogroup', { name: 'Avatar' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Avatar studio' }).click();
+  await expect(page.getByRole('radiogroup', { name: 'Avatar' })).toBeVisible();
   const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
-  expect(headings.indexOf('Choose your avatar')).toBeGreaterThanOrEqual(0);
-  expect(headings.indexOf('Choose your avatar')).toBeLessThan(headings.indexOf('Bring your ChatGPT pet'));
+  expect(headings.indexOf('Your Avatar')).toBeGreaterThanOrEqual(0);
+  expect(headings.indexOf('Your Avatar')).toBeLessThan(headings.indexOf('Bring your ChatGPT pet'));
 });
 
 test('rooms are created from the "Create +" modal', async ({ browser }) => {
