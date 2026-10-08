@@ -5,6 +5,10 @@ const API_PORT = 8081;
 const WEB_PORT = 5174;
 const ORIGIN = `http://127.0.0.1:${WEB_PORT}`;
 // Use the container's preinstalled Chromium when the bundled one isn't downloaded.
+// E2E_SPLIT_ORIGIN=1 mimics split hosting (static web + API elsewhere): REST goes through the
+// proxy, the live socket goes straight to the API on another site (localhost ≠ 127.0.0.1), so
+// it can't use the session cookie and must use a one-time ticket.
+const LIVE_ORIGIN = process.env.E2E_SPLIT_ORIGIN ? `ws://localhost:${API_PORT}` : '';
 const SYSTEM_CHROME = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 
 export default defineConfig({
@@ -45,7 +49,7 @@ export default defineConfig({
       url: ORIGIN,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { SPINROOM_API_URL: `http://127.0.0.1:${API_PORT}` },
+      env: { SPINROOM_API_URL: `http://127.0.0.1:${API_PORT}`, VITE_LIVE_ORIGIN: LIVE_ORIGIN },
     },
   ],
 });

@@ -6,7 +6,7 @@ export function slackConfig(raw: Record<string, string | undefined> = process.en
     clientSecret: env.SLACK_CLIENT_SECRET ?? 'dev-client-secret',
     stateSecret: env.SLACK_STATE_SECRET ?? 'dev-slack-state-secret',
     port: Number(env.SLACK_PORT ?? 8070),
-    apiUrl: (env.SPINROOM_API_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, ''),
+    apiUrl: apiOrigin(env.SPINROOM_API_URL),
     publicUrl: (env.SPINROOM_PUBLIC_URL ?? env.PUBLIC_ORIGIN ?? 'http://127.0.0.1:5173').replace(/\/$/, ''),
     serviceSecret: env.SERVICE_SECRET_SLACK ?? 'dev-slack-service-secret',
     databaseUrl: env.DATABASE_URL ?? 'postgres://spinroom:spinroom@localhost:5432/spinroom',
@@ -33,3 +33,9 @@ export const BOT_SCOPES = [
   'groups:history',
 ];
 export const BASE = '/v1/integrations/slack';
+
+/** The API's base URL; a bare `host:port` (a private-network address) means plain http. */
+export function apiOrigin(v: string | undefined): string {
+  const u = (v ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+  return /^https?:\/\//.test(u) ? u : `http://${u}`;
+}

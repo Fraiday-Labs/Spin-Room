@@ -8,6 +8,11 @@ export const ConfigSchema = z.object({
   PORT: z.coerce.number().int().default(8080),
   /** Public origin users reach (web + /v1 share an origin behind the ingress or Vite proxy). */
   PUBLIC_ORIGIN: z.string().url().default('http://127.0.0.1:5173'),
+  /**
+   * Extra comma-separated web origins allowed to open the live socket (PUBLIC_ORIGIN always is),
+   * e.g. a Vercel preview domain when the web app and API are hosted apart.
+   */
+  WEB_ORIGINS: z.string().default(''),
   DATABASE_URL: z.string().default('postgres://spinroom:spinroom@localhost:5432/spinroom'),
   REDIS_URL: z.string().default('redis://localhost:6379/0'),
   /** HMAC key for session JWTs (≥ 32 chars). */
@@ -39,6 +44,8 @@ export const ConfigSchema = z.object({
   AVATAR_SAFETY: z.enum(['manual', 'auto_approve']).default('manual'),
   /** Run the room runtime timers in this process (disable for read-only replicas). */
   RUN_ROOM_ENGINE: bool.default(true),
+  /** Staging only: allow SPOTIFY_MODE=fake with NODE_ENV=production (smoke tests of a deploy). */
+  ALLOW_FAKE_SPOTIFY: bool.default(false),
   LOG_LEVEL: z.string().default('info'),
 });
 
@@ -51,7 +58,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (cfg.NODE_ENV === 'production') {
     if (cfg.SESSION_SECRET.startsWith('dev-')) throw new Error('SESSION_SECRET must be set in production');
     if (cfg.ENCRYPTION_KEY === ConfigSchema.shape.ENCRYPTION_KEY.parse(undefined)) throw new Error('ENCRYPTION_KEY must be set in production');
-    if (cfg.SPOTIFY_MODE === 'fake') throw new Error('SPOTIFY_MODE=fake is not allowed in production');
+    if (cfg.SPOTIFY_MODE === 'fake' && !cfg.ALLOW_FAKE_SPOTIFY) throw new Error('SPOTIFY_MODE=fake is not allowed in production');
     if (cfg.AVATAR_SAFETY === 'auto_approve') throw new Error('AVATAR_SAFETY=auto_approve is not allowed in production');
   }
   return cfg;

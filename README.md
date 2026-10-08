@@ -105,7 +105,9 @@ Every variable is listed with comments in [`.env.example`](.env.example). The mo
 | `DATABASE_URL`, `REDIS_URL`                                                            | Postgres 16 and Redis 7.                                                               |
 | `SESSION_SECRET`                                                                       | HMAC key for session JWTs (required in production).                                    |
 | `ENCRYPTION_KEY`                                                                       | 32-byte base64 key sealing Spotify and Slack tokens at rest (required in production).  |
-| `SPOTIFY_MODE`                                                                         | `real` or `fake` (fake is refused in production).                                      |
+| `SPOTIFY_MODE`                                                                         | `real` or `fake` (fake is refused in production unless `ALLOW_FAKE_SPOTIFY=1`).        |
+| `WEB_ORIGINS`                                                                          | Extra web origins allowed to open the live socket (`PUBLIC_ORIGIN` always is).         |
+| `VITE_LIVE_ORIGIN` (web build)                                                         | Live socket origin when the web app is hosted apart from the API (`wss://api.host`).   |
 | `SERVICE_SECRET_SLACK`, `SERVICE_SECRET_MCP`                                           | Credentials the Slack and MCP services use for token exchange.                         |
 | `MCP_RESOURCE_URL`                                                                     | Public URL of the MCP endpoint (the audience of MCP tokens).                           |
 | `STORAGE_DRIVER`, `S3_*`, `ASSET_BASE_URL`                                             | Avatar storage: filesystem in dev, any S3-compatible store behind a CDN in production. |
@@ -189,7 +191,11 @@ These still need real accounts or people:
 
 ## Deploying
 
-Each service deploys separately (`Dockerfile` targets `api`, `mcp`, `slack`, `web`). Route one public origin as follows; `deploy/nginx.conf` is an example:
+Each service deploys separately (`Dockerfile` targets `api`, `mcp`, `slack`, `web`; the default target `server` holds all three Node services and picks one by command). Two layouts work.
+
+### Single origin (any container host)
+
+Route one public origin as follows; `deploy/nginx.conf` is an example:
 
 | Path                                                                                     | Service   |
 | ---------------------------------------------------------------------------------------- | --------- |
@@ -199,29 +205,20 @@ Each service deploys separately (`Dockerfile` targets `api`, `mcp`, `slack`, `we
 | everything else                                                                          | web (SPA) |
 | `mcp.<domain>/mcp`, `mcp.<domain>/.well-known/oauth-protected-resource`                  | mcp       |
 
+### Web on Vercel, services on Render
+
+The static web app runs on Vercel; the API, MCP and Slack services run as always-on containers on Render, with Render Postgres and Key Value. Vercel rewrites `/v1/*` and the OAuth paths to the services ([`apps/web/vercel.json`](apps/web/vercel.json)), so REST calls, cookies, CSRF and the Spotify callback stay on the web origin. Rewrites can't carry WebSocket upgrades, so the room's live socket connects straight to the API (`VITE_LIVE_ORIGIN`) with a one-time ticket from `POST /v1/rooms/{slug}/live-ticket` in place of the cookie.
+
+1. **Render.** New → Blueprint → this repository ([`render.yaml`](render.yaml)). Enter `PUBLIC_ORIGIN` (the Vercel URL you'll use, e.g. `https://spinroom-web.vercel.app`), the `S3_*` values for avatar storage (Cloudflare R2, Supabase Storage, S3…), and the Slack app credentials. It starts in fake Spotify mode for a smoke test.
+2. **Vercel.** New project from this repository, root directory `apps/web` (framework and commands come from `vercel.json`). Set `VITE_LIVE_ORIGIN=wss://spinroom-api.onrender.com`. If Render gave a service a different hostname, update the rewrites in `apps/web/vercel.json` and `MCP_RESOURCE_URL` in `render.yaml`.
+3. **Smoke test** at the Vercel URL: fake sign-in, create a room, join from a second browser, vote; the live socket should update within a second. `GET /.well-known/oauth-authorization-server` should report the Vercel URL as issuer.
+4. **Go live.** In your Spotify app, add `<PUBLIC_ORIGIN>/v1/auth/spotify/callback` as a redirect URI; then on Render set `SPOTIFY_MODE=real` and delete `ALLOW_FAKE_SPOTIFY`. Point the Slack app's request URLs at `<PUBLIC_ORIGIN>/v1/integrations/slack/{events,interactivity,commands,options}` and add `https://spinroom-mcp.onrender.com/mcp` to your MCP clients.
+
+Preview deployments get their own `*.vercel.app` URL; add each one you want to use to `WEB_ORIGINS` on the API (pages on other origins can't open the live socket).
+
+### Notes
+
 - The API runs migrations on boot (`MIGRATE_ON_BOOT=0` disables this).
 - Any API instance can serve any room: the Redis lock keeps one writer per room, and a 5 s ticker on each instance claims rooms through Redis.
 - Use sticky sessions only if your platform needs them for WebSockets.
 - Avatars go to S3-compatible storage behind a CDN, with immutable caching keyed by content hash.
-
-## Security and privacy
-
-- Spotify, Slack and MCP refresh tokens are sealed at rest (AES-256-GCM). Invite tokens and API tokens are stored only as hashes.
-- Sessions use `HttpOnly`, `SameSite=Lax` cookies with double-submit CSRF protection on cookie-authenticated writes. Native clients get bearer tokens with rotating refresh tokens.
-- Spotify access tokens go only to the user's own speaker page, which is origin-checked. Slack and MCP never handle Spotify tokens.
-- All writes are rate limited per user and per IP and accept an `Idempotency-Key`. Errors are RFC 9457 problem JSON with stable `code`s.
-- Chat is plain text, stripped of control and bidi-override characters, and capped at 500 characters.
-- Individual votes are visible only to moderators, and the crowd animation is drawn from the aggregate. Users can delete their account from Profile; remaining personal data is purged within 30 days.
-- Custom avatars:
-  - imports require a rights confirmation;
-  - they are shown only to their owner until approved;
-  - anyone can report one;
-  - room moderators can hide one in their room;
-  - admins can remove one everywhere;
-  - repeated confirmed violations revoke upload access.
-
-  Publish a notice-and-takedown contact for rights holders before launch.
-
-## Originality
-
-All built-in art, characters, the scene and the vocabulary (Hype/Skip, crate, booth, bounce) are original to Spinroom. Nothing references Turntable.fm's names, assets, layouts or code. "Spinroom" is a working title.

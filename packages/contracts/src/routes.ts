@@ -305,6 +305,14 @@ export const routes = {
     params: Slug,
     response: Ok,
   }),
+  'rooms.liveTicket': route({
+    method: 'POST',
+    path: '/v1/rooms/{slug}/live-ticket',
+    auth: 'user',
+    summary: 'One-time ticket (30 s) for opening the live socket from another origin: wss://…/v1/rooms/{slug}/live?ticket=…',
+    params: Slug,
+    response: z.object({ ticket: z.string(), expiresAt: z.number().int() }),
+  }),
   'rooms.members': route({
     method: 'GET',
     path: '/v1/rooms/{slug}/members',

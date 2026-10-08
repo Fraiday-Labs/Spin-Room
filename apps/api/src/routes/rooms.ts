@@ -6,6 +6,7 @@ import type { AuthInfo } from '../http/auth.js';
 import { requireUser, type Handlers } from '../http/router.js';
 import { sha256 } from '../lib/crypto.js';
 import { newId, randomToken } from '../lib/ids.js';
+import { LIVE_TICKET_TTL_MS, liveTicketKey } from '../rooms/live-ticket.js';
 import { assertCanView, assertMod, ensureMember, isMod, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
 import type { RoomLiveSummary } from '../rooms/snapshot.js';
 
@@ -230,6 +231,16 @@ export const roomHandlers: Handlers = {
     const room = await roomBySlug(c.ctx, c.params.slug);
     await c.ctx.services.rooms.exec(room.id, { type: 'leave', userId });
     return { ok: true as const };
+  },
+
+  'rooms.liveTicket': async (c) => {
+    const auth = requireUser(c);
+    const room = await roomBySlug(c.ctx, c.params.slug);
+    await assertCanView(c.ctx, room, auth.userId);
+    const ticket = randomToken('swt', 32);
+    const expiresAt = c.ctx.clock.now() + LIVE_TICKET_TTL_MS;
+    await c.ctx.redis.set(liveTicketKey(ticket), JSON.stringify({ auth, roomId: room.id }), 'PX', LIVE_TICKET_TTL_MS);
+    return { ticket, expiresAt };
   },
 
   'rooms.members': async (c) => {

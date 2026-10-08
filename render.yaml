@@ -1,0 +1,119 @@
+# Render Blueprint for split hosting (README → Deploy): the API, MCP and Slack services as
+# always-on containers, plus Postgres and Key Value (Redis). The web app is static on Vercel
+# (apps/web/vercel.json), which proxies /v1 and the OAuth paths to these services.
+#
+# PUBLIC_ORIGIN is asked for when the Blueprint is created: the web app's public URL, e.g.
+# https://spinroom-web.vercel.app. If Render gives a service a different hostname than its name
+# below, update the rewrites in apps/web/vercel.json to match.
+
+envVarGroups:
+  - name: spinroom-shared
+    envVars:
+      - key: PUBLIC_ORIGIN
+        sync: false
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: SERVICE_SECRET_MCP
+        generateValue: true
+      - key: SERVICE_SECRET_SLACK
+        generateValue: true
+
+services:
+  - type: web
+    name: spinroom-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node api/dist/main.js
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - fromGroup: spinroom-shared
+      - key: PORT
+        value: '10000'
+      - key: DATABASE_URL
+        fromDatabase: { name: spinroom-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: spinroom-kv, property: connectionString }
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: '1'
+      - key: MCP_RESOURCE_URL
+        value: https://spinroom-mcp.onrender.com/mcp
+      # Staging smoke test: fake Spotify. Switch to `real` (and remove ALLOW_FAKE_SPOTIFY)
+      # once your Spotify app's redirect URI is set to PUBLIC_ORIGIN/v1/auth/spotify/callback.
+      - key: SPOTIFY_MODE
+        value: fake
+      - key: ALLOW_FAKE_SPOTIFY
+        value: '1'
+      - key: ADMIN_SPOTIFY_IDS
+        sync: false
+      # Avatars need durable storage (container disks are ephemeral): any S3-compatible bucket.
+      - key: STORAGE_DRIVER
+        value: s3
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+
+  - type: web
+    name: spinroom-mcp
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node mcp/dist/http.js
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - fromGroup: spinroom-shared
+      - key: MCP_PORT
+        value: '10000'
+      - key: MCP_RESOURCE_URL
+        value: https://spinroom-mcp.onrender.com/mcp
+      - key: SPINROOM_API_URL
+        fromService: { type: web, name: spinroom-api, property: hostport }
+
+  - type: web
+    name: spinroom-slack
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: node slack/dist/main.js
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - fromGroup: spinroom-shared
+      - key: SLACK_PORT
+        value: '10000'
+      - key: SPINROOM_API_URL
+        fromService: { type: web, name: spinroom-api, property: hostport }
+      - key: DATABASE_URL
+        fromDatabase: { name: spinroom-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: spinroom-kv, property: connectionString }
+      - key: SLACK_CLIENT_ID
+        sync: false
+      - key: SLACK_CLIENT_SECRET
+        sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
+      - key: SLACK_STATE_SECRET
+        generateValue: true
+
+  - type: keyvalue
+    name: spinroom-kv
+    plan: starter
+    # Room state and pub/sub must survive restarts of the cache: no eviction.
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: spinroom-db
+    plan: basic-256mb
+    databaseName: spinroom
+    user: spinroom

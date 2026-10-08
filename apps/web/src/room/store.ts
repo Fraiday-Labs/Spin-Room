@@ -1,7 +1,7 @@
 import type { RoomEvent, RoomSnapshot } from '@spinroom/contracts';
 import { LiveRoom, type LiveStatus } from '@spinroom/sdk';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { wsUrl } from '../lib/api';
+import { liveRoomUrl } from '../lib/api';
 import { serverClock } from '../speaker/useSpeaker';
 
 export interface LiveState {
@@ -43,7 +43,7 @@ export function useLiveRoom(slug: string, myUserId: string | null | undefined, e
   useEffect(() => {
     if (!enabled) return;
     const room = new LiveRoom({
-      url: wsUrl(`/v1/rooms/${encodeURIComponent(slug)}/live`),
+      url: () => liveRoomUrl(slug, !!myUserId),
       connect: (u) => {
         const ws = new WebSocket(u);
         ws.addEventListener('message', (m) => {

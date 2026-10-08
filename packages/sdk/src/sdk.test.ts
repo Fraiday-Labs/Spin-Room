@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RoomSnapshot } from '@spinroom/contracts';
 import { DEFAULT_ROOM_SETTINGS } from '@spinroom/contracts';
-import { applyEvent, DriftController, ServerClock, SpinroomClient, ApiError, formatMs } from './index.js';
+import { applyEvent, DriftController, LiveRoom, ServerClock, SpinroomClient, ApiError, formatMs, type WsLike } from './index.js';
 
 describe('ServerClock', () => {
   it('uses the median of the last 5 samples', () => {
@@ -104,5 +104,45 @@ describe('SpinroomClient', () => {
   });
   it('formats times', () => {
     expect(formatMs(102_000)).toBe('1:42');
+  });
+});
+
+describe('LiveRoom', () => {
+  it('resolves the URL before every connect (fresh one-time tickets on reconnect)', async () => {
+    const opened: string[] = [];
+    const sockets: WsLike[] = [];
+    let n = 0;
+    const room = new LiveRoom({
+      url: async () => `wss://api.example.com/v1/rooms/r/live?ticket=t${++n}`,
+      connect: (u) => {
+        opened.push(u);
+        const ws: WsLike = { readyState: 1, send: () => {}, close: () => {}, onopen: null, onclose: null, onerror: null, onmessage: null };
+        sockets.push(ws);
+        return ws;
+      },
+      minBackoffMs: 1,
+      maxBackoffMs: 2,
+    });
+    await vi.waitFor(() => expect(opened).toHaveLength(1));
+    sockets[0]!.onclose?.({ code: 1006, reason: '' });
+    await vi.waitFor(() => expect(opened).toHaveLength(2));
+    expect(opened).toEqual(['wss://api.example.com/v1/rooms/r/live?ticket=t1', 'wss://api.example.com/v1/rooms/r/live?ticket=t2']);
+    room.close();
+  });
+
+  it('retries when the URL cannot be resolved', async () => {
+    let calls = 0;
+    const room = new LiveRoom({
+      url: async () => {
+        if (++calls < 3) throw new Error('offline');
+        return 'ws://x/live';
+      },
+      connect: () => ({ readyState: 0, send: () => {}, close: () => {}, onopen: null, onclose: null, onerror: null, onmessage: null }),
+      minBackoffMs: 1,
+      maxBackoffMs: 2,
+    });
+    await vi.waitFor(() => expect(calls).toBe(3));
+    expect(room.status).toBe('reconnecting');
+    room.close();
   });
 });

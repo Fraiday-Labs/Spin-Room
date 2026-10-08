@@ -8,13 +8,15 @@ const API = process.env.SPINROOM_API_URL ?? 'http://127.0.0.1:8080';
  * (Dev mode needs Vite's inline preamble, so the policy is added at build time only.)
  */
 function csp(): Plugin {
+  // Split hosting: the live socket goes straight to the API origin; otherwise it's same-origin.
+  const live = (process.env.VITE_LIVE_ORIGIN ?? '').replace(/\/$/, '');
   const policy = [
     "default-src 'self'",
     "script-src 'self' https://sdk.scdn.co",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com https://mosaic.scdn.co",
     "font-src 'self'",
-    "connect-src 'self' ws: wss: https://api.spotify.com https://*.spotify.com",
+    `connect-src 'self' ${live || 'ws: wss:'} https://api.spotify.com https://*.spotify.com`,
     'frame-src https://sdk.scdn.co',
     "media-src 'self' blob: https://*.scdn.co",
     "object-src 'none'",

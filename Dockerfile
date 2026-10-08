@@ -1,4 +1,7 @@
 # Multi-target image: docker build --target api|mcp|slack|web .
+# The default (last) target, `server`, holds all three Node services; pick one with the command
+# (`node api/dist/main.js`, `node mcp/dist/http.js`, `node slack/dist/main.js`), which suits hosts
+# that build one Dockerfile per service without a target option (render.yaml).
 FROM node:22-slim AS build
 RUN corepack enable
 WORKDIR /repo
@@ -44,3 +47,11 @@ FROM nginx:1.27-alpine AS web
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
+
+FROM node:22-slim AS server
+WORKDIR /app
+COPY --from=build /out/api ./api
+COPY --from=build /out/mcp ./mcp
+COPY --from=build /out/slack ./slack
+ENV NODE_ENV=production MIGRATIONS_DIR=/app/api/drizzle
+CMD ["node", "api/dist/main.js"]

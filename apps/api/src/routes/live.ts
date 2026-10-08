@@ -4,6 +4,7 @@ import type { WebSocket } from 'ws';
 import type { AppContext } from '../context.js';
 import { authenticate } from '../http/auth.js';
 import { assertCanView, ensureMember, roomBySlug } from '../rooms/access.js';
+import { redeemLiveTicket } from '../rooms/live-ticket.js';
 
 interface Conn {
   ws: WebSocket;
@@ -42,14 +43,31 @@ export function registerLive(app: FastifyInstance, ctx: AppContext) {
     });
   }
 
-  app.get<{ Params: { slug: string } }>('/v1/rooms/:slug/live', { websocket: true }, async (socket, req) => {
+  const allowedOrigins = new Set([
+    ctx.cfg.PUBLIC_ORIGIN,
+    ...ctx.cfg.WEB_ORIGINS.split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  ]);
+
+  app.get<{ Params: { slug: string }; Querystring: { ticket?: string } }>('/v1/rooms/:slug/live', { websocket: true }, async (socket, req) => {
     const ws = socket as unknown as WebSocket;
     let conn: Conn | null = null;
     let roomId: string | null = null;
     try {
+      // Browsers always send Origin; refuse pages we don't serve (cross-site socket hijacking).
+      const origin = req.headers.origin;
+      if (origin && !allowedOrigins.has(origin)) throw new SpinroomError('origin_rejected', 'Origin not allowed');
       await ensureSubscribed();
-      const auth = await authenticate(ctx, req).catch(() => null);
       const room = await roomBySlug(ctx, req.params.slug);
+      const ticket = req.query.ticket;
+      let auth;
+      if (ticket) {
+        auth = await redeemLiveTicket(ctx, ticket, room.id);
+        if (!auth) throw new SpinroomError('unauthenticated', 'Live ticket expired or already used');
+      } else {
+        auth = await authenticate(ctx, req).catch(() => null);
+      }
       const member = await assertCanView(ctx, room, auth?.userId ?? null);
       roomId = room.id;
       conn = { ws, userId: auth?.userId ?? null, isMod: member?.role === 'owner' || member?.role === 'moderator' };

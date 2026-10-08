@@ -55,9 +55,27 @@ export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/**
+ * Origin of the live socket. Empty means same origin (dev proxy or a single ingress); set
+ * VITE_LIVE_ORIGIN (e.g. wss://api.example.com) when the web app is hosted apart from the API.
+ */
+export const LIVE_ORIGIN: string = (import.meta.env.VITE_LIVE_ORIGIN ?? '').replace(/\/$/, '');
+
 export function wsUrl(path: string): string {
+  if (LIVE_ORIGIN) return `${LIVE_ORIGIN}${path}`;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   return `${proto}://${location.host}${path}`;
+}
+
+/**
+ * The live socket URL for a room. Cross-origin sockets can't carry the session cookie, so
+ * signed-in users trade it for a one-time ticket first; signed-out viewers connect bare.
+ */
+export async function liveRoomUrl(slug: string, signedIn: boolean): Promise<string> {
+  const base = wsUrl(`/v1/rooms/${encodeURIComponent(slug)}/live`);
+  if (!LIVE_ORIGIN || !signedIn) return base;
+  const { ticket } = await api.call('rooms.liveTicket', { params: { slug } });
+  return `${base}?ticket=${encodeURIComponent(ticket)}`;
 }
 
 export function signInUrl(returnTo = location.pathname + location.search) {

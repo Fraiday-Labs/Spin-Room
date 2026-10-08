@@ -1,6 +1,7 @@
 import type { RoomEvent } from '@spinroom/contracts';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ManualClock } from '../src/lib/clock.js';
+import { sha256 } from '../src/lib/crypto.js';
 import { FakeSpotifyGateway, FAKE_CATALOG } from '../src/spotify/fake.js';
 import { createTestApp, login, type TestApp, type TestUser } from './helpers.js';
 
@@ -331,5 +332,59 @@ describe('live socket', () => {
     const msg = await new Promise<{ code: string }>((r) => ws.on('message', (d) => r(JSON.parse(String(d)))));
     expect(msg.code).toBe('not_member');
     ws.terminate();
+  });
+  it('opens cross-origin with a one-time ticket and refuses foreign origins', async () => {
+    t = await createTestApp({ cfg: { WEB_ORIGINS: 'https://preview.example.com' } });
+    const alice = await login(t, 'alice');
+    const { room } = await createRoom(alice);
+    const other = await createRoom(alice, { name: 'Other room' });
+    type First = { type: string; code?: string; snapshot?: { me?: { role: string } | null } };
+    // Listen from onInit: error frames can arrive before injectWS resolves.
+    const open = async (url: string, headers: Record<string, string>) => {
+      let resolve!: (m: First) => void;
+      const first = new Promise<First>((r) => (resolve = r));
+      const ws = await t.app.injectWS(
+        url,
+        { headers },
+        {
+          onInit: (w) =>
+            w.on('message', (d) => {
+              const m = JSON.parse(String(d));
+              if (m.type === 'room.snapshot' || m.type === 'error') resolve(m);
+            }),
+        },
+      );
+      const m = await first;
+      ws.terminate();
+      return m;
+    };
+    const ticket = async (slug = room.slug) => {
+      const res = await alice.req('POST', `/v1/rooms/${slug}/live-ticket`);
+      expect(res.statusCode, res.body).toBe(200);
+      return res.json().ticket as string;
+    };
+    const origin = { origin: 'https://preview.example.com' };
+
+    // A ticket stands in for the cookie, once.
+    const tk = await ticket();
+    const snap = await open(`/v1/rooms/${room.slug}/live?ticket=${tk}`, origin);
+    expect(snap.type).toBe('room.snapshot');
+    expect(snap.snapshot?.me?.role).toBe('owner');
+    expect((await open(`/v1/rooms/${room.slug}/live?ticket=${tk}`, origin)).code).toBe('unauthenticated');
+
+    // Tickets are bound to their room and expire.
+    expect((await open(`/v1/rooms/${other.room.slug}/live?ticket=${await ticket()}`, origin)).code).toBe('unauthenticated');
+    const stale = await ticket();
+    await t.ctx.redis.pexpire(`wsticket:${sha256(stale)}`, 1);
+    await new Promise((r) => setTimeout(r, 20));
+    expect((await open(`/v1/rooms/${room.slug}/live?ticket=${stale}`, origin)).code).toBe('unauthenticated');
+
+    // Pages on other origins can't open the socket even with credentials.
+    const foreign = await open(`/v1/rooms/${room.slug}/live`, { origin: 'https://evil.example.net', authorization: `Bearer ${alice.token}` });
+    expect(foreign.code).toBe('origin_rejected');
+
+    // Signed-out callers can't mint tickets.
+    const anon = await t.app.inject({ method: 'POST', url: `/v1/rooms/${room.slug}/live-ticket` });
+    expect(anon.statusCode).toBe(401);
   });
 });

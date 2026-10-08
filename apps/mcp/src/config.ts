@@ -1,6 +1,6 @@
 export function mcpConfig(raw: Record<string, string | undefined> = process.env) {
   const env = Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== ''));
-  const apiUrl = (env.SPINROOM_API_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+  const apiUrl = apiOrigin(env.SPINROOM_API_URL);
   return {
     apiUrl,
     /** Web origin used in speaker and invite links. */
@@ -14,3 +14,9 @@ export function mcpConfig(raw: Record<string, string | undefined> = process.env)
   };
 }
 export type McpConfig = ReturnType<typeof mcpConfig>;
+
+/** The API's base URL; a bare `host:port` (a private-network address) means plain http. */
+export function apiOrigin(v: string | undefined): string {
+  const u = (v ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+  return /^https?:\/\//.test(u) ? u : `http://${u}`;
+}

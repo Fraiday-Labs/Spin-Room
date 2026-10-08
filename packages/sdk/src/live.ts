@@ -15,8 +15,11 @@ export interface WsLike {
 export type LiveStatus = 'connecting' | 'open' | 'reconnecting' | 'closed';
 
 export interface LiveRoomOptions {
-  /** ws(s)://host/v1/rooms/{slug}/live */
-  url: string;
+  /**
+   * ws(s)://host/v1/rooms/{slug}/live, or a function resolving it before each (re)connect
+   * (the web app fetches a one-time ticket when the socket lives on another origin).
+   */
+  url: string | (() => Promise<string>);
   /** Create a socket (browser: `(u) => new WebSocket(u)`; Node: `ws` with auth headers). */
   connect: (url: string) => WsLike;
   myUserId?: string | null;
@@ -55,7 +58,27 @@ export class LiveRoom {
 
   private open() {
     if (this.stopped) return;
-    const ws = this.o.connect(this.o.url);
+    if (typeof this.o.url === 'string') {
+      this.attach(this.o.url);
+      return;
+    }
+    this.o.url().then(
+      (u) => this.attach(u),
+      () => this.retry(),
+    );
+  }
+
+  private retry() {
+    if (this.stopped) return;
+    this.setStatus('reconnecting');
+    const wait = this.backoff * (0.8 + Math.random() * 0.4);
+    this.backoff = Math.min(this.backoff * 2, this.o.maxBackoffMs ?? 30_000);
+    this.timer = setTimeout(() => this.open(), wait);
+  }
+
+  private attach(url: string) {
+    if (this.stopped) return;
+    const ws = this.o.connect(url);
     this.ws = ws;
     ws.onopen = () => {
       this.backoff = this.o.minBackoffMs ?? 1000;
@@ -73,10 +96,7 @@ export class LiveRoom {
         this.setStatus('closed');
         return;
       }
-      this.setStatus('reconnecting');
-      const wait = this.backoff * (0.8 + Math.random() * 0.4);
-      this.backoff = Math.min(this.backoff * 2, this.o.maxBackoffMs ?? 30_000);
-      this.timer = setTimeout(() => this.open(), wait);
+      this.retry();
     };
   }
 
