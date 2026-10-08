@@ -40,6 +40,7 @@ export function Connect() {
   const error = params.get('error');
   const detail = params.get('detail');
   const returnTo = params.get('return_to') ?? '/lobby';
+  const go = params.get('go') === '1';
   const cfg = useQuery({ queryKey: ['auth-config'], queryFn: () => api.call('auth.config') });
   const [clientId, setClientId] = useState('');
   const [friendMode, setFriendMode] = useState(false);
@@ -59,6 +60,13 @@ export function Connect() {
     location.href = `/v1/auth/spotify/start?${q}`;
   };
   const hosted = !!cfg.data?.hostedSpotifyApp;
+  // Arriving from a "Sign in" button with nothing to set up: go straight on to Spotify.
+  const canGoStraight = !error && go && !!cfg.data && (cfg.data.spotifyMode === 'fake' || cfg.data.hostedSpotifyApp || !!cfg.data.rememberedClientId);
+  useEffect(() => {
+    if (canGoStraight) start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canGoStraight]);
+
   const failure = error
     ? hosted && error === 'user_not_allowlisted' && !cfg.data?.rememberedClientId
       ? {
@@ -67,6 +75,14 @@ export function Connect() {
         }
       : (FAILURES[error] ?? FAILURES.spotify_error!)
     : null;
+
+  if (canGoStraight || (go && !error && cfg.isLoading)) {
+    return (
+      <div className="page muted" role="status">
+        Taking you to Spotify…
+      </div>
+    );
+  }
 
   return (
     <div className="page stack" style={{ maxWidth: 760 }}>

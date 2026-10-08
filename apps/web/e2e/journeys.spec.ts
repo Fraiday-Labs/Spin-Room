@@ -34,13 +34,14 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
     const friend = await ctx.newPage();
     const path = new URL(inviteUrl).pathname;
     await friend.goto(path);
-    await friend.getByRole('link', { name: /Sign in with Spotify to join/ }).click();
-    await friend.getByRole('button', { name: 'Continue to test sign-in' }).click();
+    // Never used Spinroom: one button to Spotify's sign-in (test sign-in here), then straight into the room.
+    await friend.getByTestId('invite-sign-in').click();
+    await expect(friend).toHaveURL(/\/dev-login/);
     await friend.getByLabel('Spotify user ID').fill(uid('friend'));
     await friend.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(friend).toHaveURL(new RegExp(path));
-    await friend.getByTestId('accept-invite').click();
+    await expect(friend).toHaveURL(/\/r\/friday-[^?]*\?speaker=1$/);
     await expect(friend.getByTestId('stage')).toBeVisible();
+    await expect(friend.getByTestId('start-speaker')).toBeFocused();
     await expect(friend.getByTestId('np-title')).toHaveText('Neon Tide');
 
     // Late join: audio starts at the live position.
@@ -381,13 +382,14 @@ test('"Anyone with the link" lets someone straight into an invite-only room, eve
 
   // A friend who isn't signed in opens the link, signs in, and lands in the room.
   await page.goto(new URL(shareUrl).pathname + new URL(shareUrl).search);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('You’re invited to a Spinroom room');
   await page.getByTestId('link-sign-in').click();
-  await page.getByRole('button', { name: 'Continue to test sign-in' }).click();
+  await expect(page).toHaveURL(/\/dev-login/);
   await page.getByLabel('Spotify user ID').fill(uid('linkfriend'));
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByTestId('stage')).toBeVisible();
   // In, and the key is no longer in the address bar.
-  await expect(page).toHaveURL(new RegExp(`${roomPath}$`));
+  await expect(page).toHaveURL(new RegExp(`${roomPath}\\?speaker=1$`));
 
   // Resetting the link stops the old one working for newcomers.
   await dialog.getByRole('button', { name: 'Reset link' }).click();

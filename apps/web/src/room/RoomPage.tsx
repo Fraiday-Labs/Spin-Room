@@ -42,6 +42,7 @@ export default function RoomPage({ slug }: { slug: string }) {
       ? { teamId: params.get('team')!, channelId: params.get('channel')!, sig: params.get('sig')! }
       : undefined;
   const hasLinkGrant = !!(key || slackGrant);
+  const hasJoinParams = hasLinkGrant || !!invite;
   const joinBody = { ...(invite ? { invite } : {}), ...(key ? { key } : {}), ...(slackGrant ? { slack: slackGrant } : {}) };
   const [joined, setJoined] = useState(false);
   const userId = me.data?.id ?? null;
@@ -49,22 +50,26 @@ export default function RoomPage({ slug }: { slug: string }) {
   // Join (membership + invite) before opening the live socket.
   useEffect(() => {
     if (me.isLoading) return;
-    if (!me.data) {
-      setJoined(true); // anonymous viewers can watch public rooms
-      return;
-    }
+    if (!me.data) return; // signed out: the sign-in page below; nothing to join yet
     api
       .call('rooms.join', { params: { slug }, body: joinBody })
       .then(() => {
         setJoined(true);
         // The key / Slack signature did their job; keep them out of the address bar.
-        if (hasLinkGrant) history.replaceState(null, '', cleanUrl(params));
+        if (hasJoinParams) history.replaceState(null, '', cleanUrl(params));
       })
       .catch((e) => setJoinError(errorMessage(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, me.isLoading, userId]);
 
-  const live = useLiveRoom(slug, userId, joined && !joinError && !(hasLinkGrant && !me.data));
+  const live = useLiveRoom(slug, userId, joined && !joinError && !!me.data);
+  // Signed out: show the room's name on the sign-in page when it's public.
+  const preview = useQuery({
+    queryKey: ['room-preview', slug],
+    queryFn: () => api.call('rooms.get', { params: { slug } }),
+    enabled: !me.isLoading && !me.data,
+    retry: false,
+  });
   const snap = live.snapshot;
   const speaker = useSpeaker(slug, snap?.room.name ?? slug, me.data && !me.data.remoteOnly ? cfg.data?.spotifyMode : undefined);
 
@@ -159,13 +164,21 @@ export default function RoomPage({ slug }: { slug: string }) {
 
   const [sharing, setSharing] = useState(false);
 
-  // Someone followed a share or Slack link but isn't signed in yet: sign in, then come straight back.
-  if (!me.isLoading && !me.data && hasLinkGrant) {
+  // Not signed in (a first visit from an invite, share or Slack link): sign in with Spotify, then
+  // come straight back here; the room is joined on arrival with the Start speaker button highlighted.
+  if (!me.isLoading && !me.data) {
+    const roomName = preview.data?.room.name;
+    const back = (() => {
+      const p = new URLSearchParams(location.search);
+      p.set('speaker', '1');
+      return `${location.pathname}?${p.toString()}`;
+    })();
     return (
       <div className="page stack" style={{ maxWidth: 560 }}>
-        <h1>You’re invited to a Spinroom room</h1>
-        <p className="muted">Sign in with Spotify to join. You’ll come right back here.</p>
-        <a className="btn btn-spotify" style={{ justifySelf: 'start' }} href={signInUrl()} data-testid="link-sign-in">
+        <h1>{roomName ? `You’re invited to ${roomName}` : 'You’re invited to a Spinroom room'}</h1>
+        {preview.data?.room.description && <p className="muted">{preview.data.room.description}</p>}
+        <p className="muted">Listen together and take turns DJing. Sign in with your Spotify Premium account and you’ll go straight into the room.</p>
+        <a className="btn btn-spotify" style={{ justifySelf: 'start' }} href={signInUrl(back)} data-testid="link-sign-in">
           Sign in with Spotify to join
         </a>
       </div>

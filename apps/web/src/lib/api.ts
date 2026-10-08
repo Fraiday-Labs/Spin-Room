@@ -78,6 +78,10 @@ export async function liveRoomUrl(slug: string, signedIn: boolean): Promise<stri
   return `${base}?ticket=${encodeURIComponent(ticket)}`;
 }
 
+/**
+ * Sign in, then come back to `returnTo`. `go=1` tells the sign-in page to continue straight to
+ * Spotify when no setup is needed (the server has its own Spotify app, or you used yours before).
+ */
 export function signInUrl(returnTo = location.pathname + location.search) {
-  return `/connect?return_to=${encodeURIComponent(returnTo)}`;
+  return `/connect?return_to=${encodeURIComponent(returnTo)}&go=1`;
 }

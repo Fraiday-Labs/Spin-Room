@@ -299,7 +299,8 @@ export const roomHandlers: Handlers = {
     const auth = requireUser(c);
     const { ctx, params, body } = c;
     let room = await roomBySlug(ctx, params.slug);
-    if (body.invite) {
+    // Already a member? An old invite link just lets you in, even if it has since expired.
+    if (body.invite && !(await memberRow(ctx, room.id, auth.userId))) {
       const r = await acceptInvite(ctx, body.invite.replace(/^.*\/invite\//, ''), auth.userId);
       if (r.id !== room.id) throw new SpinroomError('invalid_invite', 'That invite is for a different room');
       room = r;
