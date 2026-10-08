@@ -6,6 +6,8 @@
   place-items: center;
   overflow: hidden;
   background: var(--night);
+  /* Size comes from the room layout, never from the scaled scene, so it can shrink with the window. */
+  contain: size;
 }
 .box {
   position: relative;

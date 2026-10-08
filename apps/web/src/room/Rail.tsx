@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type RefObject } from 'react';
 import { api, errorMessage } from '../lib/api';
 import { AvatarSprite } from './AvatarSprite';
+import { moveItem, useDragReorder } from './reorder';
 import { useNow } from './store';
 import s from './Rail.module.css';
 
@@ -274,6 +275,21 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   const [linking, setLinking] = useState(false);
   const playlists = useQuery({ queryKey: ['playlists'], queryFn: () => api.call('me.playlists'), enabled: linking });
 
+  const reorder = useDragReorder<HTMLOListElement>((from, to) => {
+    const cur = qc.getQueryData<Crate>(['crate', slug]);
+    const it = cur?.items[from];
+    if (!cur || !it) return;
+    // Show the new order right away; the server's reply (or a refetch on error) settles it.
+    qc.setQueryData<Crate>(['crate', slug], { ...cur, items: moveItem(cur.items, from, to) });
+    api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: to } }).then(
+      (c) => qc.setQueryData(['crate', slug], c),
+      (e: unknown) => {
+        notify(e instanceof ApiError ? e.message : errorMessage(e));
+        void qc.invalidateQueries({ queryKey: ['crate', slug] });
+      },
+    );
+  });
+
   if (!me) return <p className="muted">Sign in to build your set.</p>;
   const update = (c: Crate) => qc.setQueryData(['crate', slug], c);
   const run = async (fn: () => Promise<Crate>) => {
@@ -285,6 +301,10 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   };
   const add = (t: Track) => run(() => api.call('crate.add', { params: { slug }, body: { trackUri: t.uri } }));
   const c = crate.data;
+  const drag = reorder.drag;
+  const shown = c ? (drag ? moveItem(c.items, drag.from, drag.to) : c.items) : [];
+  const nextId = c?.items[c.position]?.id;
+  const draggingId = drag ? c?.items[drag.from]?.id : undefined;
   return (
     <div className="stack">
       {c?.notice && <div className="notice">{c.notice}</div>}
@@ -372,44 +392,53 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
         </ul>
       )}
       <h3 className={s.h}>My set ({c?.items.length ?? 0})</h3>
-      <ol className={s.list} data-testid="my-set">
-        {c?.items.map((it, i) => (
-          <li key={it.id} className={`${s.item} ${i === c.position ? s.next : ''}`}>
-            <span className={s.num}>{i + 1}</span>
-            <span className={s.grow}>
-              <span className={s.strong}>{it.track.title}</span> <span className="muted">{it.track.artists.join(', ')}</span>
-              {it.flags.map((f) => (
-                <span key={f} className="badge badge-warn">
-                  {f === 'unplayable' ? 'unavailable' : f === 'too_long' ? 'too long' : 'explicit'}
-                </span>
-              ))}
-              {i === c.position && <span className="badge badge-ok">next</span>}
-            </span>
-            <button
-              className="btn btn-ghost"
-              disabled={i === 0}
-              aria-label="Move up"
-              onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i - 1 } }))}
+      {c && c.items.length > 1 && <p className={`muted ${s.hint}`}>Drag tracks to reorder.</p>}
+      <ol className={s.list} data-testid="my-set" ref={reorder.listRef}>
+        {c &&
+          shown.map((it, i) => (
+            <li
+              key={it.id}
+              className={`${s.item} ${s.draggable} ${it.id === nextId ? s.next : ''} ${it.id === draggingId ? s.dragging : ''}`}
+              onPointerDown={(e) => reorder.onPointerDown(e, i)}
             >
-              ↑
-            </button>
-            <button
-              className="btn btn-ghost"
-              disabled={i === c.items.length - 1}
-              aria-label="Move down"
-              onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i + 1 } }))}
-            >
-              ↓
-            </button>
-            <button
-              className="btn btn-ghost"
-              aria-label={`Remove ${it.track.title}`}
-              onClick={() => run(() => api.call('crate.remove', { params: { slug, itemId: it.id } }))}
-            >
-              ✕
-            </button>
-          </li>
-        ))}
+              <span className={s.grip} data-grip aria-hidden="true" title="Drag to reorder">
+                ⠿
+              </span>
+              <span className={s.num}>{i + 1}</span>
+              <span className={s.grow}>
+                <span className={s.strong}>{it.track.title}</span> <span className="muted">{it.track.artists.join(', ')}</span>
+                {it.flags.map((f) => (
+                  <span key={f} className="badge badge-warn">
+                    {f === 'unplayable' ? 'unavailable' : f === 'too_long' ? 'too long' : 'explicit'}
+                  </span>
+                ))}
+                {it.id === nextId && <span className="badge badge-ok">next</span>}
+              </span>
+              <button
+                className="btn btn-ghost"
+                disabled={i === 0}
+                aria-label="Move up"
+                onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i - 1 } }))}
+              >
+                ↑
+              </button>
+              <button
+                className="btn btn-ghost"
+                disabled={i === c.items.length - 1}
+                aria-label="Move down"
+                onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i + 1 } }))}
+              >
+                ↓
+              </button>
+              <button
+                className="btn btn-ghost"
+                aria-label={`Remove ${it.track.title}`}
+                onClick={() => run(() => api.call('crate.remove', { params: { slug, itemId: it.id } }))}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
       </ol>
     </div>
   );

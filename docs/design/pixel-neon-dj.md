@@ -6,7 +6,7 @@ All built-in art is original and generated in code by `tools/art` (`pnpm art`). 
 
 ## Canvas and scaling
 
-- Native art resolution **480 × 270**. The stage scales by a whole number (4× at 1920 px wide) with `image-rendering: pixelated`. Below 480 px wide it scales down proportionally.
+- Native art resolution **480 × 270**. The stage scales to fill its area at any window size with `image-rendering: pixelated`, preferring a whole device-pixel scale when one fits within 3%.
 - No smoothing, gradients or blur. Tonal steps use ordered 2 × 2 dithering or stepped alpha (spotlight beams).
 - Animate only `transform` and `opacity`. Pause all scene animation when the tab is hidden. `prefers-reduced-motion` freezes beams, bars, LED strips, avatars and the crowd.
 - No strobe: nothing flashes more than 3 times per second.

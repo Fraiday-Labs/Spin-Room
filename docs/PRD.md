@@ -344,7 +344,7 @@ The reference image sets the target look. The scene must be rebuilt as live laye
 
 **Rules for the scene**
 
-- Native art resolution 480 × 270, scaled by a whole number (4× at 1920 px wide) with `image-rendering: pixelated`. No smoothing, gradients, or blur.
+- Native art resolution 480 × 270, scaled to fill the stage area at any window size with `image-rendering: pixelated` (nearest-neighbour; whole device-pixel scales preferred when they fit within 3%). No smoothing, gradients, or blur.
 - Background plates (wall, truss, speakers, booth, floor) are generated with the design system prompt, then cleaned by hand: snapped to the palette, split into layers, and exported as WebP.
 - Crowd figures are an original set of back-view sprites (hoodies, beanies, pigtails, small robot and hooded mascots), tinted with each member's color. A member's own avatar shows front-facing in their hover card, the member list, and when they DJ. Imported ChatGPT pets have no back view, so they are not used on the floor.
 - Each booth slot has its own neon color (cyan, magenta, amber) shared by its spotlight and name label. Labels use a chunky pixel font with a dark outline.
@@ -384,7 +384,7 @@ Type: a chunky pixel sans for names and headings and a tall condensed pixel font
 
 ### Room scene layout
 
-- Center: the Pixel Neon DJ stage, scaled to fit the window while keeping whole-number pixel scaling.
+- Center: the Pixel Neon DJ stage, scaled to fill the available space as the window resizes.
 - Below the stage: the **Spotify player panel** (see Spotify integration) with unaltered album art, title, artist, Spotify logo and "Open in Spotify" link, progress bar, local volume and mute, and large Hype and Skip buttons.
 - Right rail: tabs for Up next (from Spotify, see below), Chat, DJ queue, and My set. On narrow screens the rail becomes a bottom sheet.
 - Listeners cannot pause, seek, or skip the room's music; Spotify controls in the panel are limited to local volume and mute. DJs and moderators get a "Skip spin" action.

@@ -184,3 +184,24 @@
   align-items: center;
   flex-wrap: wrap;
 }
+
+/* Drag to reorder (My set). */
+.draggable {
+  cursor: grab;
+}
+.grip {
+  color: var(--text-dim);
+  padding: 0 2px;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.dragging {
+  outline: 2px dashed var(--cyan);
+  background: rgb(255 255 255 / 0.08);
+  cursor: grabbing;
+}
+.hint {
+  margin: -4px 0 0;
+  font-size: 0.85em;
+}

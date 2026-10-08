@@ -2,11 +2,12 @@ import { SLOT_COLORS, type Member, type RoomSnapshot } from '@spinroom/contracts
 import { formatMs } from '@spinroom/sdk';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AvatarSprite } from './AvatarSprite';
+import { STAGE_H, STAGE_W, stageScale } from './scale';
 import { hash, useNow } from './store';
 import s from './Stage.module.css';
 
-const W = 480;
-const H = 270;
+const W = STAGE_W;
+const H = STAGE_H;
 const SLOT_X = [176, 240, 304];
 const SPOT_X = [48, 144, 240, 336, 432];
 const BEAMS = ['violet', 'cyan', 'magenta', 'amber', 'violet'] as const;
@@ -16,18 +17,20 @@ const BOOTH_Y = 148;
 const CROWD_VARIANTS = 8;
 const EQ_COLORS = ['#FF2BD6', '#FF4FA3', '#FFB000', '#FFD24A', '#7CF2B0', '#3DE2FF', '#5B2DFF', '#7A4DFF'];
 
-/** Whole-number scaling (4× at 1920 px), proportional below 480 px. */
 function useScale(ref: React.RefObject<HTMLDivElement | null>) {
   const [k, setK] = useState(1);
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const fit = Math.min(el.clientWidth / W, (el.clientHeight || Infinity) / H);
-      setK(fit >= 1 ? Math.floor(fit) : Math.max(0.25, fit));
-    });
+    const measure = () => setK(stageScale(el.clientWidth, el.clientHeight, window.devicePixelRatio || 1));
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    // Moving the window to a screen with a different pixel density doesn't resize it.
+    window.addEventListener('resize', measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, [ref]);
   return k;
 }

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { addTrack, newUserPage, signInViaUi, uid } from './helpers';
+import { addTrack, newUserPage, run, signInViaUi, uid } from './helpers';
 
 test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
   test('host creates an invite-only room, a friend joins by link, hears the live position and DJs', async ({ page, browser }) => {
@@ -144,4 +144,32 @@ test('owners close, reopen and delete rooms, and listeners are told', async ({ p
   await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
   await friend.goto(roomPath);
   await expect(friend.getByText(/No room called/)).toBeVisible();
+});
+
+test('drag tracks in My set to reorder them', async ({ page }) => {
+  await signInViaUi(page, uid('dragger'));
+  await expect(page).toHaveURL(/\/lobby/);
+  await page.getByTestId('room-name').fill(`Drag ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/drag-/);
+  for (const t of ['Neon Tide', 'Booth Lights', 'Pixel Rain']) await addTrack(page, t);
+  const rows = page.getByTestId('my-set').locator('li');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Neon Tide');
+
+  // Drag the first track below the last one.
+  const from = (await rows.nth(0).boundingBox())!;
+  const to = (await rows.nth(2).boundingBox())!;
+  await page.mouse.move(from.x + 60, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 60, from.y + from.height / 2 + 10, { steps: 3 });
+  await page.mouse.move(from.x + 60, to.y + to.height - 2, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(rows.nth(0)).toContainText('Booth Lights');
+  await expect(rows.nth(2)).toContainText('Neon Tide');
+  // It stuck on the server too.
+  await page.reload();
+  await page.getByRole('tab', { name: 'My set' }).click();
+  await expect(page.getByTestId('my-set').locator('li').nth(2)).toContainText('Neon Tide');
 });
