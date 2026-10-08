@@ -7,6 +7,7 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
     const host = uid('host');
     await signInViaUi(page, host);
     await expect(page).toHaveURL(/\/lobby/);
+    await page.getByTestId('open-create-room').click();
     await page.getByTestId('room-name').fill(`Friday ${host}`);
     await page.getByLabel('Who can join').selectOption('invite_only');
     await page.getByTestId('create-room').click();
@@ -75,13 +76,13 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
   test('Free accounts are remote-only and get told why', async ({ page }) => {
     await signInViaUi(page, uid('free'), { premium: false });
     await expect(page.getByText(/you’re a/i)).toBeVisible();
-    await expect(page.getByText('Remote only')).toBeVisible();
   });
 });
 
 test('reduced motion freezes the scene', async ({ browser }) => {
   const p = await newUserPage(browser, uid('calm'), undefined, { reducedMotion: 'reduce' });
   await p.goto('/lobby');
+  await p.getByTestId('open-create-room').click();
   await p.getByTestId('room-name').fill(`Calm ${uid('r')}`);
   await p.getByTestId('create-room').click();
   await expect(p.getByTestId('stage')).toBeVisible();
@@ -92,6 +93,7 @@ test('reduced motion freezes the scene', async ({ browser }) => {
 test('a hidden tab pauses scene animation but keeps the speaker live', async ({ browser }) => {
   const p = await newUserPage(browser, uid('bg'));
   await p.goto('/lobby');
+  await p.getByTestId('open-create-room').click();
   await p.getByTestId('room-name').fill(`Bg ${uid('r')}`);
   await p.getByTestId('create-room').click();
   await p.getByTestId('start-speaker').click();
@@ -110,6 +112,7 @@ test('owners close, reopen and delete rooms, and listeners are told', async ({ p
   await signInViaUi(page, host);
   await expect(page).toHaveURL(/\/lobby/);
   const name = `Closing ${host}`;
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(name);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/closing-/);
@@ -149,6 +152,7 @@ test('owners close, reopen and delete rooms, and listeners are told', async ({ p
 test('drag tracks in My set to reorder them', async ({ page }) => {
   await signInViaUi(page, uid('dragger'));
   await expect(page).toHaveURL(/\/lobby/);
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(`Drag ${run}`);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/drag-/);
@@ -185,6 +189,7 @@ test('a crash in one panel stays in that panel and is reported', async ({ browse
     r.fulfill({ contentType: 'application/json', body: JSON.stringify({ mode: 'local', playlist: null, position: 0, items: [{ id: 'x' }], notice: null }) }),
   );
   await page.goto('/lobby');
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(`Crash ${run}`);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/crash-/);
@@ -208,6 +213,7 @@ test('sending chat works in browsers where scrollIntoView returns a promise', as
     };
   });
   await page.goto('/lobby');
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(`Chat ${run}`);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/chat-/);
@@ -226,6 +232,7 @@ test('sending chat works in browsers where scrollIntoView returns a promise', as
 test('a DJ can clear their whole set', async ({ page }) => {
   await signInViaUi(page, uid('clearer'));
   await expect(page).toHaveURL(/\/lobby/);
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(`Clear ${run}`);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/clear-/);
@@ -244,6 +251,7 @@ test('a DJ can clear their whole set', async ({ page }) => {
 test('search results show when a track is added, and offer Add again once it is removed', async ({ page }) => {
   await signInViaUi(page, uid('adder'));
   await expect(page).toHaveURL(/\/lobby/);
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(`Adder ${run}`);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/adder-/);
@@ -261,6 +269,7 @@ test('owners can close or delete a room right from My rooms in the lobby', async
   await signInViaUi(page, host);
   await expect(page).toHaveURL(/\/lobby/);
   const name = `Lobby ${host}`;
+  await page.getByTestId('open-create-room').click();
   await page.getByTestId('room-name').fill(name);
   await page.getByTestId('create-room').click();
   await expect(page).toHaveURL(/\/r\/lobby-/);
@@ -280,6 +289,7 @@ test('a site admin can open settings in, and delete, a room someone else owns', 
   const owner = await newUserPage(browser, uid('roomowner'));
   await owner.goto('/lobby');
   const name = `Admin cleanup ${run}`;
+  await owner.getByTestId('open-create-room').click();
   await owner.getByTestId('room-name').fill(name);
   await owner.getByTestId('create-room').click();
   await expect(owner).toHaveURL(/\/r\/admin-cleanup-/);
@@ -314,4 +324,30 @@ test('avatar choice lives on the profile page, above the ChatGPT pet studio', as
   const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
   expect(headings.indexOf('Choose your avatar')).toBeGreaterThanOrEqual(0);
   expect(headings.indexOf('Choose your avatar')).toBeLessThan(headings.indexOf('Bring your ChatGPT pet'));
+});
+
+test('rooms are created from the "Create +" modal', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('creator'));
+  await page.goto('/lobby');
+  await expect(page.getByRole('heading', { name: 'My rooms' })).toBeVisible();
+  await expect(page.getByText('Premium · can listen & DJ')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Open a room' })).toHaveCount(0);
+  await expect(page.getByTestId('room-name')).toHaveCount(0);
+
+  // Cancel and Escape both close it without creating anything.
+  await page.getByTestId('open-create-room').click();
+  await expect(page.getByRole('dialog', { name: 'Create a room' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByTestId('open-create-room').click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByTestId('open-create-room').click();
+  await expect(page.getByTestId('room-name')).toBeFocused();
+  await page.getByTestId('room-name').fill(`Modal ${run}`);
+  await page.getByLabel('Who can join').selectOption('invite_only');
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/modal-/);
+  await expect(page.getByTestId('stage')).toBeVisible();
 });

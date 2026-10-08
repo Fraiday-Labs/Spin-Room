@@ -1,0 +1,33 @@
+.dialog {
+  background: var(--indigo);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  width: min(560px, 92vw);
+}
+.dialog::backdrop {
+  background: rgb(5 6 18 / 0.7);
+}
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.head h2 {
+  margin: 0;
+}
+.close {
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
