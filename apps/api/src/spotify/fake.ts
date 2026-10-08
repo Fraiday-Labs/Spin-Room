@@ -262,6 +262,13 @@ export class FakeSpotifyGateway implements SpotifyGateway {
     });
   }
 
+  async clearPlaylist(token: string, playlistId: string) {
+    parseFake(token);
+    return this.write(await this.get(playlistId), (list) => {
+      list.length = 0;
+    });
+  }
+
   /** Test helper: edit a playlist "in the Spotify app". */
   async externalEdit(playlistId: string, fn: (uris: string[]) => void) {
     const p = await this.get(playlistId);

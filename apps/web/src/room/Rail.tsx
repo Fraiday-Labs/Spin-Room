@@ -98,7 +98,10 @@ function Chat({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [snap.recentChat.length]);
+  // Braces matter: newer Chrome returns a Promise from scrollIntoView, and React would try to call it as a cleanup.
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [snap.recentChat.length]);
   const send = async () => {
     const t = text.trim();
     if (!t || busy) return;
@@ -276,6 +279,7 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
     enabled: debounced.length > 1,
   });
   const [linking, setLinking] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   const playlists = useQuery({ queryKey: ['playlists'], queryFn: () => api.call('me.playlists'), enabled: linking });
 
   const reorder = useDragReorder<HTMLOListElement>((from, to) => {
@@ -394,7 +398,33 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
           {results.data.length === 0 && <li className="muted">No matches.</li>}
         </ul>
       )}
-      <h3 className={s.h}>My set ({c?.items.length ?? 0})</h3>
+      <div className={s.setHead}>
+        <h3 className={s.h}>My set ({c?.items.length ?? 0})</h3>
+        {!!c?.items.length && !confirmClear && (
+          <button className="btn btn-ghost" onClick={() => setConfirmClear(true)}>
+            Clear set
+          </button>
+        )}
+      </div>
+      {c && confirmClear && (
+        <div className="notice stack" role="alert">
+          <p style={{ margin: 0 }}>
+            Remove all {c.items.length} tracks from your set?{' '}
+            {c.playlist &&
+              (c.playlist.name.startsWith('Spinroom – ')
+                ? `The “${c.playlist.name}” playlist in Spotify is emptied too.`
+                : `Your “${c.playlist.name}” playlist is unlinked and stays in Spotify unchanged.`)}
+          </p>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn btn-skip" onClick={() => void run(() => api.call('crate.clear', { params: { slug } })).then(() => setConfirmClear(false))}>
+              Clear set
+            </button>
+            <button className="btn btn-ghost" onClick={() => setConfirmClear(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       {c && c.items.length > 1 && <p className={`muted ${s.hint}`}>Drag tracks to reorder.</p>}
       <ol className={s.list} data-testid="my-set" ref={reorder.listRef}>
         {c &&

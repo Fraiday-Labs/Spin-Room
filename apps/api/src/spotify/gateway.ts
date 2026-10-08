@@ -59,6 +59,8 @@ export interface SpotifyGateway {
   addToPlaylist(token: string, playlistId: string, uris: string[]): Promise<string>;
   removeFromPlaylist(token: string, playlistId: string, uri: string, position: number, snapshotId: string | null): Promise<string>;
   reorderPlaylist(token: string, playlistId: string, from: number, insertBefore: number, snapshotId: string | null): Promise<string>;
+  /** Remove every track from a playlist. */
+  clearPlaylist(token: string, playlistId: string): Promise<string>;
 }
 
 /** Accept a playlist ID, `spotify:playlist:…` URI or open.spotify.com URL. */

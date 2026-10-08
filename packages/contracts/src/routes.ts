@@ -443,6 +443,15 @@ export const routes = {
     params: Slug.extend({ itemId: IdSchema }),
     response: CrateSchema,
   }),
+  'crate.clear': route({
+    method: 'DELETE',
+    path: '/v1/rooms/{slug}/crate',
+    auth: 'user',
+    summary:
+      'Clear my whole set. A playlist Spinroom made for this set is emptied in Spotify too; a playlist you linked yourself is unlinked and left unchanged.',
+    params: Slug,
+    response: CrateSchema,
+  }),
   'crate.import': route({
     method: 'POST',
     path: '/v1/rooms/{slug}/crate/import',

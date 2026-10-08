@@ -102,6 +102,37 @@ describe('sets (My set)', () => {
     expect(removed.items.map((i: { track: { title: string } }) => i.track.title)).toEqual(['Booth Lights', 'Neon Tide']);
   });
 
+  it('clears the whole set: empties a Spinroom playlist, only unlinks one you linked', async () => {
+    const spotify = new FakeSpotifyGateway();
+    t = await createTestApp({ spotify });
+    const alice = await login(t, 'alice');
+    const { room } = await createRoom(alice);
+    const titles = (c: { items: { track: { title: string } }[] }) => c.items.map((i) => i.track.title);
+    await alice.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Neon Tide' });
+    await alice.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Booth Lights' });
+    const mine = async () => (await spotify.listMyPlaylists('fake.alice.premium')).find((p) => p.name === 'Spinroom – Late Night Lounge')!;
+    expect((await mine()).trackCount).toBe(2);
+
+    // The playlist Spinroom made is emptied too, and stays linked for the next add.
+    const cleared = (await alice.req('DELETE', `/v1/rooms/${room.slug}/crate`)).json();
+    expect(cleared).toMatchObject({ mode: 'playlist', items: [], position: 0 });
+    expect((await mine()).trackCount).toBe(0);
+    const again = (await alice.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Pixel Rain' })).json();
+    expect(titles(again)).toEqual(['Pixel Rain']);
+    expect((await mine()).trackCount).toBe(1);
+    expect((await spotify.listMyPlaylists('fake.alice.premium')).filter((p) => p.name.startsWith('Spinroom – '))).toHaveLength(1);
+
+    // A playlist you linked yourself is only unlinked; Spotify keeps every track.
+    const own = await spotify.createPlaylist('fake.alice.premium', 'Road Trip', '');
+    await spotify.addToPlaylist('fake.alice.premium', own.id, [track('Neon Tide').uri, track('Booth Lights').uri, track('Pixel Rain').uri]);
+    const linked = (await alice.req('POST', `/v1/rooms/${room.slug}/crate/import`, { mode: 'link', playlist: own.id })).json();
+    expect(linked.items).toHaveLength(3);
+    const unlinked = (await alice.req('DELETE', `/v1/rooms/${room.slug}/crate`)).json();
+    expect(unlinked).toMatchObject({ mode: 'local', playlist: null, items: [] });
+    const after = (await spotify.listMyPlaylists('fake.alice.premium')).find((p) => p.id === own.id)!;
+    expect(after.trackCount).toBe(3);
+  });
+
   it('falls back to a Spinroom-side set when playlist writes are blocked', async () => {
     const spotify = new FakeSpotifyGateway();
     spotify.playlistWritesBlocked = true;

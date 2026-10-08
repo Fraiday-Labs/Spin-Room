@@ -196,3 +196,47 @@ test('a crash in one panel stays in that panel and is reported', async ({ browse
   await expect.poll(() => reports.length).toBeGreaterThan(0);
   expect(JSON.parse(reports[0]!)).toMatchObject({ where: 'rail:set', message: expect.stringContaining('TypeError') });
 });
+
+test('sending chat works in browsers where scrollIntoView returns a promise', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('chatter'));
+  // Chrome 154+ returns a Promise from scrollIntoView; an effect that returned it crashed the chat panel.
+  await page.addInitScript(() => {
+    const orig = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element, ...args: Parameters<typeof orig>) {
+      orig.apply(this, args);
+      return Promise.resolve() as unknown as void;
+    };
+  });
+  await page.goto('/lobby');
+  await page.getByTestId('room-name').fill(`Chat ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/chat-/);
+  await page.getByRole('tab', { name: 'Chat' }).click();
+  for (const text of ['hello', 'second message']) {
+    await page.getByLabel('Chat message').fill(text);
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByTestId('chat-log')).toContainText(text);
+  }
+  await page.getByRole('tab', { name: 'Up next' }).click();
+  await page.getByRole('tab', { name: 'Chat' }).click();
+  await expect(page.getByTestId('chat-log')).toContainText('second message');
+  await expect(page.getByText('The panel hit a problem.')).toHaveCount(0);
+});
+
+test('a DJ can clear their whole set', async ({ page }) => {
+  await signInViaUi(page, uid('clearer'));
+  await expect(page).toHaveURL(/\/lobby/);
+  await page.getByTestId('room-name').fill(`Clear ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/clear-/);
+  for (const t of ['Neon Tide', 'Booth Lights']) await addTrack(page, t);
+  await page.getByRole('button', { name: 'Clear set' }).click();
+  await expect(page.getByRole('alert')).toContainText('Remove all 2 tracks from your set?');
+  await expect(page.getByRole('alert')).toContainText('playlist in Spotify is emptied too');
+  await page.getByRole('alert').getByRole('button', { name: 'Clear set' }).click();
+  await expect(page.getByTestId('my-set').locator('li')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'My set (0)' })).toBeVisible();
+  // Still usable afterwards.
+  await addTrack(page, 'Pixel Rain');
+  await expect(page.getByTestId('my-set').locator('li')).toHaveCount(1);
+});

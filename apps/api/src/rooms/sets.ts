@@ -229,6 +229,33 @@ export function createSetService(ctx: AppContext) {
       return view(room, userId);
     },
 
+    /**
+     * Empty the whole set. A "Spinroom – …" playlist we made is emptied in Spotify as well (so
+     * the next add reuses it); a playlist the member linked themselves is unlinked, untouched.
+     */
+    async clear(room: RoomRow, userId: string): Promise<Crate> {
+      const m = await member(room.id, userId);
+      let keepLink = false;
+      if (m.setMode === 'playlist' && m.setPlaylistId && (m.setPlaylistName ?? '').startsWith('Spinroom – ')) {
+        try {
+          const snap = await ctx.spotify.clearPlaylist(await token(userId), m.setPlaylistId);
+          await updateMember(room.id, userId, { setSnapshotId: snap });
+          keepLink = true;
+        } catch (e) {
+          if (!(e instanceof SpotifyApiError && (e.status === 403 || e.status === 404))) throw e;
+        }
+      }
+      await writeItems(room.id, userId, []);
+      await updateMember(
+        room.id,
+        userId,
+        keepLink
+          ? { setPosition: 0, setNotice: null }
+          : { setMode: 'local', setPlaylistId: null, setPlaylistName: null, setSnapshotId: null, setPosition: 0, setNotice: null },
+      );
+      return view(room, userId);
+    },
+
     async move(room: RoomRow, userId: string, itemId: string, to: number): Promise<Crate> {
       const rows = await items(room.id, userId);
       const from = rows.findIndex((r) => r.id === itemId);

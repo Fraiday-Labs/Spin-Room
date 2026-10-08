@@ -72,6 +72,13 @@ export const playHandlers: Handlers = {
     await syncSet(c.ctx, room, userId);
     return crate;
   },
+  'crate.clear': async (c) => {
+    const { userId } = requireUser(c);
+    const room = await roomBySlug(c.ctx, c.params.slug);
+    const crate = await c.ctx.services.rooms.sets.clear(room, userId);
+    await syncSet(c.ctx, room, userId);
+    return crate;
+  },
   'crate.import': async (c) => {
     const { userId } = requireUser(c);
     const room = await roomBySlug(c.ctx, c.params.slug);

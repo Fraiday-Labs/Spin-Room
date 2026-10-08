@@ -217,6 +217,12 @@ export class RealSpotifyGateway implements SpotifyGateway {
     return j.snapshot_id as string;
   }
 
+  async clearPlaylist(token: string, playlistId: string) {
+    // Replacing the items with an empty list empties the playlist in one call.
+    const j = await this.apiWithFallback(token, 'PUT', [`/playlists/${playlistId}/items`, `/playlists/${playlistId}/tracks`], { uris: [] });
+    return j.snapshot_id as string;
+  }
+
   async reorderPlaylist(token: string, playlistId: string, from: number, insertBefore: number, snapshotId: string | null) {
     const body = { range_start: from, insert_before: insertBefore, range_length: 1, ...(snapshotId ? { snapshot_id: snapshotId } : {}) };
     const j = await this.apiWithFallback(token, 'PUT', [`/playlists/${playlistId}/items`, `/playlists/${playlistId}/tracks`], body);
