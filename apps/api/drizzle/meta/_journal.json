@@ -43,6 +43,13 @@
       "when": 1791483888948,
       "tag": "0005_avatar_views",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791486700870,
+      "tag": "0006_avatar_build",
+      "breakpoints": true
     }
   ]
 }

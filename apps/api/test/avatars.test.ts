@@ -1,5 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
+import { isolateCells } from '../src/avatars/pipeline.js';
+import { AVATAR_BUILD, refreshAvatars } from '../src/avatars/rebuild.js';
 import { avatars } from '../src/db/schema.js';
 import { makeKit, makeSheet, multipart, V1_ROWS } from './fixtures/pets.js';
 import { createTestApp, login, type TestApp, type TestUser } from './helpers.js';
@@ -202,6 +204,46 @@ describe('choosing views (which sheet row plays where)', () => {
     expect((await bob.req('GET', `/v1/avatars/${id}/views`)).statusCode).toBe(404);
     expect((await bob.req('PUT', `/v1/avatars/${id}/views`, { choices: { idle: 1 } })).statusCode).toBe(404);
     expect((await u.req('GET', '/v1/avatars/preset-bolt/views')).statusCode).toBe(404);
+  });
+});
+
+describe('frames don’t bleed into each other', () => {
+  // A 2 × 2 sheet of 20 × 20 cells.
+  const W = 40;
+  const paint = (raw: Buffer, x0: number, y0: number, x1: number, y1: number) => {
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) raw[(y * W + x) * 4 + 3] = 255;
+  };
+  const filled = (raw: Buffer, x: number, y: number) => raw[(y * W + x) * 4 + 3]! > 0;
+
+  it('clears a neighbour’s feet, hat or elbow from each cell but keeps the figure and its sparkles', () => {
+    const raw = Buffer.alloc(W * W * 4);
+    paint(raw, 4, 3, 15, 17); // top-left: figure
+    paint(raw, 1, 9, 2, 10); // …and a sparkle beside it, not touching the edge
+    paint(raw, 6, 25, 14, 37); // bottom-left: figure
+    paint(raw, 6, 20, 8, 21); // …with the feet of the frame above poking in at the top
+    paint(raw, 39, 5, 39, 6); // top-right: only an elbow from the next sheet column
+    paint(raw, 25, 30, 34, 39); // bottom-right: a figure that itself touches the bottom edge
+    const out = isolateCells(raw, W, { version: null, cols: 2, rows: 2 }, 20, 20);
+    expect(filled(out, 10, 10)).toBe(true);
+    expect(filled(out, 1, 9)).toBe(true);
+    expect(filled(out, 10, 30)).toBe(true);
+    expect(filled(out, 7, 20)).toBe(false);
+    expect(filled(out, 39, 5)).toBe(false);
+    expect(filled(out, 30, 39)).toBe(true);
+    expect(filled(raw, 7, 20)).toBe(true); // the input is untouched
+  });
+
+  it('rebuilds avatars made by an older sheet builder at boot, keeping view picks', async () => {
+    t = await createTestApp();
+    const u = await login(t, 'alice');
+    const saved = (await upload(u, [{ filename: 's.webp', data: await makeSheet({ h: 2288, rows: [...V1_ROWS, 6, 8], format: 'webp' }) }], '?rightsConfirmed=true')).json();
+    const id = saved.avatar.id;
+    await u.req('PUT', `/v1/avatars/${id}/views`, { choices: { idle: 9 } });
+    await t.ctx.db.update(avatars).set({ build: 1 }).where(eq(avatars.id, id));
+    expect(await refreshAvatars(t.ctx)).toBe(1);
+    const row = await t.ctx.db.query.avatars.findFirst({ where: eq(avatars.id, id) });
+    expect(row).toMatchObject({ build: AVATAR_BUILD, choices: expect.objectContaining({ idle: 9 }) });
+    expect(await refreshAvatars(t.ctx)).toBe(0);
   });
 });
 

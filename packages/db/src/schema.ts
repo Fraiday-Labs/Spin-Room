@@ -24,6 +24,8 @@ export const avatars = pgTable(
     viewsUrl: text('views_url'),
     /** Owner's picks: state → source row. Missing states use the default mapping. */
     choices: jsonb('choices').$type<Record<string, number> | null>(),
+    /** Sheet-builder version that made `sheetUrl`; older uploads are rebuilt at boot. */
+    build: integer('build').notNull().default(1),
     petJson: jsonb('pet_json').$type<Record<string, unknown> | null>(),
     status: text('status', { enum: ['pending', 'approved', 'rejected', 'removed'] }).notNull(),
     createdAt: ms('created_at').notNull(),

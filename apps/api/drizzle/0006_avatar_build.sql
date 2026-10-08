@@ -1,0 +1,1 @@
+ALTER TABLE "avatars" ADD COLUMN "build" integer DEFAULT 1 NOT NULL;

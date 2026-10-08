@@ -2,41 +2,17 @@ import { AVATAR_LIMITS, DEFAULT_PRESET_ID, SpinroomError, type AvatarImportRepor
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { MultipartFile } from '@fastify/multipart';
 import type { AppContext } from '../context.js';
-import { avatarReports, avatars, blobs, users } from '../db/schema.js';
+import { avatarReports, avatars, users } from '../db/schema.js';
 import { requireUser, type Handlers } from '../http/router.js';
-import { sha256 } from '../lib/crypto.js';
 import { newId } from '../lib/ids.js';
-import {
-  AvatarImportError,
-  buildRuntimeSheet,
-  parsePetJson,
-  readSpriteKit,
-  sanitizeName,
-  sniff,
-  VIEW_CELL,
-  type BuiltSheet,
-  type PetMeta,
-} from '../avatars/pipeline.js';
+import { AvatarImportError, buildRuntimeSheet, parsePetJson, readSpriteKit, sanitizeName, sniff, VIEW_CELL, type PetMeta } from '../avatars/pipeline.js';
+import { AVATAR_BUILD, putBlob, rebuild } from '../avatars/rebuild.js';
 import { autoApprove, manualReview } from '../avatars/safety.js';
 import { avatarFull, type AvatarRow } from '../services/users.js';
 import { roomBySlug } from '../rooms/access.js';
 
 /** Users with this many confirmed violations lose upload access (FR-A16). */
 const MAX_VIOLATIONS = 3;
-
-async function putBlob(ctx: AppContext, data: Buffer, prefix: string, ext: string, contentType: string): Promise<{ key: string; sha: string }> {
-  const sha = sha256(data);
-  const key = `avatars/${prefix}/${sha}.${ext}`;
-  const existing = await ctx.db.query.blobs.findFirst({ where: eq(blobs.sha256, `${prefix}:${sha}`) });
-  if (!existing || !(await ctx.storage.exists(key))) {
-    await ctx.storage.put(key, data, contentType);
-    await ctx.db
-      .insert(blobs)
-      .values({ sha256: `${prefix}:${sha}`, key, contentType, bytes: data.length, createdAt: ctx.clock.now() })
-      .onConflictDoNothing();
-  }
-  return { key, sha };
-}
 
 async function readParts(files: AsyncIterableIterator<MultipartFile>): Promise<Buffer[]> {
   const out: Buffer[] = [];
@@ -160,6 +136,7 @@ export const avatarHandlers: Handlers = {
           views: built.views,
           viewsUrl: viewsBlob.key,
           choices: built.choices,
+          build: AVATAR_BUILD,
           grid: built.layout.version ? null : { cols: built.layout.cols, rows: built.layout.rows },
           petJson: pet ? { name: pet.name, spritesheet: pet.spritesheet, spriteVersionNumber: pet.version } : null,
           status: status === 'rejected' ? 'rejected' : status,
@@ -318,44 +295,6 @@ async function ownUpload(ctx: AppContext, id: string, userId: string): Promise<A
   if (!a || a.ownerId !== userId || a.kind !== 'custom' || a.status === 'removed') throw new SpinroomError('not_found', 'Avatar not found');
   if (!a.originalKey) throw new SpinroomError('bad_request', 'This avatar has no stored upload to pick views from.');
   return a;
-}
-
-/**
- * Rebuild an uploaded avatar's runtime sheet from its stored original with the owner's view
- * picks. The art is the same upload that was already reviewed, so the review status stays.
- */
-async function rebuild(ctx: AppContext, a: AvatarRow, picks: Record<string, number>): Promise<AvatarRow> {
-  const original = await ctx.storage.get(a.originalKey!);
-  if (!original) throw new SpinroomError('not_found', 'The original upload for this avatar is missing — upload it again.');
-  let built: BuiltSheet;
-  try {
-    const sheet = sniff(original) === 'zip' ? readSpriteKit(original).sheet : original;
-    built = await buildRuntimeSheet(sheet, a.grid ?? undefined, picks);
-  } catch (e) {
-    if (e instanceof AvatarImportError) throw new SpinroomError('bad_request', e.message);
-    throw e;
-  }
-  const sheetBlob = await putBlob(ctx, built.sheet, 'sheet', 'webp', 'image/webp');
-  const thumbBlob = await putBlob(ctx, built.thumb, 'thumb', 'png', 'image/png');
-  const viewsBlob = await putBlob(ctx, built.viewsSheet, 'views', 'webp', 'image/webp');
-  const [row] = await ctx.db
-    .update(avatars)
-    .set({
-      sheetUrl: sheetBlob.key,
-      thumbUrl: thumbBlob.key,
-      rows: built.rows,
-      frameCounts: built.frameCounts,
-      views: built.views,
-      viewsUrl: viewsBlob.key,
-      choices: built.choices,
-    })
-    .where(eq(avatars.id, a.id))
-    .returning();
-  // Everyone wearing it sees the new views right away.
-  ctx.services.users.invalidateAvatar(a.id);
-  const wearing = await ctx.db.select({ id: users.id }).from(users).where(eq(users.avatarId, a.id));
-  for (const u of wearing) await ctx.services.rooms.onProfileChanged(u.id);
-  return row!;
 }
 
 function viewsOf(ctx: AppContext, a: AvatarRow): AvatarViews {

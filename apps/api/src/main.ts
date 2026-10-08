@@ -1,3 +1,4 @@
+import { refreshAvatars } from './avatars/rebuild.js';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createDb } from './db/client.js';
@@ -13,6 +14,8 @@ const { app, ctx } = await buildApp({ cfg, db, redis, sub });
 
 await ctx.services.rooms?.start?.();
 await app.listen({ host: cfg.HOST, port: cfg.PORT });
+// Uploads saved by an older sheet builder are rebuilt in the background.
+void refreshAvatars(ctx, (msg, err) => app.log.warn({ err }, msg)).then((n) => n && app.log.info(`rebuilt ${n} avatar(s)`));
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.once(sig, async () => {

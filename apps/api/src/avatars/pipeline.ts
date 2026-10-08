@@ -1,6 +1,6 @@
 import { AVATAR_LIMITS, AVATAR_MAPPING, PET_FORMAT, RUNTIME_SHEET, type AvatarState, type AvatarValidationIssue } from '@spinroom/contracts';
 import { unzipSync } from 'fflate';
-import sharp, { type Metadata, type OverlayOptions } from 'sharp';
+import sharp, { type Metadata, type OverlayOptions, type Sharp } from 'sharp';
 
 /**
  * ChatGPT / Codex pet import (FR-A1–A8). Pure functions over buffers: no storage, no DB.
@@ -149,6 +149,74 @@ export function detectLayout(w: number, h: number, manual?: { cols?: number; row
   );
 }
 
+/** Pixels at or under this alpha count as empty. */
+const ALPHA_MIN = 8;
+/** Edge scraps smaller than this share of a cell are always dropped (even if they're all there is). */
+const SCRAP_OF_CELL = 0.02;
+/** Edge pieces smaller than this share of a cell's main figure are a neighbour's, not part of it. */
+const SCRAP_OF_FIGURE = 0.25;
+
+/**
+ * Sheets pack frames tightly, so a figure's feet or hat often reach into the cell above or
+ * below (or beside). In each cell, keep the figure and anything floating inside the cell
+ * (sparkles, dust), and clear small separate pieces that touch the cell's edge: those belong
+ * to a neighbouring frame. Returns a cleaned copy; the input is untouched.
+ */
+export function isolateCells(raw: Buffer, w: number, layout: Layout, cellW: number = PET_FORMAT.cellW, cellH: number = PET_FORMAT.cellH): Buffer {
+  const out = Buffer.from(raw);
+  const label = new Int32Array(cellW * cellH);
+  const stack = new Int32Array(cellW * cellH);
+  for (let r = 0; r < layout.rows; r++) {
+    for (let c = 0; c < layout.cols; c++) {
+      const x0 = c * cellW;
+      const y0 = r * cellH;
+      const alpha = (i: number) => out[((y0 + Math.floor(i / cellW)) * w + x0 + (i % cellW)) * 4 + 3]!;
+      label.fill(0);
+      const parts: { size: number; edge: boolean }[] = [{ size: 0, edge: false }];
+      for (let start = 0; start < label.length; start++) {
+        if (label[start] || alpha(start) <= ALPHA_MIN) continue;
+        // Flood fill one 8-connected piece.
+        const id = parts.length;
+        const part = { size: 0, edge: false };
+        parts.push(part);
+        let top = 0;
+        stack[top++] = start;
+        label[start] = id;
+        while (top) {
+          const i = stack[--top]!;
+          const x = i % cellW;
+          const y = (i - x) / cellW;
+          part.size++;
+          if (x === 0 || y === 0 || x === cellW - 1 || y === cellH - 1) part.edge = true;
+          for (let dy = -1; dy <= 1; dy++) {
+            const ny = y + dy;
+            if (ny < 0 || ny >= cellH) continue;
+            for (let dx = -1; dx <= 1; dx++) {
+              const nx = x + dx;
+              if (nx < 0 || nx >= cellW) continue;
+              const j = ny * cellW + nx;
+              if (!label[j] && alpha(j) > ALPHA_MIN) {
+                label[j] = id;
+                stack[top++] = j;
+              }
+            }
+          }
+        }
+      }
+      if (parts.length === 1) continue;
+      const figure = Math.max(...parts.map((p) => p.size));
+      const drop = parts.map((p) => p.edge && (p.size < SCRAP_OF_CELL * cellW * cellH || (p.size !== figure && p.size < SCRAP_OF_FIGURE * figure)));
+      if (!drop.some(Boolean)) continue;
+      for (let i = 0; i < label.length; i++) {
+        if (!drop[label[i]!]) continue;
+        const o = ((y0 + Math.floor(i / cellW)) * w + x0 + (i % cellW)) * 4;
+        out[o] = out[o + 1] = out[o + 2] = out[o + 3] = 0;
+      }
+    }
+  }
+  return out;
+}
+
 /** FR-A5: frames per row = leading non-transparent cells. */
 export function countFrames(raw: Buffer, w: number, layout: Layout, cellW: number = PET_FORMAT.cellW, cellH: number = PET_FORMAT.cellH): number[] {
   const counts: number[] = [];
@@ -230,7 +298,9 @@ export async function buildRuntimeSheet(
   const w = meta.width!;
   const h = meta.height!;
   const layout = detectLayout(w, h, manualGrid);
-  const raw = await sharp(input).ensureAlpha().raw().toBuffer();
+  // Art often spills a little past its cell; drop the neighbours' scraps before anything else.
+  const raw = isolateCells(await sharp(input).ensureAlpha().raw().toBuffer(), w, layout);
+  const clean = () => sharp(raw, { raw: { width: w, height: h, channels: 4 } });
   const counts = countFrames(raw, w, layout);
 
   const issues: AvatarValidationIssue[] = [];
@@ -266,7 +336,7 @@ export async function buildRuntimeSheet(
     const key = `${row}:${frame}`;
     let cell = cellCache.get(key);
     if (!cell) {
-      cell = await sharp(input)
+      cell = await clean()
         .extract({ left: frame * PET_FORMAT.cellW, top: row * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
         .resize(cw, ch, { kernel: 'lanczos3' })
         .png()
@@ -334,7 +404,7 @@ export async function buildRuntimeSheet(
     .toBuffer();
 
   const views: SourceView[] = counts.flatMap((frames, row) => (frames ? [{ row, name: petRows[row] ?? `row-${row + 1}`, frames }] : []));
-  const viewsSheet = await buildViewsSheet(input, views, layout.cols);
+  const viewsSheet = await buildViewsSheet(clean, views, layout.cols);
 
   return {
     sheet,
@@ -354,12 +424,12 @@ export async function buildRuntimeSheet(
 }
 
 /** A small sheet with one row per view, so owners can see every animation and pick one. */
-async function buildViewsSheet(input: Buffer, views: SourceView[], cols: number): Promise<Buffer> {
+async function buildViewsSheet(source: () => Sharp, views: SourceView[], cols: number): Promise<Buffer> {
   const { w, h } = VIEW_CELL;
   const composites: OverlayOptions[] = [];
   for (let r = 0; r < views.length; r++) {
     for (let f = 0; f < views[r]!.frames; f++) {
-      const cell = await sharp(input)
+      const cell = await source()
         .extract({ left: f * PET_FORMAT.cellW, top: views[r]!.row * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
         .resize(w, h, { kernel: 'lanczos3' })
         .png()
