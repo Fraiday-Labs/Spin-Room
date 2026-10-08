@@ -173,3 +173,26 @@ test('drag tracks in My set to reorder them', async ({ page }) => {
   await page.getByRole('tab', { name: 'My set' }).click();
   await expect(page.getByTestId('my-set').locator('li').nth(2)).toContainText('Neon Tide');
 });
+
+test('a crash in one panel stays in that panel and is reported', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('crash'));
+  const reports: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/v1/client-errors')) reports.push(r.postData() ?? '');
+  });
+  // A malformed set (no track) makes My set throw while rendering.
+  await page.route('**/v1/rooms/*/crate', (r) =>
+    r.fulfill({ contentType: 'application/json', body: JSON.stringify({ mode: 'local', playlist: null, position: 0, items: [{ id: 'x' }], notice: null }) }),
+  );
+  await page.goto('/lobby');
+  await page.getByTestId('room-name').fill(`Crash ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/crash-/);
+  await page.getByRole('tab', { name: 'My set' }).click();
+  await expect(page.getByText('The panel hit a problem.')).toBeVisible();
+  await expect(page.getByTestId('stage')).toBeVisible();
+  await page.getByRole('tab', { name: 'Chat' }).click();
+  await expect(page.getByTestId('chat-log')).toBeVisible();
+  await expect.poll(() => reports.length).toBeGreaterThan(0);
+  expect(JSON.parse(reports[0]!)).toMatchObject({ where: 'rail:set', message: expect.stringContaining('TypeError') });
+});

@@ -2,6 +2,7 @@ import type { Crate, Me, Member, RoomSnapshot, Track } from '@spinroom/contracts
 import { ApiError, formatMs } from '@spinroom/sdk';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type RefObject } from 'react';
+import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { api, errorMessage } from '../lib/api';
 import { AvatarSprite } from './AvatarSprite';
 import { moveItem, useDragReorder } from './reorder';
@@ -48,10 +49,12 @@ export function Rail(props: {
         ))}
       </div>
       <div className={s.body} role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-        {tab === 'upnext' && <UpNext snap={snap} names={names} />}
-        {tab === 'chat' && <Chat snap={snap} me={props.me} names={names} inputRef={props.chatInput} notify={props.notify} />}
-        {tab === 'queue' && <Queue {...props} names={names} />}
-        {tab === 'set' && <MySet snap={snap} me={props.me} notify={props.notify} />}
+        <ErrorBoundary where={`rail:${tab}`} resetKey={tab} fallback={(retry) => <PanelError retry={retry} what="panel" />}>
+          {tab === 'upnext' && <UpNext snap={snap} names={names} />}
+          {tab === 'chat' && <Chat snap={snap} me={props.me} names={names} inputRef={props.chatInput} notify={props.notify} />}
+          {tab === 'queue' && <Queue {...props} names={names} />}
+          {tab === 'set' && <MySet snap={snap} me={props.me} notify={props.notify} />}
+        </ErrorBoundary>
       </div>
     </aside>
   );

@@ -33,6 +33,8 @@ function csp(): Plugin {
 
 export default defineConfig({
   plugins: [react(), csp()],
+  // Which build a crash report came from (Vercel sets the commit; local builds say "dev").
+  define: { __RELEASE__: JSON.stringify((process.env.VERCEL_GIT_COMMIT_SHA ?? 'dev').slice(0, 7)) },
   server: {
     host: '127.0.0.1',
     port: 5173,

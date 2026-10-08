@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { CopyButton } from '../components/CopyButton';
+import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { useSpeaker } from '../speaker/useSpeaker';
 import { MemberCard } from './MemberCard';
@@ -223,7 +224,9 @@ export default function RoomPage({ slug }: { slug: string }) {
       <div className={s.main}>
         <div className={s.center}>
           <div className={s.stage}>
-            <Stage snap={snap} myId={userId} onSelectMember={setSelected} />
+            <ErrorBoundary where="stage" fallback={(retry) => <PanelError retry={retry} what="stage" />}>
+              <Stage snap={snap} myId={userId} onSelectMember={setSelected} />
+            </ErrorBoundary>
           </div>
           <PlayerPanel
             snap={snap}
@@ -266,13 +269,15 @@ export default function RoomPage({ slug }: { slug: string }) {
         ))}
       </div>
       {selected && (
-        <MemberCard
-          member={snap.members.find((m) => m.user.id === selected.user.id) ?? selected}
-          snap={snap}
-          me={me.data ?? null}
-          onClose={() => setSelected(null)}
-          notify={notify}
-        />
+        <ErrorBoundary where="member-card" resetKey={selected.user.id} fallback={() => null}>
+          <MemberCard
+            member={snap.members.find((m) => m.user.id === selected.user.id) ?? selected}
+            snap={snap}
+            me={me.data ?? null}
+            onClose={() => setSelected(null)}
+            notify={notify}
+          />
+        </ErrorBoundary>
       )}
       {showKeys && (
         <div className={s.keys} role="dialog" aria-label="Keyboard shortcuts">

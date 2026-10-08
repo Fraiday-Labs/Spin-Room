@@ -13,4 +13,3 @@ export function stageScale(width: number, height: number, dpr = 1) {
   const crisp = Math.floor(fit * dpr) / dpr;
   return Math.max(0.25, crisp >= fit * 0.97 ? crisp : fit);
 }
-
