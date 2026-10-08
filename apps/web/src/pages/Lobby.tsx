@@ -56,7 +56,7 @@ export default function Lobby() {
         {mine.data?.rooms.length === 0 && <p className="muted">You haven’t joined any rooms yet.</p>}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
           {mine.data?.rooms.map((r) => (
-            <RoomCard key={r.id} room={r} />
+            <RoomCard key={r.id} room={r} manage />
           ))}
         </div>
       </section>

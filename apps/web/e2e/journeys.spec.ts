@@ -255,3 +255,23 @@ test('search results show when a track is added, and offer Add again once it is 
   await expect(page.getByTestId('my-set').locator('li')).toHaveCount(0);
   await expect(results.getByRole('button', { name: 'Add Neon Tide' })).toBeVisible();
 });
+
+test('owners can close or delete a room right from My rooms in the lobby', async ({ page }) => {
+  const host = uid('lobbyowner');
+  await signInViaUi(page, host);
+  await expect(page).toHaveURL(/\/lobby/);
+  const name = `Lobby ${host}`;
+  await page.getByTestId('room-name').fill(name);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/lobby-/);
+  const slug = new URL(page.url()).pathname.split('/')[2]!;
+  await page.getByRole('link', { name: 'Back to rooms' }).click();
+  await expect(page).toHaveURL(/\/lobby/);
+
+  const card = page.getByTestId(`room-card-${slug}`);
+  await expect(card.getByRole('button', { name: 'Close room' })).toBeVisible();
+  await card.getByRole('button', { name: 'Delete room' }).click();
+  await card.getByLabel('Type the room name to confirm').fill(name);
+  await card.getByRole('button', { name: 'Delete forever' }).click();
+  await expect(card).toHaveCount(0);
+});
