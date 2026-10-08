@@ -1,0 +1,46 @@
+# Slack app manifest for the deployed Spinroom (https://spin-room-web.vercel.app).
+# Create the app at https://api.slack.com/apps → Create New App → From a manifest → paste this.
+# For another deployment, copy apps/slack/manifest.yml and replace spinroom.example.com.
+display_information:
+  name: Spinroom
+  description: A live now-playing card for your Spinroom room, with Hype/Skip voting and DJ queue controls.
+  background_color: '#1a1440'
+features:
+  bot_user:
+    display_name: Spinroom
+    always_online: false
+  slash_commands:
+    - command: /spinroom
+      url: https://spin-room-web.vercel.app/v1/integrations/slack/commands
+      description: Link a room, vote, DJ, add songs, invite
+      usage_hint: 'link <room> | now | hype | skip | add <search> | dj | undj | invite @user | speaker'
+      should_escape: true
+oauth_config:
+  redirect_urls:
+    - https://spin-room-web.vercel.app/v1/integrations/slack/oauth
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - chat:write.public
+      - users:read
+      - channels:read
+      - groups:read
+      - im:write
+      # Count newer channel messages so the card is reposted after 50 of them.
+      - channels:history
+      - groups:history
+settings:
+  event_subscriptions:
+    request_url: https://spin-room-web.vercel.app/v1/integrations/slack/events
+    bot_events:
+      - app_uninstalled
+      - message.channels
+      - message.groups
+  interactivity:
+    is_enabled: true
+    request_url: https://spin-room-web.vercel.app/v1/integrations/slack/interactivity
+    message_menu_options_url: https://spin-room-web.vercel.app/v1/integrations/slack/options
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
