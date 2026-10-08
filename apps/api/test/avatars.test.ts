@@ -138,17 +138,17 @@ describe('avatar import (ChatGPT pets)', () => {
     });
   }
 
-  it('asks for manual grid entry on non-standard divisible sheets', async () => {
+  it('reads the grid of a non-standard sheet from its art, or takes the owner’s grid', async () => {
     t = await createTestApp();
     const u = await login(t, 'alice');
     const data = await makeSheet({ w: 1536, h: 1040, rows: [8, 4, 4, 4, 4] });
     const r1 = (await upload(u, [{ filename: 'x.png', data }], '?dryRun=true')).json();
-    expect(r1).toMatchObject({ ok: false, needsGrid: { cols: 8, rows: 5 } });
+    expect(r1).toMatchObject({ ok: true, frameCounts: { idle: 8, 'running-right': 4 } });
     const r2 = (await upload(u, [{ filename: 'x.png', data }], '?dryRun=true&cols=8&rows=5')).json();
     expect(r2.ok).toBe(true);
   });
 
-  it('accepts resized ChatGPT sheets at any scale, and offers a guessed grid for other 8-across sheets', async () => {
+  it('accepts sheets of any size, cutting along the gaps between figures even when rows are uneven', async () => {
     t = await createTestApp();
     const u = await login(t, 'alice');
     // A v2 sheet saved at about two-thirds size (1027 × 1531).
@@ -156,18 +156,25 @@ describe('avatar import (ChatGPT pets)', () => {
     const small = await sharp(full).resize(1027, 1531, { fit: 'fill' }).png().toBuffer();
     const r = (await upload(u, [{ filename: 'small.png', data: small }], '?dryRun=true')).json();
     expect(r).toMatchObject({ ok: true, detectedSize: { w: 1027, h: 1531 } });
-    expect(r.frameCounts).toMatchObject({ idle: 8, running: 6 });
-    expect(r.preview.rows.find((x: { state: string }) => x.state === 'idle').frames).toBe(8);
+    expect(r.frameCounts).toMatchObject({ idle: 8, running: 6, waiting: 2 });
 
-    // Eight across, five rows of the usual cell shape at a smaller scale: confirm, then it imports.
-    const five = await sharp(await makeSheet({ w: 1536, h: 1040, rows: [8, 4, 4, 4, 4] }))
-      .resize(1024, 693, { fit: 'fill' })
+    // Like an image-model sheet: 10 rows (not ChatGPT's 9 or 11) of wide frames, unevenly spaced,
+    // at the same proportions as a v2 sheet — the size alone would suggest 11 rows.
+    const W = 1027;
+    const H = 1531;
+    const frames = [6, 8, 8, 4, 5, 8, 6, 6, 8, 8];
+    const tops = [6, 158, 304, 446, 590, 742, 892, 1043, 1196, 1356];
+    const raw = Buffer.alloc(W * H * 4);
+    frames.forEach((n, r) => {
+      for (let f = 0; f < n; f++)
+        for (let y = tops[r]!; y < tops[r]! + 130; y++) for (let x = f * 128 + 18; x < f * 128 + 110; x++) raw[(y * W + x) * 4 + 3] = 255;
+    });
+    const uneven = await sharp(raw, { raw: { width: W, height: H, channels: 4 } })
       .png()
       .toBuffer();
-    expect((await upload(u, [{ filename: 'five.png', data: five }], '?dryRun=true')).json()).toMatchObject({ ok: false, needsGrid: { cols: 8, rows: 5 } });
-    const ok = (await upload(u, [{ filename: 'five.png', data: five }], '?dryRun=true&cols=8&rows=5')).json();
-    expect(ok.ok).toBe(true);
-    expect(ok.frameCounts.idle).toBe(8);
+    const u2 = (await upload(u, [{ filename: 'gen.png', data: uneven }], '?dryRun=true')).json();
+    expect(u2.ok).toBe(true);
+    expect(u2.frameCounts).toMatchObject({ idle: 6, 'running-right': 8, waving: 4, jumping: 5, failed: 8, waiting: 6, running: 6 });
   });
 
   it('rejects uploads over 10 MB', async () => {

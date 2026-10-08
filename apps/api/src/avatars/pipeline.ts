@@ -126,6 +126,8 @@ export interface Layout {
   version: 1 | 2 | null;
   cols: number;
   rows: number;
+  /** Set when the grid was read from the art: the edges to cut along. */
+  edges?: { xs: number[]; ys: number[] };
 }
 
 /** How far a sheet's proportions may be off a known layout and still count as that layout scaled. */
@@ -139,11 +141,21 @@ const MIN_CELL_W = 48;
  * other 8-across grids are offered for the owner to confirm. Non-standard sizes are scaled to
  * 192 × 208 cells by `buildRuntimeSheet`.
  */
-export function detectLayout(w: number, h: number, manual?: { cols?: number; rows?: number }): Layout {
+export function detectLayout(w: number, h: number, manual?: { cols?: number; rows?: number }, raw?: Buffer): Layout {
   const { cellW, cellH, cols: COLS, v1, v2 } = PET_FORMAT;
   if (w === v1.w && h === v1.h) return { version: 1, cols: COLS, rows: v1.rows };
   if (w === v2.w && h === v2.h) return { version: 2, cols: COLS, rows: v2.rows };
-  if (manual?.cols && manual?.rows && w / manual.cols >= MIN_CELL_W) return { version: null, cols: manual.cols, rows: manual.rows };
+  if (manual?.cols && manual?.rows && w / manual.cols >= MIN_CELL_W) {
+    // Cut along the gaps for that many rows and columns when the art shows them.
+    const fit = raw ? detectGrid(raw, w, h, { cols: manual.cols, rows: manual.rows }) : null;
+    return { version: null, cols: manual.cols, rows: manual.rows, ...(fit ? { edges: { xs: fit.xs, ys: fit.ys } } : {}) };
+  }
+  // Find the grid from the art itself: the empty gaps between figures.
+  const found = raw ? detectGrid(raw, w, h) : null;
+  if (found && w / found.cols >= MIN_CELL_W) {
+    const version = found.cols === COLS && found.rows === v1.rows ? 1 : found.cols === COLS && found.rows === v2.rows ? 2 : null;
+    return { version, cols: found.cols, rows: found.rows, edges: { xs: found.xs, ys: found.ys } };
+  }
   const near = (a: number, b: number) => Math.abs(a / b - 1) <= ASPECT_TOLERANCE;
   if (w / COLS >= MIN_CELL_W) {
     if (near(w / h, v1.w / v1.h)) return { version: 1, cols: COLS, rows: v1.rows };
@@ -167,6 +179,135 @@ export function detectLayout(w: number, h: number, manual?: { cols?: number; row
     `This image is ${w} × ${h}, which doesn’t line up with a ChatGPT pet sheet (8 frames across). Use Download sprite kit in ChatGPT.`,
     { detectedSize: { w, h } },
   );
+}
+
+/** Most rows / columns a sheet may have. */
+const MAX_GRID = 16;
+/** A row or column may be this much shorter or longer than the average one. */
+const BAND_SLACK = 0.4;
+/**
+ * A column cut counts as falling in a gap when that line is at most this share as busy as the
+ * busiest one. Strict, because columns that only long animations use are quiet but not empty.
+ */
+const GAP_LEVEL = 0.15;
+
+/** Where a sheet's rows and columns start and end (n + 1 edges each), found from the art. */
+export interface GridEdges {
+  cols: number;
+  rows: number;
+  xs: number[];
+  ys: number[];
+}
+
+/** Share of each line (row of pixels, or column) that has art on it. */
+function busyLines(raw: Buffer, w: number, h: number) {
+  const rows = new Float64Array(h);
+  const cols = new Float64Array(w);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (raw[(y * w + x) * 4 + 3]! > ALPHA_MIN) {
+        rows[y]! += 1 / w;
+        cols[x]! += 1 / h;
+      }
+  return { rows, cols };
+}
+
+/**
+ * The best n − 1 cuts through `busy`: bands of roughly even length (within BAND_SLACK), cutting
+ * through the emptiest lines. Returns the edges and the busiest cut, or null if no layout fits.
+ */
+function bestCuts(busy: Float64Array, n: number): { edges: number[]; worst: number; uneven: number } | null {
+  const len = busy.length;
+  if (n === 1) return { edges: [0, len], worst: 0, uneven: 0 };
+  const ideal = len / n;
+  // Within an empty gap every line costs nothing, so lean gently towards even spacing.
+  const nudge = (1e-3 * Math.max(...busy)) / ideal;
+  const lo = Math.max(1, Math.ceil(ideal * (1 - BAND_SLACK)));
+  const hi = Math.floor(ideal * (1 + BAND_SLACK));
+  // cost[k][p]: least total busyness of k cuts with the k-th at p.
+  let prev = new Float64Array(len + 1).fill(Infinity);
+  prev[0] = 0;
+  const from: Int32Array[] = [];
+  for (let k = 1; k <= n; k++) {
+    const cur = new Float64Array(len + 1).fill(Infinity);
+    const back = new Int32Array(len + 1).fill(-1);
+    const pFrom = k === n ? len : lo * k;
+    const pTo = k === n ? len : Math.min(len - lo, hi * k);
+    for (let p = pFrom; p <= pTo; p++) {
+      const here = k === n ? 0 : busy[p]! + nudge * Math.abs(p - k * ideal);
+      for (let q = Math.max(0, p - hi); q <= p - lo; q++) {
+        const c = prev[q]! + here;
+        if (c < cur[p]!) {
+          cur[p] = c;
+          back[p] = q;
+        }
+      }
+    }
+    from.push(back);
+    prev = cur;
+  }
+  if (!Number.isFinite(prev[len]!)) return null;
+  const edges = [len];
+  for (let k = n - 1; k >= 0; k--) edges.unshift(from[k]![edges[0]!]!);
+  const worst = Math.max(...edges.slice(1, -1).map((e) => busy[e]!));
+  // How far the most off-size band is from the average, as a share of it.
+  const uneven = Math.max(...edges.slice(1).map((e, i) => Math.abs(e - edges[i]! - ideal) / ideal));
+  return { edges, worst, uneven };
+}
+
+/**
+ * Columns: the most bands whose cuts all fall in gaps (more would cut through figures) and that
+ * each hold some art; or the best edges for a fixed count.
+ */
+function bands(busy: Float64Array, fixed?: number): number[] | null {
+  const level = GAP_LEVEL * Math.max(...busy);
+  if (fixed) return bestCuts(busy, fixed)?.edges ?? null;
+  const hasArt = (edges: number[]) => edges.slice(1).every((end, i) => busy.subarray(edges[i]!, end).some((v) => v > level));
+  let best: number[] | null = null;
+  for (let n = 2; n <= MAX_GRID && busy.length / n >= MIN_CELL_W * 0.5; n++) {
+    const cut = bestCuts(busy, n);
+    if (cut && cut.worst <= level && hasArt(cut.edges)) best = cut.edges;
+  }
+  return best;
+}
+
+/** Frames are roughly as tall as they are wide: row height stays within this range of column width. */
+const ROW_TO_COL = [0.7, 1.6] as const;
+/** Looser gap level for rows, where hair and feet often reach across. */
+const ROW_GAP_LEVEL = 0.6;
+
+/** How much an uneven grid counts against a row count, next to how busy its cuts are. */
+const UNEVEN_WEIGHT = 0.5;
+
+/**
+ * Rows for a known column width: of the counts that keep frames in proportion, the one whose
+ * cuts are cleanest and most evenly spaced (an empty row can be cut more than one way).
+ */
+function rowBands(busy: Float64Array, colWidth: number): number[] | null {
+  const max = Math.max(...busy);
+  let best: { edges: number[]; score: number } | null = null;
+  for (let n = 1; n <= MAX_GRID; n++) {
+    const height = busy.length / n;
+    if (height > colWidth * ROW_TO_COL[1] || height < colWidth * ROW_TO_COL[0]) continue;
+    const cut = bestCuts(busy, n);
+    if (!cut || cut.worst > ROW_GAP_LEVEL * max) continue;
+    const score = cut.worst / max + UNEVEN_WEIGHT * cut.uneven;
+    if (!best || score < best.score) best = { edges: cut.edges, score };
+  }
+  return best?.edges ?? null;
+}
+
+/**
+ * The grid of a sheet whose size doesn't say it, read from the empty gaps between figures.
+ * Rows and columns needn't be perfectly even (sheets drawn by image models rarely are). With
+ * `fixed`, finds the best edges for that many rows and columns. Null when the art is unclear.
+ */
+export function detectGrid(raw: Buffer, w: number, h: number, fixed?: { cols: number; rows: number }): GridEdges | null {
+  const busy = busyLines(raw, w, h);
+  const xs = bands(busy.cols, fixed?.cols);
+  if (!xs) return null;
+  const ys = fixed ? bands(busy.rows, fixed.rows) : rowBands(busy.rows, w / (xs.length - 1));
+  return ys ? { cols: xs.length - 1, rows: ys.length - 1, xs, ys } : null;
 }
 
 /** Pixels at or under this alpha count as empty. */
@@ -316,11 +457,13 @@ export async function buildRuntimeSheet(
   if (!meta.hasAlpha)
     throw new AvatarImportError('no_alpha', 'The sheet has no transparency. ChatGPT pet sheets have a transparent background — use Download sprite kit.');
   const size = { w: meta.width!, h: meta.height! };
-  const layout = detectLayout(size.w, size.h, manualGrid);
-  // Resized copies and other grids are scaled to the standard 192 × 208 cells first.
+  const exact = (size.w === PET_FORMAT.v1.w && size.h === PET_FORMAT.v1.h) || (size.w === PET_FORMAT.v2.w && size.h === PET_FORMAT.v2.h);
+  const srcRaw = exact ? null : await sharp(input).ensureAlpha().raw().toBuffer();
+  const layout = detectLayout(size.w, size.h, manualGrid, srcRaw ?? undefined);
   const w = layout.cols * PET_FORMAT.cellW;
   const h = layout.rows * PET_FORMAT.cellH;
-  if (size.w !== w || size.h !== h) input = await sharp(input).resize(w, h, { fit: 'fill', kernel: 'lanczos3' }).png().toBuffer();
+  // Other sizes: each frame is scaled into a standard 192 × 208 cell, keeping its proportions.
+  if (srcRaw && (size.w !== w || size.h !== h)) input = await normalizeCells(srcRaw, size, layout);
   // Art often spills a little past its cell; drop the neighbours' scraps before anything else.
   const raw = isolateCells(await sharp(input).ensureAlpha().raw().toBuffer(), w, layout);
   const clean = () => sharp(raw, { raw: { width: w, height: h, channels: 4 } });
@@ -463,5 +606,29 @@ async function buildViewsSheet(source: () => Sharp, views: SourceView[], cols: n
   return sharp({ create: { width: cols * w, height: Math.max(1, views.length) * h, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite(composites)
     .webp({ quality: 80, alphaQuality: 80, effort: 6 })
+    .toBuffer();
+}
+
+/** Rebuild a sheet of any size as standard 192 × 208 cells, each frame fitted without stretching. */
+async function normalizeCells(raw: Buffer, size: { w: number; h: number }, layout: Layout): Promise<Buffer> {
+  const { cellW, cellH } = PET_FORMAT;
+  const src = () => sharp(raw, { raw: { width: size.w, height: size.h, channels: 4 } });
+  const even = (n: number, len: number) => Array.from({ length: n + 1 }, (_, i) => Math.round((i * len) / n));
+  const xs = layout.edges?.xs ?? even(layout.cols, size.w);
+  const ys = layout.edges?.ys ?? even(layout.rows, size.h);
+  const composites: OverlayOptions[] = [];
+  for (let r = 0; r < layout.rows; r++) {
+    for (let c = 0; c < layout.cols; c++) {
+      const cell = await src()
+        .extract({ left: xs[c]!, top: ys[r]!, width: xs[c + 1]! - xs[c]!, height: ys[r + 1]! - ys[r]! })
+        .resize(cellW, cellH, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 }, kernel: 'lanczos3' })
+        .png()
+        .toBuffer();
+      composites.push({ input: cell, left: c * cellW, top: r * cellH });
+    }
+  }
+  return sharp({ create: { width: layout.cols * cellW, height: layout.rows * cellH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(composites)
+    .png()
     .toBuffer();
 }

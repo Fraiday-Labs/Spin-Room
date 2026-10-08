@@ -138,7 +138,7 @@ export const avatarHandlers: Handlers = {
           viewsUrl: viewsBlob.key,
           choices: built.choices,
           build: AVATAR_BUILD,
-          grid: built.layout.version ? null : { cols: built.layout.cols, rows: built.layout.rows },
+          grid: query.cols && query.rows ? { cols: built.layout.cols, rows: built.layout.rows } : null,
           petJson: pet ? { name: pet.name, spritesheet: pet.spritesheet, spriteVersionNumber: pet.version } : null,
           status: status === 'rejected' ? 'rejected' : status,
           createdAt: ctx.clock.now(),

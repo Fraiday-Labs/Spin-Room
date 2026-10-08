@@ -9,8 +9,9 @@ import { AvatarImportError, buildRuntimeSheet, readSpriteKit, sniff, type BuiltS
 /**
  * Bump when the sheet builder changes how uploads look, so avatars saved earlier are rebuilt
  * from their originals at the next boot. 2: neighbouring frames' scraps are cleared.
+ * 3: odd-sized sheets are cut along the gaps in the art.
  */
-export const AVATAR_BUILD = 2;
+export const AVATAR_BUILD = 3;
 
 export async function putBlob(ctx: AppContext, data: Buffer, prefix: string, ext: string, contentType: string): Promise<{ key: string; sha: string }> {
   const sha = sha256(data);
