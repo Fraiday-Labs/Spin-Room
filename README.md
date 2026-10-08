@@ -119,7 +119,7 @@ Every variable is listed with comments in [`.env.example`](.env.example). The mo
 
 ## MCP: use Spinroom from a coding agent
 
-The browser tab is the speaker; the agent is the remote. Agents never see Spotify tokens. **Integrations** (account menu) shows copy-ready snippets and a one-time link code.
+The browser tab is the speaker; the agent is the remote. Agents never see Spotify tokens. **Profile → Integrations** shows copy-ready snippets and a one-time link code.
 
 **Remote server (OAuth 2.1, recommended).** Deploy `apps/mcp` at `https://mcp.<domain>/mcp`. Clients discover the authorization server through `/.well-known/oauth-protected-resource`, register dynamically, and sign in with Spotify in a browser window. Tokens are audience-bound and can be revoked from the Profile page.
 
@@ -133,7 +133,7 @@ The browser tab is the speaker; the agent is the remote. Agents never see Spotif
 **Local stdio (personal token).** For clients without remote MCP or OAuth support, including Grok and older clients:
 
 ```bash
-SPINROOM_URL=https://<domain> npx -y spinroom-mcp login ABCD-1234   # code from Integrations → Local server
+SPINROOM_URL=https://<domain> npx -y spinroom-mcp login ABCD-1234   # code from Profile → Integrations → Local server
 ```
 
 ```json

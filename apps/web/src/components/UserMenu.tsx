@@ -5,7 +5,7 @@ import { api, queryClient } from '../lib/api';
 import { UserBadge } from './UserBadge';
 import s from './UserMenu.module.css';
 
-/** Top-right account button: photo or initial, opening Profile · (Admin · Integrations) · Sign out. */
+/** Top-right account button: photo or initial, opening Profile · (Admin) · Sign out. */
 export function UserMenu({ me }: { me: Me }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
@@ -61,14 +61,9 @@ export function UserMenu({ me }: { me: Me }) {
             Profile
           </Link>
           {me.isAdmin && (
-            <>
-              <Link href="/admin" role="menuitem" className={s.item}>
-                Admin
-              </Link>
-              <Link href="/integrations" role="menuitem" className={s.item}>
-                Integrations
-              </Link>
-            </>
+            <Link href="/admin" role="menuitem" className={s.item}>
+              Admin
+            </Link>
           )}
           <hr className={s.sep} />
           <button role="menuitem" className={s.item} onClick={() => void signOut()}>

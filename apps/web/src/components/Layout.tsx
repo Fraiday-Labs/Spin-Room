@@ -16,10 +16,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </Link>
         <nav className={s.nav} aria-label="Main">
           {me.data ? (
-            <>
-              <Link href="/lobby">Rooms</Link>
-              <UserMenu me={me.data} />
-            </>
+            <UserMenu me={me.data} />
           ) : (
             <Link href="/connect" className="btn btn-spotify">
               Sign in with Spotify

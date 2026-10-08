@@ -9,7 +9,7 @@ import { createSpinroomServer } from './tools.js';
 
 /**
  * `npx spinroom-mcp` — stdio MCP server for clients without remote MCP/OAuth.
- *   npx spinroom-mcp login <CODE>   one-time code from Integrations → Local server
+ *   npx spinroom-mcp login <CODE>   one-time code from Profile → Integrations → Local server
  *   SPINROOM_TOKEN=srp_…            or set a personal access token
  *   SPINROOM_URL=https://…          your Spinroom origin
  */
@@ -38,7 +38,7 @@ async function main() {
   }
   const token = process.env.SPINROOM_TOKEN ?? (await storedToken());
   if (!token) {
-    console.error('No Spinroom token. Run `npx spinroom-mcp login <CODE>` (code from Integrations → Local server) or set SPINROOM_TOKEN.');
+    console.error('No Spinroom token. Run `npx spinroom-mcp login <CODE>` (code from Profile → Integrations → Local server) or set SPINROOM_TOKEN.');
     process.exit(1);
   }
   const client = new SpinroomClient({ baseUrl, surface: 'mcp', getToken: () => token });

@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'wouter';
+import type { Me } from '@spinroom/contracts';
 import { CopyButton } from '../components/CopyButton';
-import { api, errorMessage, signInUrl, useMe } from '../lib/api';
+import { api, errorMessage } from '../lib/api';
+import s from './Integrations.module.css';
 
 function Snippet({ title, code, note }: { title: string; code: string; note?: string }) {
   return (
@@ -38,43 +40,31 @@ const TRY_IT = (
   </section>
 );
 
-/** Integrations: MCP (remote and local stdio servers) and Slack, one tab each. */
-export default function Integrations({ tab: tabParam }: { tab?: string }) {
-  const me = useMe();
+/** Profile → Integrations: MCP (remote and local stdio servers) and Slack, one sub-tab each. */
+export function IntegrationsPanel({ me, sub }: { me: Me; sub?: string }) {
   const cfg = useQuery({ queryKey: ['auth-config'], queryFn: () => api.call('auth.config') });
   const [code, setCode] = useState<{ code: string; expiresAt: number } | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const tab: Tab = TABS.some(([id]) => id === tabParam) ? (tabParam as Tab) : 'remote';
-  if (!me.data) {
-    return (
-      <div className="page stack">
-        <h1>Integrations</h1>
-        <a className="btn btn-spotify" style={{ justifySelf: 'start' }} href={signInUrl()}>
-          Sign in first
-        </a>
-      </div>
-    );
-  }
+  const tab: Tab = TABS.some(([id]) => id === sub) ? (sub as Tab) : 'remote';
   const url = cfg.data?.mcpUrl ?? 'https://mcp.example.com/mcp';
   const origin = location.origin;
   const stdioEnv = `"env": { "SPINROOM_URL": "${origin}" }`;
   return (
-    <div className="page stack" style={{ maxWidth: 820 }}>
-      <h1>Integrations</h1>
-      <p className="muted">
+    <div className="stack">
+      <p className="muted" style={{ margin: 0 }}>
         Use Spinroom from your coding agent or from Slack: join rooms, vote, queue songs and chat. Your browser tab stays the speaker. Integrations never see
         your Spotify tokens.
       </p>
 
-      <nav className="row" role="tablist" aria-label="Integrations" style={{ gap: 8 }}>
+      <nav className={s.subtabs} role="tablist" aria-label="Integrations">
         {TABS.map(([id, label]) => (
           <Link
             key={id}
-            href={`/integrations/${id}`}
+            href={`/profile/integrations/${id}`}
             role="tab"
             aria-selected={tab === id}
             aria-controls={`integration-${id}`}
-            className={tab === id ? 'btn btn-primary' : 'btn'}
+            className={`${s.subtab} ${tab === id ? s.active : ''}`}
           >
             {label}
           </Link>
@@ -146,7 +136,7 @@ export default function Integrations({ tab: tabParam }: { tab?: string }) {
           </>
         )}
 
-        {tab === 'slack' && <SlackTab connected={me.data.connections.slack} installUrl={cfg.data?.slackInstallUrl ?? null} />}
+        {tab === 'slack' && <SlackTab connected={me.connections.slack} installUrl={cfg.data?.slackInstallUrl ?? null} />}
       </div>
     </div>
   );

@@ -7,8 +7,9 @@ import { ProfilePhoto } from '../components/ProfilePhoto';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { AvatarSprite } from '../room/AvatarSprite';
 import { AvatarStudio } from '../studio/AvatarStudio';
+import { IntegrationsPanel } from './Integrations';
 
-export default function Profile({ tab }: { tab?: string }) {
+export default function Profile({ tab, sub }: { tab?: string; sub?: string }) {
   const me = useMe();
   const qc = useQueryClient();
   const tokens = useQuery({ queryKey: ['tokens'], queryFn: () => api.call('tokens.list'), enabled: !!me.data });
@@ -41,9 +42,14 @@ export default function Profile({ tab }: { tab?: string }) {
         <Link href="/profile/avatar" className={tab === 'avatar' ? 'btn btn-primary' : 'btn'}>
           Avatar studio
         </Link>
+        <Link href="/profile/integrations" className={tab === 'integrations' ? 'btn btn-primary' : 'btn'}>
+          Integrations
+        </Link>
       </nav>
       {tab === 'avatar' ? (
         <AvatarStudio me={u} />
+      ) : tab === 'integrations' ? (
+        <IntegrationsPanel me={u} sub={sub} />
       ) : (
         <>
           <ProfilePhoto me={u} />
@@ -125,7 +131,7 @@ export default function Profile({ tab }: { tab?: string }) {
             <div className="stack">
               <div className="row" style={{ justifyContent: 'space-between' }}>
                 <span>Coding agents (MCP)</span>
-                <Link href="/integrations">Integrations →</Link>
+                <Link href="/profile/integrations">Integrations →</Link>
               </div>
               <ul className="stack" style={{ listStyle: 'none', padding: 0 }}>
                 {tokens.data

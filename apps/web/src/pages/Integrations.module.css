@@ -1,0 +1,22 @@
+/* Sub-tabs (Remote server · Local server · Slack): underlined, so they read as a level below the Profile buttons. */
+.subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--border);
+  flex-wrap: wrap;
+}
+.subtab {
+  padding: 8px 14px;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  font-family: var(--font-pixel);
+}
+.subtab:hover {
+  color: var(--text);
+}
+.active {
+  color: var(--text);
+  border-bottom-color: var(--cyan);
+}

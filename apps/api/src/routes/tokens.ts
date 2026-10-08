@@ -46,7 +46,7 @@ export const tokenHandlers: Handlers = {
   'linkCodes.redeem': async (c) => {
     const code = c.body.code.trim().toUpperCase();
     const userId = await c.ctx.redis.getdel(`linkcode:${code}`);
-    if (!userId) throw new SpinroomError('invalid_invite', 'That code expired or was already used — make a new one on the Integrations page (Local server)');
+    if (!userId) throw new SpinroomError('invalid_invite', 'That code expired or was already used — make a new one in Profile → Integrations → Local server');
     const user = await c.ctx.services.users.get(userId);
     if (!user) throw new SpinroomError('not_found', 'Account not found');
     const token = randomToken('srp', 32);

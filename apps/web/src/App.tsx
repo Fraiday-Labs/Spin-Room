@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Route, Switch } from 'wouter';
+import { Redirect, Route, Switch } from 'wouter';
 import { Layout } from './components/Layout';
 import { Connect } from './pages/Connect';
 import { DevLogin } from './pages/DevLogin';
@@ -11,7 +11,6 @@ const Lobby = lazy(() => import('./pages/Lobby'));
 const RoomPage = lazy(() => import('./room/RoomPage'));
 const RoomSettings = lazy(() => import('./pages/RoomSettings'));
 const Profile = lazy(() => import('./pages/Profile'));
-const Integrations = lazy(() => import('./pages/Integrations'));
 const InviteLanding = lazy(() => import('./pages/InviteLanding'));
 const SlackLink = lazy(() => import('./pages/SlackLink'));
 const OAuthConsent = lazy(() => import('./pages/OAuthConsent'));
@@ -50,13 +49,14 @@ export function App() {
                 <Profile />
               </Route>
               <Route path="/profile/:tab">{(p) => <Profile tab={p.tab} />}</Route>
+              <Route path="/profile/:tab/:sub">{(p) => <Profile tab={p.tab} sub={p.sub} />}</Route>
+              {/* Integrations live on the Profile page now; older links (MCP docs, emails) still land there. */}
               <Route path="/integrations">
-                <Integrations />
+                <Redirect to="/profile/integrations" replace />
               </Route>
-              <Route path="/integrations/:tab">{(p) => <Integrations tab={p.tab} />}</Route>
-              {/* Older links (MCP docs, emails) */}
+              <Route path="/integrations/:sub">{(p) => <Redirect to={`/profile/integrations/${p.sub}`} replace />}</Route>
               <Route path="/connect-agent">
-                <Integrations />
+                <Redirect to="/profile/integrations" replace />
               </Route>
               <Route path="/invite/:token">{(p) => <InviteLanding token={p.token} />}</Route>
               <Route path="/slack/link">

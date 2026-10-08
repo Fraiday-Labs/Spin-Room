@@ -40,23 +40,36 @@ test('account menu: initial circle, photo upload, and items for regular members'
   await expect(page.getByRole('link', { name: 'Sign in with Spotify' }).first()).toBeVisible();
 });
 
-test('admins also get Admin and Integrations; Integrations is tabbed', async ({ page }) => {
+test('header is just the logo and your picture; admins also get Admin', async ({ page }) => {
   await signInViaUi(page, 'e2e-site-admin');
   await expect(page).toHaveURL(/\/lobby/);
+  const header = page.locator('header');
+  await expect(header.getByRole('link', { name: 'Rooms' })).toHaveCount(0);
   await page.getByTestId('user-menu').click();
   const menu = page.getByRole('menu', { name: 'Account' });
-  await expect(menu.getByRole('menuitem')).toHaveText(['Profile', 'Admin', 'Integrations', 'Sign out']);
-  await menu.getByRole('menuitem', { name: 'Integrations' }).click();
+  await expect(menu.getByRole('menuitem')).toHaveText(['Profile', 'Admin', 'Sign out']);
+  await menu.getByRole('menuitem', { name: 'Profile' }).click();
+  await expect(page).toHaveURL(/\/profile$/);
+  // The logo goes back to the rooms page.
+  await header.getByRole('link', { name: 'Spinroom home' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
+});
 
-  await expect(page).toHaveURL(/\/integrations$/);
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Integrations');
+test('Integrations is a Profile tab with Remote, Local and Slack sub-tabs', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('integrator'));
+  await page.goto('/profile');
+  const sections = page.getByRole('navigation', { name: 'Profile sections' }).getByRole('link');
+  await expect(sections).toHaveText(['Profile', 'Avatar studio', 'Integrations']);
+  await sections.filter({ hasText: 'Integrations' }).click();
+  await expect(page).toHaveURL(/\/profile\/integrations$/);
+
   const tabs = page.getByRole('tablist', { name: 'Integrations' }).getByRole('tab');
   await expect(tabs).toHaveText(['Remote server', 'Local server', 'Slack']);
   await expect(page.getByRole('tab', { name: 'Remote server' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('heading', { name: 'Remote MCP server (recommended)' })).toBeVisible();
 
   await page.getByRole('tab', { name: 'Local server' }).click();
-  await expect(page).toHaveURL(/\/integrations\/local$/);
+  await expect(page).toHaveURL(/\/profile\/integrations\/local$/);
   await page.getByRole('button', { name: 'Get a one-time code' }).click();
   await expect(page.getByTestId('link-code')).toHaveText(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
 
@@ -65,7 +78,14 @@ test('admins also get Admin and Integrations; Integrations is tabbed', async ({ 
   await expect(page.getByTestId('slack-not-configured')).toBeVisible();
   await expect(page.getByText('/spinroom hype · /spinroom skip')).toBeVisible();
 
-  // Old links still land on the page.
-  await page.goto('/connect-agent');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Integrations');
+  // The old standalone pages redirect here.
+  for (const [from, to] of [
+    ['/connect-agent', /\/profile\/integrations$/],
+    ['/integrations', /\/profile\/integrations$/],
+    ['/integrations/slack', /\/profile\/integrations\/slack$/],
+  ] as const) {
+    await page.goto(from);
+    await expect(page).toHaveURL(to);
+  }
+  await expect(page.getByTestId('slack-not-configured')).toBeVisible();
 });
