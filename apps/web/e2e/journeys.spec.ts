@@ -77,9 +77,13 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
     await ctx.close();
   });
 
-  test('Free accounts are remote-only and get told why', async ({ page }) => {
+  test('Free accounts are turned away at sign-in and told why', async ({ page }) => {
     await signInViaUi(page, uid('free'), { premium: false });
-    await expect(page.getByText(/you’re a/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/connect\?error=premium_required/);
+    await expect(page.getByRole('alert')).toContainText('Spinroom needs Spotify Premium');
+    // Not signed in: the rooms page asks for sign-in.
+    await page.goto('/lobby');
+    await expect(page.getByRole('link', { name: 'Sign in with Spotify' }).first()).toBeVisible();
   });
 });
 

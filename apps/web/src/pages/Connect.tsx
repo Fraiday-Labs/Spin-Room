@@ -19,6 +19,10 @@ const FAILURES: Record<string, { title: string; fix: string }> = {
     title: 'Your Spotify account isn’t on this app’s allowlist',
     fix: 'Development-mode apps only allow listed users. In the dashboard open User Management and add your Spotify email — or ask the friend whose app you used to add you.',
   },
+  premium_required: {
+    title: 'Spinroom needs Spotify Premium',
+    fix: 'Spinroom is for listening together, and Spotify only lets Premium accounts play music in other apps. Upgrade at spotify.com/premium (or sign in with a Premium account), then try again.',
+  },
   access_denied: { title: 'Spotify sign-in was cancelled', fix: 'Try again and press Agree on the Spotify screen.' },
   state_expired: { title: 'The sign-in link expired', fix: 'Start again — sign-in links last 10 minutes.' },
   quota_exceeded: {
@@ -98,7 +102,7 @@ export function Connect() {
           {hosted && (
             <div className="card stack">
               <p style={{ margin: 0 }}>
-                Spinroom plays music through your own Spotify account. Listening and DJing need <b>Spotify Premium</b>; Free accounts can still vote and chat.
+                Spinroom plays music through your own Spotify account, so you’ll need <b>Spotify Premium</b>.
               </p>
               <div>
                 <button className="btn btn-spotify" onClick={() => start()} data-testid="spotify-sign-in">
@@ -194,9 +198,7 @@ export function Connect() {
             </div>
           </details>
 
-          <p className="muted">
-            Spinroom asks Spotify for: {cfg.data?.scopes.join(', ')}. Listening needs Spotify Premium; Free accounts can browse, chat and vote as a remote.
-          </p>
+          <p className="muted">Spinroom asks Spotify for: {cfg.data?.scopes.join(', ')}. A Spotify Premium account is required.</p>
         </>
       )}
     </div>

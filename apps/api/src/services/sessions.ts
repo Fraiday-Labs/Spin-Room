@@ -44,6 +44,11 @@ export function createSessionService(ctx: AppContext) {
       const now = ctx.clock.now();
       const row = await ctx.db.query.sessions.findFirst({ where: and(eq(sessions.refreshHash, sha256(refreshToken)), isNull(sessions.revokedAt)) });
       if (!row || row.expiresAt < now) throw new SpinroomError('session_expired', 'Please sign in again');
+      const user = await ctx.services.users.get(row.userId);
+      if (!user?.isPremium) {
+        await ctx.db.update(sessions).set({ revokedAt: now }).where(eq(sessions.id, row.id));
+        throw new SpinroomError('session_expired', 'Spinroom needs a Spotify Premium account — please sign in with one');
+      }
       const refresh = randomToken('srr', 32);
       await ctx.db
         .update(sessions)

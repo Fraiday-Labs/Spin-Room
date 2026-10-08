@@ -30,7 +30,7 @@ export default function Profile({ tab, sub }: { tab?: string; sub?: string }) {
         <div className="stack" style={{ gap: 4 }}>
           <h1 style={{ margin: 0 }}>{u.displayName}</h1>
           <div className="row">
-            <span className={u.isPremium ? 'badge badge-ok' : 'badge badge-warn'}>{u.isPremium ? 'Spotify Premium' : 'Remote only (Spotify Free)'}</span>
+            <span className="badge badge-ok">Spotify Premium</span>
             <span className="badge">{u.points} DJ points</span>
           </div>
         </div>

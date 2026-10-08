@@ -82,7 +82,7 @@ Spotify caps development-mode apps at 5 users, and extended quota requires 250,0
    - add the redirect URI shown on screen (`<origin>/v1/auth/spotify/callback`);
    - paste the Client ID.
 3. Up to 4 friends can sign in through someone else's app ("Join through a friend's app"). The app owner adds them under **User Management**, and they share the owner's quota.
-4. Login failures are named on screen with their fix: redirect URI mismatch, user not on the allowlist, cancelled sign-in, or quota exceeded. Free accounts sign in as **remote only**: they can browse, chat and vote, but cannot run a speaker or DJ.
+4. Login failures are named on screen with their fix: redirect URI mismatch, user not on the allowlist, cancelled sign-in, or quota exceeded. **Spotify Premium is required**: Free accounts are turned away at sign-in (nothing is stored for them), and someone who drops Premium is signed out.
 5. Option A (development only): set `SPOTIFY_DEV_CLIENT_ID` to use one shared app when a user has none.
 
 The Spotify client targets the 2026 development-mode endpoints, falling back to the legacy paths if those fail:
@@ -174,7 +174,7 @@ What the automated checks cover, mapped to the PRD's acceptance checks:
 
 | Phase | Check                                                                                                       | Status                                 |
 | ----- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| 1     | Login and profile; Free accounts flagged remote-only; named setup failures                                  | Automated (API + Playwright)           |
+| 1     | Login and profile; Free accounts refused at sign-in; named setup failures                                   | Automated (API + Playwright)           |
 | 2     | Every FR-D / FR-V rule, including ties, DJ leaving mid-spin, empty booth and cooldowns; 50 bots × 100 spins | Automated (34 engine tests)            |
 | 3     | Late joiner starts at the live position; background tab keeps the speaker live; drift logic                 | Automated (fake player)                |
 | 4     | Journeys 1 and 2; bundle budget (117.6 KB of 300 KB); reduced motion; avatar import plus each invalid case  | Automated                              |

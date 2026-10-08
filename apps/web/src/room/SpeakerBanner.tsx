@@ -22,14 +22,6 @@ export function SpeakerBanner(props: {
 }) {
   const { me, view } = props;
   if (!me) return null;
-  if (me.remoteOnly) {
-    return (
-      <div className={`${s.banner} ${s.off}`} role="status">
-        <span className={s.dot} />
-        <span>You’re a remote — listening needs Spotify Premium. You can still chat and vote.</span>
-      </div>
-    );
-  }
   return (
     <div className={`${s.banner} ${s[view.status]}`} role="status" data-testid="speaker-banner" data-status={view.status}>
       <span className={s.dot} aria-hidden="true" />

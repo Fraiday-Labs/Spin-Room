@@ -20,7 +20,17 @@ interface PkceState {
 
 /** Failures the setup screen explains with a fix (PRD option B step 6). */
 export type LoginFailure =
-  'invalid_client_id' | 'redirect_uri_mismatch' | 'user_not_allowlisted' | 'access_denied' | 'state_expired' | 'spotify_error' | 'quota_exceeded';
+  | 'invalid_client_id'
+  | 'redirect_uri_mismatch'
+  | 'user_not_allowlisted'
+  | 'access_denied'
+  | 'state_expired'
+  | 'spotify_error'
+  | 'quota_exceeded'
+  | 'premium_required';
+
+export const PREMIUM_REQUIRED =
+  'Spinroom is for listening together, and Spotify only lets Premium accounts play music in other apps. Sign in with a Spotify Premium account.';
 
 function safeReturnTo(raw: string | undefined, mode: 'cookie' | 'token'): string {
   if (!raw) return mode === 'token' ? 'spinroom://auth' : '/lobby';
@@ -47,6 +57,17 @@ export function classifyTokenError(e: unknown): LoginFailure {
 /** After Spotify login: upsert the user, store tokens, and start a session. */
 export async function completeLogin(ctx: AppContext, reply: FastifyReply, p: { tokens: SpotifyTokenSet; clientId: string; userAgent?: string }) {
   const profile = await ctx.spotify.getMe(p.tokens.accessToken);
+  // Premium only: listening is the point, and Spotify only plays full tracks for Premium accounts.
+  // New Free accounts aren't stored at all; someone who dropped Premium is marked and signed out everywhere.
+  if (profile.product !== 'premium') {
+    const existing = await ctx.db.query.users.findFirst({ where: eq(users.spotifyUserId, profile.id) });
+    if (existing) {
+      await ctx.db.update(users).set({ isPremium: false }).where(eq(users.id, existing.id));
+      await ctx.services.sessions.revokeAll(existing.id);
+    }
+    ctx.services.analytics.track('login_refused_free', { props: { known: !!existing } });
+    throw new SpinroomError('not_premium', PREMIUM_REQUIRED);
+  }
   const { user, created } = await ctx.services.users.upsertFromSpotify(profile, ctx.spotify.mode === 'fake' ? null : p.clientId);
   await ctx.services.spotifyTokens.save(user.id, p.clientId, p.tokens);
   const s = await ctx.services.sessions.create(user.id, p.userAgent);
@@ -106,6 +127,7 @@ export const authHandlers: Handlers = {
       return REPLIED;
     } catch (e) {
       // Development-mode apps answer 403 for users missing from the app's allowlist.
+      if (e instanceof SpinroomError && e.code === 'not_premium') return failRedirect(ctx, reply, 'premium_required');
       if (e instanceof SpotifyApiError && e.status === 403) return failRedirect(ctx, reply, 'user_not_allowlisted', e.message);
       if (e instanceof SpotifyApiError) return failRedirect(ctx, reply, e.isQuota ? 'quota_exceeded' : 'spotify_error', e.message);
       throw e;

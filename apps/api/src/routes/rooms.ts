@@ -7,7 +7,19 @@ import { requireUser, type Handlers } from '../http/router.js';
 import { safeEqual, sha256, slackJoinSignature } from '../lib/crypto.js';
 import { newId, randomToken } from '../lib/ids.js';
 import { LIVE_TICKET_TTL_MS, liveTicketKey } from '../rooms/live-ticket.js';
-import { assertCanView, assertMod, assertOwner, ensureMember, isMod, isSiteAdmin, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
+import {
+  assertCanView,
+  assertMod,
+  assertOwner,
+  ensureMember,
+  isMod,
+  isSiteAdmin,
+  memberRow,
+  roomBySlug,
+  roomSettings,
+  toRoom,
+  type RoomRow,
+} from '../rooms/access.js';
 import type { RoomLiveSummary } from '../rooms/snapshot.js';
 
 export function slugify(name: string): string {

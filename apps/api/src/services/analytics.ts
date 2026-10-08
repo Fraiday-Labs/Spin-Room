@@ -4,6 +4,7 @@ import { newId } from '../lib/ids.js';
 
 export type AnalyticsName =
   | 'login'
+  | 'login_refused_free'
   | 'spotify_setup_failed'
   | 'room_created'
   | 'room_closed'

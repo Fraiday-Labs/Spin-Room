@@ -119,7 +119,11 @@ describe('share links ("anyone with the link")', () => {
     const alice = await login(t, 'alice');
     const dave = await login(t, 'dave');
     const { room } = await createRoom(alice, { visibility: 'invite_only' });
-    const slack = { teamId: 'T1', channelId: 'C1', sig: slackJoinSignature(t.ctx.cfg.SERVICE_SECRET_SLACK, { teamId: 'T1', channelId: 'C1', roomId: room.id }) };
+    const slack = {
+      teamId: 'T1',
+      channelId: 'C1',
+      sig: slackJoinSignature(t.ctx.cfg.SERVICE_SECRET_SLACK, { teamId: 'T1', channelId: 'C1', roomId: room.id }),
+    };
     const join = (body: object) => dave.req('POST', `/v1/rooms/${room.slug}/join`, body);
     // Not linked yet: refused.
     expect((await join({ slack })).json().code).toBe('invalid_invite');
@@ -176,7 +180,7 @@ describe('sets (My set)', () => {
     expect((await spotify.listMyPlaylists('fake.alice.premium')).filter((p) => p.name.startsWith('Spinroom – '))).toHaveLength(1);
 
     // A playlist you linked yourself is only unlinked; Spotify keeps every track.
-    const own = await spotify.createPlaylist('fake.alice.premium', 'Road Trip', '');
+    const own = await spotify.createPlaylist('fake.alice.premium', 'Road Trip');
     await spotify.addToPlaylist('fake.alice.premium', own.id, [track('Neon Tide').uri, track('Booth Lights').uri, track('Pixel Rain').uri]);
     const linked = (await alice.req('POST', `/v1/rooms/${room.slug}/crate/import`, { mode: 'link', playlist: own.id })).json();
     expect(linked.items).toHaveLength(3);
@@ -287,16 +291,6 @@ describe('DJ queue, spins and votes', () => {
     // DJ skips own spin, others can't.
     expect((await bob.req('POST', `/v1/rooms/${room.slug}/spins/current/skip`)).json().code).toBe('forbidden');
     expect((await alice.req('POST', `/v1/rooms/${room.slug}/spins/current/skip`)).statusCode).toBe(200);
-  });
-
-  it('keeps Free accounts out of the booth and speaker', async () => {
-    t = await createTestApp();
-    const alice = await login(t, 'alice');
-    const fred = await login(t, 'fred', { premium: false });
-    const { room } = await createRoom(alice);
-    await fred.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Neon Tide' });
-    expect((await fred.req('POST', `/v1/rooms/${room.slug}/dj-queue`)).json().code).toBe('not_premium');
-    expect((await fred.req('POST', '/v1/speakers', { roomSlug: room.slug, kind: 'fake' })).json().code).toBe('not_premium');
   });
 
   it('allows one live speaker per member; a second one asks to move', async () => {

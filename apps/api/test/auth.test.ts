@@ -1,4 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
+import { users } from '../src/db/schema.js';
 import { createAesSealer, encryptionKey, pkceChallenge } from '../src/lib/crypto.js';
 import { RealSpotifyGateway } from '../src/spotify/real.js';
 import { cookiesFrom, createTestApp, login, type TestApp } from './helpers.js';
@@ -8,7 +10,13 @@ afterEach(async () => t?.close());
 
 describe('hosted Spotify app', () => {
   it('tells the sign-in page whether people can just sign in (server has its own Spotify app)', async () => {
-    const real = () => new RealSpotifyGateway({ accountsUrl: 'https://accounts.test', apiUrl: 'https://api.test/v1', retries: 0, fetch: (async () => new Response('{}')) as never });
+    const real = () =>
+      new RealSpotifyGateway({
+        accountsUrl: 'https://accounts.test',
+        apiUrl: 'https://api.test/v1',
+        retries: 0,
+        fetch: (async () => new Response('{}')) as never,
+      });
     t = await createTestApp({ spotify: real() });
     expect((await t.app.inject({ method: 'GET', url: '/v1/auth/config' })).json().hostedSpotifyApp).toBe(false);
     await t.close();
@@ -30,13 +38,22 @@ describe('Spotify login (fake mode)', () => {
     expect(me.avatar.kind).toBe('preset');
   });
 
-  it('flags a Free account as remote-only', async () => {
+  it('turns Free accounts away, and signs out someone who dropped Premium', async () => {
     t = await createTestApp();
-    const u = await login(t, 'bob', { premium: false });
-    const me = (await u.req('GET', '/v1/me')).json();
-    expect(me).toMatchObject({ isPremium: false, remoteOnly: true });
-    const tok = await u.req('GET', '/v1/me/spotify-token');
-    expect(tok.statusCode).toBe(403);
+    const fakeLogin = (spotifyUserId: string, premium: boolean) =>
+      t.app.inject({ method: 'POST', url: '/v1/auth/fake/login', payload: { spotifyUserId, premium } });
+    const refused = await fakeLogin('bob', false);
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().code).toBe('not_premium');
+    expect(await t.ctx.db.query.users.findFirst({ where: eq(users.spotifyUserId, 'bob') })).toBeUndefined();
+
+    // Carol was Premium; after she downgrades, signing in again is refused and her old session ends.
+    const carol = (await fakeLogin('carol', true)).json();
+    expect((await fakeLogin('carol', false)).json().code).toBe('not_premium');
+    const me = await t.app.inject({ method: 'GET', url: '/v1/me', headers: { authorization: `Bearer ${carol.accessToken}` } });
+    expect(me.statusCode).toBe(401);
+    const refresh = await t.app.inject({ method: 'POST', url: '/v1/auth/session/refresh', payload: { refreshToken: carol.refreshToken } });
+    expect(refresh.json().code).toBe('session_expired');
   });
 
   it('runs the full PKCE redirect flow with cookies', async () => {
@@ -121,7 +138,7 @@ describe('Spotify login (real mode, option B)', () => {
 
   it('starts PKCE with the user’s own Client ID and names failures', async () => {
     const clientId = 'a'.repeat(32);
-    let mode: 'mismatch' | 'not_allowlisted' | 'ok_free' = 'mismatch';
+    let mode: 'mismatch' | 'not_allowlisted' | 'free' | 'ok' = 'mismatch';
     const spotify = new RealSpotifyGateway({
       accountsUrl: 'https://accounts.test',
       apiUrl: 'https://api.test/v1',
@@ -137,7 +154,7 @@ describe('Spotify login (real mode, option B)', () => {
         '/v1/me': () =>
           mode === 'not_allowlisted'
             ? Response.json({ error: { status: 403, message: 'User not registered in the Developer Dashboard' } }, { status: 403 })
-            : Response.json({ id: 'frank', display_name: 'Frank', product: 'free', email: 'f@x.test' }),
+            : Response.json({ id: 'frank', display_name: 'Frank', product: mode === 'free' ? 'free' : 'premium', email: 'f@x.test' }),
       }),
     });
     t = await createTestApp({ cfg: { SPOTIFY_MODE: 'real' }, spotify });
@@ -157,11 +174,17 @@ describe('Spotify login (real mode, option B)', () => {
     expect((await run()).headers.location).toContain('error=redirect_uri_mismatch');
     mode = 'not_allowlisted';
     expect((await run()).headers.location).toContain('error=user_not_allowlisted');
-    mode = 'ok_free';
+    // Free accounts are turned away with a named reason, and nothing is stored for them.
+    mode = 'free';
+    const free = await run();
+    expect(free.headers.location).toContain('error=premium_required');
+    expect(cookiesFrom(free).sr_at).toBeUndefined();
+    expect(await t.ctx.db.query.users.findFirst({ where: eq(users.spotifyUserId, 'frank') })).toBeUndefined();
+    mode = 'ok';
     const ok = await run();
-    expect(ok.headers.location).toBe('/lobby?remote_only=1');
+    expect(ok.headers.location).toBe('/lobby');
     const me = await t.app.inject({ method: 'GET', url: '/v1/me', cookies: { sr_at: cookiesFrom(ok).sr_at! } });
-    expect(me.json()).toMatchObject({ spotifyClientId: clientId, remoteOnly: true });
+    expect(me.json()).toMatchObject({ spotifyClientId: clientId, isPremium: true });
     const cfg = await t.app.inject({ method: 'GET', url: '/v1/auth/config', cookies: { sr_cid: clientId } });
     expect(cfg.json()).toMatchObject({ spotifyMode: 'real', rememberedClientId: clientId });
   });

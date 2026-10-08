@@ -50,7 +50,16 @@ export const meHandlers: Handlers = {
     return c.ctx.services.users.toMe(await loadMe(c.ctx, userId));
   },
 
-  'me.get': async (c) => c.ctx.services.users.toMe(await loadMe(c.ctx, requireUser(c).userId)),
+  'me.get': async (c) => {
+    const u = await loadMe(c.ctx, requireUser(c).userId);
+    if (!u.isPremium) {
+      // Premium only (see completeLogin): end any session a Free account still has.
+      await c.ctx.services.sessions.revokeAll(u.id);
+      clearSessionCookies(c.reply);
+      throw new SpinroomError('unauthenticated', 'Spinroom needs a Spotify Premium account — please sign in with one');
+    }
+    return c.ctx.services.users.toMe(u);
+  },
 
   'me.patch': async (c) => {
     const { userId } = requireUser(c);

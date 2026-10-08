@@ -21,7 +21,7 @@ interface State {
  * (React unmounts everything on an uncaught render error), and reports it to the server.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null, key: this.props.resetKey };
+  override state: State = { error: null, key: this.props.resetKey };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
@@ -31,11 +31,11 @@ export class ErrorBoundary extends Component<Props, State> {
     return props.resetKey !== state.key ? { error: null, key: props.resetKey } : null;
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
+  override componentDidCatch(error: Error, info: ErrorInfo) {
     reportError(error, this.props.where, info.componentStack);
   }
 
-  render() {
+  override render() {
     if (this.state.error) return this.props.fallback(() => this.setState({ error: null }), this.state.error);
     return this.props.children;
   }

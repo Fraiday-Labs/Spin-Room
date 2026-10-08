@@ -55,7 +55,7 @@ describe('DriftController', () => {
 const snap = (): RoomSnapshot => ({
   seq: 1,
   serverNow: 0,
-  room: { id: 'r', slug: 's', name: 'n', description: '', visibility: 'public', ownerId: 'o', settings: DEFAULT_ROOM_SETTINGS, createdAt: 0 },
+  room: { id: 'r', slug: 's', name: 'n', description: '', visibility: 'public', ownerId: 'o', settings: DEFAULT_ROOM_SETTINGS, createdAt: 0, closedAt: null, linkSharing: false },
   status: 'idle',
   members: [],
   booth: [],

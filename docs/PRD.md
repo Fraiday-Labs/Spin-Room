@@ -247,7 +247,7 @@ Each listener plays the track on their own Premium account through a speaker tab
 
 - Spotify OAuth 2.0 Authorization Code flow with PKCE, handled by the backend, using the user's own Spotify Client ID (option B under platform access below).
 - Scopes: `streaming`, `user-read-email`, `user-read-private`, `user-read-playback-state`, `user-modify-playback-state`, `playlist-read-private`, playlist-modify-public, playlist-modify-private.
-- On first login, read the account `product` field. Non-Premium users can browse and chat as "remote only" but cannot run a speaker or DJ; the UI explains why.
+- On login, read the account `product` field. Spinroom is Premium-only (decision, Oct 2026): non-Premium accounts are refused with a clear explanation, nothing is stored for them, and existing users who downgrade are signed out.
 - Refresh tokens are stored encrypted server-side. Access tokens are refreshed by the backend and handed to the speaker tab on request; they never go to Slack or MCP clients.
 - Spinroom accounts are keyed to the Spotify user ID. Slack and MCP identities are linked to that account (see those sections).
 
@@ -664,7 +664,7 @@ Build in six phases; each phase ends with its acceptance checks passing before t
 
 - Monorepo, contracts package, API skeleton, Postgres schema and migrations, Redis wiring, guided per-user Spotify Client ID setup, Spotify login with Premium check.
 
-* [ ] A user can log in with Spotify and see their profile; a Free account is flagged remote-only; a new user finishes Client ID setup and first login in under 5 minutes.
+* [ ] A user can log in with Spotify and see their profile; a Free account is refused at sign-in with an explanation; a new user finishes Client ID setup and first login in under 5 minutes.
 
 **Phase 2 — Room engine**
 

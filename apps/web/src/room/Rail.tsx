@@ -209,7 +209,6 @@ function Queue(props: {
             {inBooth ? 'Step down from the booth' : snap.me?.inQueue ? 'Leave DJ queue' : 'Join DJ queue'}
           </button>
           {cooldown > 0 && <span className="badge badge-warn">Bounced — rejoin in {formatMs(cooldown)}</span>}
-          {me.remoteOnly && <span className="muted">DJing needs Spotify Premium.</span>}
         </div>
       )}
       <h3 className={s.h}>At the booth</h3>

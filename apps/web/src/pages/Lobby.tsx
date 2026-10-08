@@ -18,7 +18,6 @@ export default function Lobby() {
     queryFn: () => api.call('rooms.list', { query: { filter: 'public', q: debounced || undefined, limit: 30 } }),
   });
   const [creating, setCreating] = useState(false);
-  const remoteOnly = new URLSearchParams(location.search).get('remote_only') === '1';
 
   if (me.isLoading) return <div className="page muted">Loading…</div>;
   if (!me.data) {
@@ -33,12 +32,6 @@ export default function Lobby() {
   }
   return (
     <div className="page stack">
-      {(remoteOnly || me.data.remoteOnly) && (
-        <div className="notice">
-          Your Spotify account isn’t Premium, so you’re a <b>remote</b>: you can browse, chat and vote, but Spotify only lets Premium accounts play in a speaker
-          tab or DJ.
-        </div>
-      )}
       <div className="row" style={{ justifyContent: 'space-between' }}>
         <h1 style={{ margin: 0 }}>Hey {me.data.displayName}</h1>
         <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
