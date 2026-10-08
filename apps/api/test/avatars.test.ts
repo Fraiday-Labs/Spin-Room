@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm';
+import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
 import { isolateCells } from '../src/avatars/pipeline.js';
 import { AVATAR_BUILD, refreshAvatars } from '../src/avatars/rebuild.js';
@@ -93,7 +94,7 @@ describe('avatar import (ChatGPT pets)', () => {
       'wrong size',
       async () => [{ filename: 'x.png', data: await makeSheet({ w: 1024, h: 1024, rows: [1] }) }],
       'size_unsupported',
-      /1024 × 1024\. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT\./,
+      /1024 × 1024, which doesn’t line up with a ChatGPT pet sheet \(8 frames across\)\. Use Download sprite kit in ChatGPT\./,
     ],
     ['no alpha', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [8], alpha: false }) }], 'no_alpha'],
     ['jpeg', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [8], format: 'jpeg', alpha: false }) }], 'format_unsupported'],
@@ -145,6 +146,28 @@ describe('avatar import (ChatGPT pets)', () => {
     expect(r1).toMatchObject({ ok: false, needsGrid: { cols: 8, rows: 5 } });
     const r2 = (await upload(u, [{ filename: 'x.png', data }], '?dryRun=true&cols=8&rows=5')).json();
     expect(r2.ok).toBe(true);
+  });
+
+  it('accepts resized ChatGPT sheets at any scale, and offers a guessed grid for other 8-across sheets', async () => {
+    t = await createTestApp();
+    const u = await login(t, 'alice');
+    // A v2 sheet saved at about two-thirds size (1027 × 1531).
+    const full = await makeSheet({ h: 2288, rows: [...V1_ROWS, 6, 8] });
+    const small = await sharp(full).resize(1027, 1531, { fit: 'fill' }).png().toBuffer();
+    const r = (await upload(u, [{ filename: 'small.png', data: small }], '?dryRun=true')).json();
+    expect(r).toMatchObject({ ok: true, detectedSize: { w: 1027, h: 1531 } });
+    expect(r.frameCounts).toMatchObject({ idle: 8, running: 6 });
+    expect(r.preview.rows.find((x: { state: string }) => x.state === 'idle').frames).toBe(8);
+
+    // Eight across, five rows of the usual cell shape at a smaller scale: confirm, then it imports.
+    const five = await sharp(await makeSheet({ w: 1536, h: 1040, rows: [8, 4, 4, 4, 4] }))
+      .resize(1024, 693, { fit: 'fill' })
+      .png()
+      .toBuffer();
+    expect((await upload(u, [{ filename: 'five.png', data: five }], '?dryRun=true')).json()).toMatchObject({ ok: false, needsGrid: { cols: 8, rows: 5 } });
+    const ok = (await upload(u, [{ filename: 'five.png', data: five }], '?dryRun=true&cols=8&rows=5')).json();
+    expect(ok.ok).toBe(true);
+    expect(ok.frameCounts.idle).toBe(8);
   });
 
   it('rejects uploads over 10 MB', async () => {

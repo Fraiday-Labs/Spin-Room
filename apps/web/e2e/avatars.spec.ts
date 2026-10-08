@@ -40,7 +40,7 @@ test('invalid sheets get a named error and fix', async ({ browser }) => {
   await p.goto('/profile/avatar');
   await p.getByTestId('avatar-file').setInputFiles({ name: 'square.png', mimeType: 'image/png', buffer: await sheet(1024, 1024, [1]) });
   await expect(p.getByTestId('avatar-error')).toContainText(
-    'This image is 1024 × 1024. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT.',
+    'This image is 1024 × 1024, which doesn’t line up with a ChatGPT pet sheet (8 frames across). Use Download sprite kit in ChatGPT.',
   );
 });
 

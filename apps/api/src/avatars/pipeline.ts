@@ -128,23 +128,43 @@ export interface Layout {
   rows: number;
 }
 
-/** FR-A3: detect the grid from dimensions. */
+/** How far a sheet's proportions may be off a known layout and still count as that layout scaled. */
+const ASPECT_TOLERANCE = 0.015;
+/** Smallest cell width (px) worth importing; below this the art is too small to use. */
+const MIN_CELL_W = 48;
+
+/**
+ * FR-A3: detect the grid from dimensions. ChatGPT sheets come in two layouts; copies that were
+ * resized (e.g. saved from a preview) are accepted at any scale with the same proportions, and
+ * other 8-across grids are offered for the owner to confirm. Non-standard sizes are scaled to
+ * 192 × 208 cells by `buildRuntimeSheet`.
+ */
 export function detectLayout(w: number, h: number, manual?: { cols?: number; rows?: number }): Layout {
-  if (w === PET_FORMAT.v1.w && h === PET_FORMAT.v1.h) return { version: 1, cols: PET_FORMAT.cols, rows: PET_FORMAT.v1.rows };
-  if (w === PET_FORMAT.v2.w && h === PET_FORMAT.v2.h) return { version: 2, cols: PET_FORMAT.cols, rows: PET_FORMAT.v2.rows };
-  if (w % PET_FORMAT.cellW === 0 && h % PET_FORMAT.cellH === 0) {
-    const cols = w / PET_FORMAT.cellW;
-    const rows = h / PET_FORMAT.cellH;
-    if (manual?.cols === cols && manual?.rows === rows) return { version: null, cols, rows };
+  const { cellW, cellH, cols: COLS, v1, v2 } = PET_FORMAT;
+  if (w === v1.w && h === v1.h) return { version: 1, cols: COLS, rows: v1.rows };
+  if (w === v2.w && h === v2.h) return { version: 2, cols: COLS, rows: v2.rows };
+  if (manual?.cols && manual?.rows && w / manual.cols >= MIN_CELL_W) return { version: null, cols: manual.cols, rows: manual.rows };
+  const near = (a: number, b: number) => Math.abs(a / b - 1) <= ASPECT_TOLERANCE;
+  if (w / COLS >= MIN_CELL_W) {
+    if (near(w / h, v1.w / v1.h)) return { version: 1, cols: COLS, rows: v1.rows };
+    if (near(w / h, v2.w / v2.h)) return { version: 2, cols: COLS, rows: v2.rows };
+  }
+  let guess: { cols: number; rows: number } | null = null;
+  if (w % cellW === 0 && h % cellH === 0) guess = { cols: w / cellW, rows: h / cellH };
+  else if (w / COLS >= MIN_CELL_W) {
+    // Eight frames across (like ChatGPT's), rows of the same cell shape at this scale.
+    const rows = h / ((w / COLS) * (cellH / cellW));
+    if (Math.round(rows) >= 1 && Math.abs(rows - Math.round(rows)) <= 0.1) guess = { cols: COLS, rows: Math.round(rows) };
+  }
+  if (guess)
     throw new AvatarImportError(
       'grid_unknown',
-      `This sheet divides into ${cols} × ${rows} cells of 192 × 208 px, which isn’t a standard ChatGPT layout. Confirm the grid to continue.`,
-      { needsGrid: { cols, rows }, detectedSize: { w, h } },
+      `This sheet looks like a ${guess.cols} × ${guess.rows} grid, which isn’t a standard ChatGPT layout. Confirm the grid to continue.`,
+      { needsGrid: guess, detectedSize: { w, h } },
     );
-  }
   throw new AvatarImportError(
     'size_unsupported',
-    `This image is ${w} × ${h}. ChatGPT pet sheets are 1536 × 1872 or 1536 × 2288 — use Download sprite kit in ChatGPT.`,
+    `This image is ${w} × ${h}, which doesn’t line up with a ChatGPT pet sheet (8 frames across). Use Download sprite kit in ChatGPT.`,
     { detectedSize: { w, h } },
   );
 }
@@ -295,9 +315,12 @@ export async function buildRuntimeSheet(
   if ((meta.pages ?? 1) > 1) throw new AvatarImportError('image_animated', 'Animated images aren’t supported. Use the still sprite sheet from ChatGPT.');
   if (!meta.hasAlpha)
     throw new AvatarImportError('no_alpha', 'The sheet has no transparency. ChatGPT pet sheets have a transparent background — use Download sprite kit.');
-  const w = meta.width!;
-  const h = meta.height!;
-  const layout = detectLayout(w, h, manualGrid);
+  const size = { w: meta.width!, h: meta.height! };
+  const layout = detectLayout(size.w, size.h, manualGrid);
+  // Resized copies and other grids are scaled to the standard 192 × 208 cells first.
+  const w = layout.cols * PET_FORMAT.cellW;
+  const h = layout.rows * PET_FORMAT.cellH;
+  if (size.w !== w || size.h !== h) input = await sharp(input).resize(w, h, { fit: 'fill', kernel: 'lanczos3' }).png().toBuffer();
   // Art often spills a little past its cell; drop the neighbours' scraps before anything else.
   const raw = isolateCells(await sharp(input).ensureAlpha().raw().toBuffer(), w, layout);
   const clean = () => sharp(raw, { raw: { width: w, height: h, channels: 4 } });
@@ -419,7 +442,7 @@ export async function buildRuntimeSheet(
     frameCounts,
     issues,
     layout,
-    size: { w, h },
+    size,
   };
 }
 
