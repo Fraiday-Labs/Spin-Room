@@ -126,20 +126,50 @@ export interface Layout {
   version: 1 | 2 | null;
   cols: number;
   rows: number;
-  /** Set when the grid was read from the art: the edges to cut along. */
-  edges?: { xs: number[]; ys: number[] };
+  /** For sheets that aren't an exact ChatGPT size: where each frame is (see `SheetFrames`). */
+  frames?: SheetFrames;
 }
 
-/** How far a sheet's proportions may be off a known layout and still count as that layout scaled. */
-const ASPECT_TOLERANCE = 0.015;
+/**
+ * Where every frame of a sheet sits: one entry per row (top to bottom) with each figure's span
+ * (left to right). Every frame is cut `cropW` wide around its figure and the height of its row,
+ * keeping only art nearer that figure than its neighbours, and all frames share one scale, so
+ * animations don't jitter.
+ */
+export interface SheetFrames {
+  cropW: number;
+  /** The tallest row; with `cropW`, sets the one scale for the whole sheet. */
+  cropH: number;
+  /**
+   * Each row is cut exactly from `top` to `bottom`, so neighbouring rows stay out; `spans` are
+   * where each figure starts and ends across it.
+   */
+  rows: { top: number; bottom: number; spans: [number, number][] }[];
+}
+
+/** Frames of an evenly divided sheet. */
+function evenFrames(w: number, h: number, cols: number, rows: number): SheetFrames {
+  const cw = w / cols;
+  const ch = h / rows;
+  return {
+    cropW: cw,
+    cropH: ch,
+    rows: Array.from({ length: rows }, (_, r) => ({
+      top: Math.round(r * ch),
+      bottom: Math.round((r + 1) * ch),
+      spans: Array.from({ length: cols }, (_, c) => [Math.round(c * cw), Math.round((c + 1) * cw)] as [number, number]),
+    })),
+  };
+}
+
 /** Smallest cell width (px) worth importing; below this the art is too small to use. */
 const MIN_CELL_W = 48;
 
 /**
- * FR-A3: detect the grid from dimensions. ChatGPT sheets come in two layouts; copies that were
- * resized (e.g. saved from a preview) are accepted at any scale with the same proportions, and
- * other 8-across grids are offered for the owner to confirm. Non-standard sizes are scaled to
- * 192 × 208 cells by `buildRuntimeSheet`.
+ * FR-A3: work out the layout. Exact ChatGPT sizes are known grids. Any other size is read from
+ * the art: rows from the gaps between them, then each figure in each row on its own, so rows
+ * may differ in frame count and spacing. If the art doesn't say, the owner confirms a grid.
+ * Non-standard sheets are rebuilt as 192 × 208 cells by `buildRuntimeSheet`.
  */
 export function detectLayout(w: number, h: number, manual?: { cols?: number; rows?: number }, raw?: Buffer): Layout {
   const { cellW, cellH, cols: COLS, v1, v2 } = PET_FORMAT;
@@ -147,19 +177,15 @@ export function detectLayout(w: number, h: number, manual?: { cols?: number; row
   if (w === v2.w && h === v2.h) return { version: 2, cols: COLS, rows: v2.rows };
   if (manual?.cols && manual?.rows && w / manual.cols >= MIN_CELL_W) {
     // Cut along the gaps for that many rows and columns when the art shows them.
-    const fit = raw ? detectGrid(raw, w, h, { cols: manual.cols, rows: manual.rows }) : null;
-    return { version: null, cols: manual.cols, rows: manual.rows, ...(fit ? { edges: { xs: fit.xs, ys: fit.ys } } : {}) };
+    const fit = raw ? detectFrames(raw, w, h, { cols: manual.cols, rows: manual.rows }) : null;
+    return { version: null, cols: manual.cols, rows: manual.rows, frames: fit ?? evenFrames(w, h, manual.cols, manual.rows) };
   }
-  // Find the grid from the art itself: the empty gaps between figures.
-  const found = raw ? detectGrid(raw, w, h) : null;
-  if (found && w / found.cols >= MIN_CELL_W) {
-    const version = found.cols === COLS && found.rows === v1.rows ? 1 : found.cols === COLS && found.rows === v2.rows ? 2 : null;
-    return { version, cols: found.cols, rows: found.rows, edges: { xs: found.xs, ys: found.ys } };
-  }
-  const near = (a: number, b: number) => Math.abs(a / b - 1) <= ASPECT_TOLERANCE;
-  if (w / COLS >= MIN_CELL_W) {
-    if (near(w / h, v1.w / v1.h)) return { version: 1, cols: COLS, rows: v1.rows };
-    if (near(w / h, v2.w / v2.h)) return { version: 2, cols: COLS, rows: v2.rows };
+  const found = raw ? detectFrames(raw, w, h) : null;
+  if (found) {
+    const cols = Math.max(1, ...found.rows.map((r) => r.spans.length));
+    const rows = found.rows.length;
+    const version = cols === COLS && rows === v1.rows ? 1 : cols === COLS && rows === v2.rows ? 2 : null;
+    return { version, cols, rows, frames: found };
   }
   let guess: { cols: number; rows: number } | null = null;
   if (w % cellW === 0 && h % cellH === 0) guess = { cols: w / cellW, rows: h / cellH };
@@ -171,12 +197,12 @@ export function detectLayout(w: number, h: number, manual?: { cols?: number; row
   if (guess)
     throw new AvatarImportError(
       'grid_unknown',
-      `This sheet looks like a ${guess.cols} × ${guess.rows} grid, which isn’t a standard ChatGPT layout. Confirm the grid to continue.`,
+      `This sheet looks like a ${guess.cols} × ${guess.rows} grid, but we couldn’t find the frames in it on our own. Confirm the grid to continue.`,
       { needsGrid: guess, detectedSize: { w, h } },
     );
   throw new AvatarImportError(
     'size_unsupported',
-    `This image is ${w} × ${h}, which doesn’t line up with a ChatGPT pet sheet (8 frames across). Use Download sprite kit in ChatGPT.`,
+    `This image is ${w} × ${h}, and we couldn’t find rows of animation frames in it. Upload a sprite sheet with the frames in rows on a transparent background, like ChatGPT’s Download sprite kit.`,
     { detectedSize: { w, h } },
   );
 }
@@ -190,14 +216,6 @@ const BAND_SLACK = 0.4;
  * busiest one. Strict, because columns that only long animations use are quiet but not empty.
  */
 const GAP_LEVEL = 0.15;
-
-/** Where a sheet's rows and columns start and end (n + 1 edges each), found from the art. */
-export interface GridEdges {
-  cols: number;
-  rows: number;
-  xs: number[];
-  ys: number[];
-}
 
 /** Share of each line (row of pixels, or column) that has art on it. */
 function busyLines(raw: Buffer, w: number, h: number) {
@@ -280,15 +298,15 @@ const ROW_GAP_LEVEL = 0.6;
 const UNEVEN_WEIGHT = 0.5;
 
 /**
- * Rows for a known column width: of the counts that keep frames in proportion, the one whose
- * cuts are cleanest and most evenly spaced (an empty row can be cut more than one way).
+ * Rows: of the counts whose rows are a sensible height (`[shortest, tallest]`), the one whose cuts
+ * are cleanest and most evenly spaced (an empty row can be cut more than one way).
  */
-function rowBands(busy: Float64Array, colWidth: number): number[] | null {
+function rowBands(busy: Float64Array, [shortest, tallest]: [number, number]): number[] | null {
   const max = Math.max(...busy);
   let best: { edges: number[]; score: number } | null = null;
   for (let n = 1; n <= MAX_GRID; n++) {
     const height = busy.length / n;
-    if (height > colWidth * ROW_TO_COL[1] || height < colWidth * ROW_TO_COL[0]) continue;
+    if (height > tallest || height < shortest) continue;
     const cut = bestCuts(busy, n);
     if (!cut || cut.worst > ROW_GAP_LEVEL * max) continue;
     const score = cut.worst / max + UNEVEN_WEIGHT * cut.uneven;
@@ -297,17 +315,150 @@ function rowBands(busy: Float64Array, colWidth: number): number[] | null {
   return best?.edges ?? null;
 }
 
+/** Lines this share as busy as a row's busiest are part of a figure (lower is gap). */
+const FIGURE_LEVEL = 0.04;
+/** Gaps narrower than this share of a column are inside one figure (between legs, say). */
+const MIN_GAP = 0.08;
+/** Pieces narrower than this share of a column are effects or scraps, not figures. */
+const MIN_FIGURE = 0.25;
+/** …and are kept with the nearest figure when within this share of a column of it. */
+const ATTACH = 0.35;
+/** Frames are cut this many columns wide (room for arms out and lying down), or the widest figure. */
+const CROP_W = 1.25;
+/** …and at most this many columns wide. */
+const MAX_CROP = 1.5;
+
+/** The figures across one row: [start, end) of each, from that row's own column profile. */
+function figuresInRow(busy: Float64Array, colWidth: number): [number, number][] {
+  const max = Math.max(...busy);
+  if (max === 0) return [];
+  let runs: [number, number][] = [];
+  for (let x = 0; x < busy.length; x++) {
+    if (busy[x]! <= FIGURE_LEVEL * max) continue;
+    const last = runs.at(-1);
+    if (last && x - last[1] < MIN_GAP * colWidth) last[1] = x + 1;
+    else runs.push([x, x + 1]);
+  }
+  // Sparkles and scraps join the figure next to them, or go.
+  const big = runs.filter(([a, b]) => b - a >= MIN_FIGURE * colWidth);
+  for (const [a, b] of runs) {
+    if (b - a >= MIN_FIGURE * colWidth) continue;
+    const near = big.map((r) => ({ r, d: Math.max(r[0] - b, a - r[1], 0) })).sort((p, q) => p.d - q.d)[0];
+    if (near && near.d <= ATTACH * colWidth) {
+      near.r[0] = Math.min(near.r[0], a);
+      near.r[1] = Math.max(near.r[1], b);
+    }
+  }
+  runs = big.sort((p, q) => p[0] - q[0]);
+  // Figures that touch (arms out, say) are split at their quietest lines.
+  return runs.flatMap(([a, b]) => {
+    const n = Math.round((b - a) / colWidth);
+    if (n < 2) return [[a, b] as [number, number]];
+    const cuts = bestCuts(busy.subarray(a, b), n)?.edges ?? [0, b - a];
+    return cuts.slice(1).map((e, i) => [a + cuts[i]!, a + e] as [number, number]);
+  });
+}
+
+/** Shapes are measured on a copy at most this many pixels across (fast, and joins anti-aliasing). */
+const MEASURE_SIZE = 400;
+/** Shapes smaller than this share of the largest are effects or scraps, not figures. */
+const MEASURE_MIN = 0.15;
+
+/** The typical figure's width and height: the median size of the separate shapes on the sheet. */
+function typicalFigure(raw: Buffer, w: number, h: number): { w: number; h: number } | null {
+  const f = Math.max(1, Math.ceil(Math.max(w, h) / MEASURE_SIZE));
+  const sw = Math.ceil(w / f);
+  const sh = Math.ceil(h / f);
+  const on = new Uint8Array(sw * sh);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (raw[(y * w + x) * 4 + 3]! > ALPHA_MIN) on[Math.floor(y / f) * sw + Math.floor(x / f)] = 1;
+  const seen = new Uint8Array(sw * sh);
+  const stack = new Int32Array(sw * sh);
+  const shapes: { area: number; w: number; h: number }[] = [];
+  for (let s = 0; s < on.length; s++) {
+    if (!on[s] || seen[s]) continue;
+    let top = 0;
+    let area = 0;
+    let [x0, y0, x1, y1] = [sw, sh, 0, 0];
+    stack[top++] = s;
+    seen[s] = 1;
+    while (top) {
+      const i = stack[--top]!;
+      const x = i % sw;
+      const y = (i - x) / sw;
+      area++;
+      [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const j = ny * sw + nx;
+          if (nx >= 0 && ny >= 0 && nx < sw && ny < sh && on[j] && !seen[j]) {
+            seen[j] = 1;
+            stack[top++] = j;
+          }
+        }
+    }
+    shapes.push({ area, w: (x1 - x0 + 1) * f, h: (y1 - y0 + 1) * f });
+  }
+  const biggest = Math.max(0, ...shapes.map((s) => s.area));
+  const figures = shapes.filter((s) => s.area >= MEASURE_MIN * biggest);
+  if (figures.length < 2) return null;
+  const median = (xs: number[]) => xs.sort((p, q) => p - q)[Math.floor(xs.length / 2)]!;
+  return { w: median(figures.map((s) => s.w)), h: median(figures.map((s) => s.h)) };
+}
+
+/** Without common columns, a frame's width is the typical figure's plus a little room. */
+const FREE_COL = 1.25;
+/** …and a row is between this many figure heights tall. */
+const FREE_ROW_TO_FIGURE = [1.0, 2.0] as const;
+
 /**
- * The grid of a sheet whose size doesn't say it, read from the empty gaps between figures.
- * Rows and columns needn't be perfectly even (sheets drawn by image models rarely are). With
- * `fixed`, finds the best edges for that many rows and columns. Null when the art is unclear.
+ * Find every frame in a sheet whose size doesn't say its layout. Rows come from the gaps between
+ * them (they needn't be perfectly even); then each row's figures are found on their own, so rows
+ * may hold different numbers of frames at different spacing. With `fixed`, cuts that many rows
+ * and columns along the gaps instead. Null when the art is unclear.
  */
-export function detectGrid(raw: Buffer, w: number, h: number, fixed?: { cols: number; rows: number }): GridEdges | null {
+export function detectFrames(raw: Buffer, w: number, h: number, fixed?: { cols: number; rows: number }): SheetFrames | null {
   const busy = busyLines(raw, w, h);
   const xs = bands(busy.cols, fixed?.cols);
-  if (!xs) return null;
-  const ys = fixed ? bands(busy.rows, fixed.rows) : rowBands(busy.rows, w / (xs.length - 1));
-  return ys ? { cols: xs.length - 1, rows: ys.length - 1, xs, ys } : null;
+  if (fixed) {
+    const ys = bands(busy.rows, fixed.rows);
+    if (!xs || !ys) return null;
+    return {
+      cropW: w / fixed.cols,
+      cropH: h / fixed.rows,
+      rows: ys.slice(1).map((bottom, r) => ({ top: ys[r]!, bottom, spans: xs.slice(1).map((end, c) => [xs[c]!, end] as [number, number]) })),
+    };
+  }
+  let colWidth: number;
+  let rowRange: [number, number];
+  if (xs) {
+    colWidth = w / (xs.length - 1);
+    rowRange = [ROW_TO_COL[0] * colWidth, ROW_TO_COL[1] * colWidth];
+  } else {
+    // No common columns: size things from the figures themselves.
+    const figure = typicalFigure(raw, w, h);
+    if (!figure) return null;
+    colWidth = FREE_COL * figure.w;
+    rowRange = [FREE_ROW_TO_FIGURE[0] * figure.h, FREE_ROW_TO_FIGURE[1] * figure.h];
+  }
+  if (colWidth < MIN_CELL_W * 0.5) return null;
+  const ys = rowBands(busy.rows, rowRange);
+  if (!ys || ys.length < 2) return null;
+
+  const rows = ys.slice(1).map((end, r) => {
+    const top = ys[r]!;
+    const inRow = new Float64Array(w);
+    for (let y = top; y < end; y++) for (let x = 0; x < w; x++) if (raw[(y * w + x) * 4 + 3]! > ALPHA_MIN) inRow[x]! += 1 / (end - top);
+    return { top, end, figures: figuresInRow(inRow, colWidth) };
+  });
+  if (!rows.some((r) => r.figures.length)) return null;
+  const widest = Math.max(...rows.flatMap((r) => r.figures.map(([a, b]) => b - a)));
+  return {
+    cropW: Math.min(MAX_CROP * colWidth, Math.max(CROP_W * colWidth, widest)),
+    cropH: Math.max(...rows.map((r) => r.end - r.top)),
+    rows: rows.map((r) => ({ top: r.top, bottom: r.end, spans: r.figures })),
+  };
 }
 
 /** Pixels at or under this alpha count as empty. */
@@ -363,6 +514,12 @@ export function isolateCells(raw: Buffer, w: number, layout: Layout, cellW: numb
             }
           }
         }
+      }
+      // Near-invisible pixels (faint halos, compression noise) become fully transparent.
+      for (let i = 0; i < label.length; i++) {
+        if (label[i]) continue;
+        const o = ((y0 + Math.floor(i / cellW)) * w + x0 + (i % cellW)) * 4;
+        out[o] = out[o + 1] = out[o + 2] = out[o + 3] = 0;
       }
       if (parts.length === 1) continue;
       const figure = Math.max(...parts.map((p) => p.size));
@@ -463,7 +620,7 @@ export async function buildRuntimeSheet(
   const w = layout.cols * PET_FORMAT.cellW;
   const h = layout.rows * PET_FORMAT.cellH;
   // Other sizes: each frame is scaled into a standard 192 × 208 cell, keeping its proportions.
-  if (srcRaw && (size.w !== w || size.h !== h)) input = await normalizeCells(srcRaw, size, layout);
+  if (srcRaw) input = await normalizeCells(srcRaw, size, layout);
   // Art often spills a little past its cell; drop the neighbours' scraps before anything else.
   const raw = isolateCells(await sharp(input).ensureAlpha().raw().toBuffer(), w, layout);
   const clean = () => sharp(raw, { raw: { width: w, height: h, channels: 4 } });
@@ -609,22 +766,53 @@ async function buildViewsSheet(source: () => Sharp, views: SourceView[], cols: n
     .toBuffer();
 }
 
-/** Rebuild a sheet of any size as standard 192 × 208 cells, each frame fitted without stretching. */
+/**
+ * Rebuild a sheet of any size as standard 192 × 208 cells: each frame is cut around its figure
+ * and scaled by one factor for the whole sheet, centred in its cell. Row r, frame c of `frames`
+ * lands in cell (r, c).
+ */
 async function normalizeCells(raw: Buffer, size: { w: number; h: number }, layout: Layout): Promise<Buffer> {
   const { cellW, cellH } = PET_FORMAT;
+  const frames = layout.frames ?? evenFrames(size.w, size.h, layout.cols, layout.rows);
+  const scale = Math.min(cellW / frames.cropW, cellH / frames.cropH);
   const src = () => sharp(raw, { raw: { width: size.w, height: size.h, channels: 4 } });
-  const even = (n: number, len: number) => Array.from({ length: n + 1 }, (_, i) => Math.round((i * len) / n));
-  const xs = layout.edges?.xs ?? even(layout.cols, size.w);
-  const ys = layout.edges?.ys ?? even(layout.rows, size.h);
   const composites: OverlayOptions[] = [];
-  for (let r = 0; r < layout.rows; r++) {
-    for (let c = 0; c < layout.cols; c++) {
-      const cell = await src()
-        .extract({ left: xs[c]!, top: ys[r]!, width: xs[c + 1]! - xs[c]!, height: ys[r + 1]! - ys[r]! })
-        .resize(cellW, cellH, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 }, kernel: 'lanczos3' })
+  for (let r = 0; r < frames.rows.length; r++) {
+    const row = frames.rows[r]!;
+    const rowH = row.bottom - row.top;
+    for (let c = 0; c < row.spans.length; c++) {
+      const [a, b] = row.spans[c]!;
+      // Keep only art nearer this figure than its neighbours (fists out can touch the next frame).
+      const keepFrom = c > 0 ? (row.spans[c - 1]![1] + a) / 2 : -Infinity;
+      const keepTo = c < row.spans.length - 1 ? (b + row.spans[c + 1]![0]) / 2 : Infinity;
+      // The crop box, clipped to the image; whatever falls outside stays transparent.
+      const x0 = (a + b) / 2 - frames.cropW / 2;
+      const y0 = row.top;
+      const left = Math.max(0, Math.round(x0));
+      const top = Math.max(0, row.top);
+      const right = Math.min(size.w, Math.round(x0 + frames.cropW));
+      const bottom = Math.min(size.h, row.bottom);
+      if (right - left < 2 || bottom - top < 2) continue;
+      const width = Math.max(1, Math.round((right - left) * scale));
+      const height = Math.max(1, Math.round((bottom - top) * scale));
+      // Clear neighbours' pieces at the edges of the cut before it's scaled and centred.
+      const pw = right - left;
+      const ph = bottom - top;
+      const box = await src().extract({ left, top, width: pw, height: ph }).raw().toBuffer();
+      for (let y = 0; y < ph; y++)
+        for (let x = 0; x < pw; x++) if (left + x < keepFrom || left + x >= keepTo) box.fill(0, (y * pw + x) * 4, (y * pw + x) * 4 + 4);
+      const cut = isolateCells(box, pw, { version: null, cols: 1, rows: 1 }, pw, ph);
+      const piece = await sharp(cut, { raw: { width: pw, height: ph, channels: 4 } })
+        .resize(width, height, { fit: 'fill', kernel: 'lanczos3' })
         .png()
         .toBuffer();
-      composites.push({ input: cell, left: c * cellW, top: r * cellH });
+      const offX = (cellW - frames.cropW * scale) / 2 + (left - x0) * scale;
+      const offY = (cellH - rowH * scale) / 2 + (top - y0) * scale;
+      composites.push({
+        input: piece,
+        left: c * cellW + Math.max(0, Math.min(cellW - width, Math.round(offX))),
+        top: r * cellH + Math.max(0, Math.min(cellH - height, Math.round(offY))),
+      });
     }
   }
   return sharp({ create: { width: layout.cols * cellW, height: layout.rows * cellH, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })

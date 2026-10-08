@@ -94,7 +94,7 @@ describe('avatar import (ChatGPT pets)', () => {
       'wrong size',
       async () => [{ filename: 'x.png', data: await makeSheet({ w: 1024, h: 1024, rows: [1] }) }],
       'size_unsupported',
-      /1024 × 1024, which doesn’t line up with a ChatGPT pet sheet \(8 frames across\)\. Use Download sprite kit in ChatGPT\./,
+      /1024 × 1024, and we couldn’t find rows of animation frames in it\./,
     ],
     ['no alpha', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [8], alpha: false }) }], 'no_alpha'],
     ['jpeg', async () => [{ filename: 'x.png', data: await makeSheet({ rows: [8], format: 'jpeg', alpha: false }) }], 'format_unsupported'],
@@ -175,6 +175,32 @@ describe('avatar import (ChatGPT pets)', () => {
     const u2 = (await upload(u, [{ filename: 'gen.png', data: uneven }], '?dryRun=true')).json();
     expect(u2.ok).toBe(true);
     expect(u2.frameCounts).toMatchObject({ idle: 6, 'running-right': 8, waving: 4, jumping: 5, failed: 8, waiting: 6, running: 6 });
+  });
+
+  it('finds each figure on its own, so rows can differ in frame count, spacing and offset', async () => {
+    t = await createTestApp();
+    const u = await login(t, 'alice');
+    // No common grid: every row has its own frame count, spacing and starting point.
+    const W = 1200;
+    const H = 900;
+    const rows = [
+      { n: 6, start: 10, step: 150 },
+      { n: 8, start: 60, step: 140 },
+      { n: 4, start: 200, step: 230 },
+      { n: 5, start: 30, step: 170 },
+      { n: 7, start: 90, step: 150 },
+    ];
+    const raw = Buffer.alloc(W * H * 4);
+    rows.forEach(({ n, start, step }, r) => {
+      for (let f = 0; f < n; f++)
+        for (let y = r * 180 + 25; y < r * 180 + 155; y++) for (let x = start + f * step; x < start + f * step + 95; x++) raw[(y * W + x) * 4 + 3] = 255;
+    });
+    const sheet = await sharp(raw, { raw: { width: W, height: H, channels: 4 } })
+      .png()
+      .toBuffer();
+    const r = (await upload(u, [{ filename: 'free.png', data: sheet }], '?dryRun=true')).json();
+    expect(r.ok).toBe(true);
+    expect(r.frameCounts).toMatchObject({ idle: 6, 'running-right': 8, waving: 5, jumping: 7 });
   });
 
   it('rejects uploads over 10 MB', async () => {
