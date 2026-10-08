@@ -108,6 +108,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -236,6 +237,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -378,6 +380,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -675,6 +678,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -829,6 +833,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -961,6 +966,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -1096,6 +1102,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -1268,6 +1275,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -1544,6 +1552,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -1825,6 +1834,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -1974,6 +1984,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -2103,6 +2114,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -2386,6 +2398,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -2553,6 +2566,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -2677,6 +2691,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -2847,6 +2862,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -2996,6 +3012,18 @@
                             "minLength": 1,
                             "maxLength": 64
                           },
+                          "closedAt": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "listeners": {
                             "type": "integer",
                             "minimum": 0,
@@ -3066,6 +3094,7 @@
                           "description",
                           "visibility",
                           "ownerId",
+                          "closedAt",
                           "listeners",
                           "liveSpeakers",
                           "status",
@@ -3131,6 +3160,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -3362,6 +3392,18 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "closedAt": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -3372,7 +3414,8 @@
                         "visibility",
                         "ownerId",
                         "settings",
-                        "createdAt"
+                        "createdAt",
+                        "closedAt"
                       ]
                     },
                     "invite": {
@@ -3489,6 +3532,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -3909,6 +3953,18 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "closedAt": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -3919,7 +3975,8 @@
                         "visibility",
                         "ownerId",
                         "settings",
-                        "createdAt"
+                        "createdAt",
+                        "closedAt"
                       ]
                     },
                     "status": {
@@ -4268,7 +4325,8 @@
                                     "auto_skip",
                                     "dj_skip",
                                     "mod_skip",
-                                    "dj_left"
+                                    "dj_left",
+                                    "room_closed"
                                   ]
                                 },
                                 {
@@ -4591,6 +4649,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -4828,6 +4887,18 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "closedAt": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -4838,7 +4909,8 @@
                     "visibility",
                     "ownerId",
                     "settings",
-                    "createdAt"
+                    "createdAt",
+                    "closedAt"
                   ]
                 }
               }
@@ -4887,6 +4959,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -5099,6 +5172,584 @@
             }
           }
         }
+      },
+      "delete": {
+        "operationId": "rooms.delete",
+        "summary": "Delete a room for good (owner): members, invites, sets, history and chat. Spotify playlists are kept.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "bad_request",
+                        "validation_failed",
+                        "invalid_client_id",
+                        "unauthenticated",
+                        "session_expired",
+                        "csrf_failed",
+                        "forbidden",
+                        "not_premium",
+                        "banned",
+                        "muted",
+                        "not_member",
+                        "origin_rejected",
+                        "upload_revoked",
+                        "not_found",
+                        "room_not_found",
+                        "spin_not_current",
+                        "conflict",
+                        "slug_taken",
+                        "already_in_queue",
+                        "speaker_exists",
+                        "invalid_invite",
+                        "room_closed",
+                        "room_full",
+                        "crate_empty",
+                        "on_cooldown",
+                        "speaker_missing",
+                        "track_too_long",
+                        "track_unplayable",
+                        "track_explicit",
+                        "cannot_vote_own_spin",
+                        "not_present",
+                        "avatar_invalid",
+                        "avatar_limit",
+                        "rights_not_confirmed",
+                        "payload_too_large",
+                        "rate_limited",
+                        "quota_exceeded",
+                        "spotify_error",
+                        "spotify_auth_failed",
+                        "internal"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          }
+        ]
+      }
+    },
+    "/v1/rooms/{slug}/close": {
+      "post": {
+        "operationId": "rooms.close",
+        "summary": "Close a room (owner): stops playback, sends everyone out and hides it. The owner can reopen it.",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "bad_request",
+                        "validation_failed",
+                        "invalid_client_id",
+                        "unauthenticated",
+                        "session_expired",
+                        "csrf_failed",
+                        "forbidden",
+                        "not_premium",
+                        "banned",
+                        "muted",
+                        "not_member",
+                        "origin_rejected",
+                        "upload_revoked",
+                        "not_found",
+                        "room_not_found",
+                        "spin_not_current",
+                        "conflict",
+                        "slug_taken",
+                        "already_in_queue",
+                        "speaker_exists",
+                        "invalid_invite",
+                        "room_closed",
+                        "room_full",
+                        "crate_empty",
+                        "on_cooldown",
+                        "speaker_missing",
+                        "track_too_long",
+                        "track_unplayable",
+                        "track_explicit",
+                        "cannot_vote_own_spin",
+                        "not_present",
+                        "avatar_invalid",
+                        "avatar_limit",
+                        "rights_not_confirmed",
+                        "payload_too_large",
+                        "rate_limited",
+                        "quota_exceeded",
+                        "spotify_error",
+                        "spotify_auth_failed",
+                        "internal"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          }
+        ]
+      }
+    },
+    "/v1/rooms/{slug}/reopen": {
+      "post": {
+        "operationId": "rooms.reopen",
+        "summary": "Reopen a closed room (owner).",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "description": {
+                      "type": "string"
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": [
+                        "public",
+                        "invite_only"
+                      ]
+                    },
+                    "ownerId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "settings": {
+                      "type": "object",
+                      "properties": {
+                        "maxPresent": {
+                          "default": 100,
+                          "type": "integer",
+                          "minimum": 2,
+                          "maximum": 500
+                        },
+                        "boothSlots": {
+                          "default": 3,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 3
+                        },
+                        "skipRatio": {
+                          "default": 0.5,
+                          "type": "number",
+                          "minimum": 0.1,
+                          "maximum": 1
+                        },
+                        "minSkips": {
+                          "default": 2,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 50
+                        },
+                        "bounceAfter": {
+                          "default": 2,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 10
+                        },
+                        "bounceCooldownMs": {
+                          "default": 300000,
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 3600000
+                        },
+                        "hypeRatio": {
+                          "default": 0.5,
+                          "type": "number",
+                          "minimum": 0.1,
+                          "maximum": 1
+                        },
+                        "turnLimit": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 50
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "maxTrackMs": {
+                          "default": 600000,
+                          "type": "integer",
+                          "minimum": 60000,
+                          "maximum": 3600000
+                        },
+                        "noRepeatWindow": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 200
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "blockExplicit": {
+                          "default": false,
+                          "type": "boolean"
+                        },
+                        "inviteTtlMs": {
+                          "default": 604800000,
+                          "type": "integer",
+                          "minimum": 60000,
+                          "maximum": 7776000000
+                        },
+                        "pauseAfterNoSpeakerMs": {
+                          "default": 120000,
+                          "type": "integer",
+                          "minimum": 10000,
+                          "maximum": 3600000
+                        },
+                        "remotePresenceMs": {
+                          "default": 900000,
+                          "type": "integer",
+                          "minimum": 60000,
+                          "maximum": 7200000
+                        },
+                        "recentListenMs": {
+                          "default": 600000,
+                          "type": "integer",
+                          "minimum": 60000,
+                          "maximum": 7200000
+                        },
+                        "djPresenceDropMs": {
+                          "default": 60000,
+                          "type": "integer",
+                          "minimum": 10000,
+                          "maximum": 1800000
+                        },
+                        "chatMaxMessages": {
+                          "default": 5,
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 50
+                        },
+                        "chatWindowMs": {
+                          "default": 10000,
+                          "type": "integer",
+                          "minimum": 1000,
+                          "maximum": 60000
+                        },
+                        "slackRepostAfter": {
+                          "default": 50,
+                          "type": "integer",
+                          "minimum": 5,
+                          "maximum": 500
+                        }
+                      }
+                    },
+                    "createdAt": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "closedAt": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "slug",
+                    "name",
+                    "description",
+                    "visibility",
+                    "ownerId",
+                    "settings",
+                    "createdAt",
+                    "closedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Problem",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$schema": "https://json-schema.org/draft/2020-12/schema",
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "bad_request",
+                        "validation_failed",
+                        "invalid_client_id",
+                        "unauthenticated",
+                        "session_expired",
+                        "csrf_failed",
+                        "forbidden",
+                        "not_premium",
+                        "banned",
+                        "muted",
+                        "not_member",
+                        "origin_rejected",
+                        "upload_revoked",
+                        "not_found",
+                        "room_not_found",
+                        "spin_not_current",
+                        "conflict",
+                        "slug_taken",
+                        "already_in_queue",
+                        "speaker_exists",
+                        "invalid_invite",
+                        "room_closed",
+                        "room_full",
+                        "crate_empty",
+                        "on_cooldown",
+                        "speaker_missing",
+                        "track_too_long",
+                        "track_unplayable",
+                        "track_explicit",
+                        "cannot_vote_own_spin",
+                        "not_present",
+                        "avatar_invalid",
+                        "avatar_limit",
+                        "rights_not_confirmed",
+                        "payload_too_large",
+                        "rate_limited",
+                        "quota_exceeded",
+                        "spotify_error",
+                        "spotify_auth_failed",
+                        "internal"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    },
+                    "instance": {
+                      "type": "string"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "title",
+                    "status",
+                    "code"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "cookie": []
+          }
+        ]
       }
     },
     "/v1/rooms/{slug}/join": {
@@ -5298,6 +5949,18 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "closedAt": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -5308,7 +5971,8 @@
                         "visibility",
                         "ownerId",
                         "settings",
-                        "createdAt"
+                        "createdAt",
+                        "closedAt"
                       ]
                     },
                     "status": {
@@ -5657,7 +6321,8 @@
                                     "auto_skip",
                                     "dj_skip",
                                     "mod_skip",
-                                    "dj_left"
+                                    "dj_left",
+                                    "room_closed"
                                   ]
                                 },
                                 {
@@ -5980,6 +6645,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -6128,6 +6794,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -6266,6 +6933,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -6437,6 +7105,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -6620,6 +7289,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -6828,6 +7498,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -6961,6 +7632,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -7068,6 +7740,18 @@
                           "minLength": 1,
                           "maxLength": 64
                         },
+                        "closedAt": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "listeners": {
                           "type": "integer",
                           "minimum": 0,
@@ -7138,6 +7822,7 @@
                         "description",
                         "visibility",
                         "ownerId",
+                        "closedAt",
                         "listeners",
                         "liveSpeakers",
                         "status",
@@ -7209,6 +7894,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -7444,6 +8130,18 @@
                           "type": "integer",
                           "minimum": 0,
                           "maximum": 9007199254740991
+                        },
+                        "closedAt": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -7454,7 +8152,8 @@
                         "visibility",
                         "ownerId",
                         "settings",
-                        "createdAt"
+                        "createdAt",
+                        "closedAt"
                       ]
                     }
                   },
@@ -7508,6 +8207,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -7768,6 +8468,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -8026,6 +8727,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -8313,6 +9015,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -8599,6 +9302,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -8859,6 +9563,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -9039,6 +9744,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -9170,6 +9876,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -9357,6 +10064,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -9519,6 +10227,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -9673,6 +10382,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -9854,7 +10564,8 @@
                               "auto_skip",
                               "dj_skip",
                               "mod_skip",
-                              "dj_left"
+                              "dj_left",
+                              "room_closed"
                             ]
                           },
                           {
@@ -9942,6 +10653,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -10113,6 +10825,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -10328,6 +11041,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -10479,6 +11193,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -10632,6 +11347,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -10861,6 +11577,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -11033,6 +11750,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -11214,6 +11932,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -11406,6 +12125,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -11577,6 +12297,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -11755,6 +12476,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -11908,6 +12630,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -12037,6 +12760,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -12170,6 +12894,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -12329,6 +13054,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -12461,6 +13187,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -13030,6 +13757,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -13270,6 +13998,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -13503,6 +14232,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -13749,6 +14479,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -13880,6 +14611,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -14013,6 +14745,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -14482,6 +15215,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",
@@ -14728,6 +15462,7 @@
                         "already_in_queue",
                         "speaker_exists",
                         "invalid_invite",
+                        "room_closed",
                         "room_full",
                         "crate_empty",
                         "on_cooldown",

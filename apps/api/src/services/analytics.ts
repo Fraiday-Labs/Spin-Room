@@ -6,6 +6,8 @@ export type AnalyticsName =
   | 'login'
   | 'spotify_setup_failed'
   | 'room_created'
+  | 'room_closed'
+  | 'room_deleted'
   | 'room_joined'
   | 'speaker_started'
   | 'join_to_audio'

@@ -1,8 +1,21 @@
 import type { RoomSummary } from '@spinroom/contracts';
 import { Link } from 'wouter';
 import s from './RoomCard.module.css';
+import { RoomLifecycle } from './RoomLifecycle';
 
 export function RoomCard({ room }: { room: RoomSummary }) {
+  // Closed rooms only show up in their owner's list, with a way to reopen or delete them.
+  if (room.closedAt)
+    return (
+      <div className={s.card} style={{ opacity: 0.85 }}>
+        <div className={s.top}>
+          <h3 className={s.name}>{room.name}</h3>
+          <span className="badge badge-warn">Closed</span>
+        </div>
+        {room.description && <p className={s.desc}>{room.description}</p>}
+        <RoomLifecycle room={room} />
+      </div>
+    );
   return (
     <Link href={`/r/${room.slug}`} className={s.card}>
       <div className={s.top}>

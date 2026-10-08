@@ -39,6 +39,12 @@ export function registerLive(app: FastifyInstance, ctx: AppContext) {
         c.ws.send(message);
         // A kicked member's sockets close after the notice is delivered.
         if (ev.type === 'user.notice' && ev.kind === 'kicked' && ev.userId === c.userId) c.ws.close(4403, 'kicked');
+        // Closed or deleted rooms: say why, then close for good (4404 tells clients not to reconnect).
+        if (ev.type === 'room.closed') {
+          const message = ev.reason === 'deleted' ? 'This room was deleted by its owner' : 'This room was closed by its owner';
+          c.ws.send(JSON.stringify({ type: 'error', code: 'room_closed', message }));
+          c.ws.close(4404, 'room closed');
+        }
       }
     });
   }
@@ -96,7 +102,7 @@ export function registerLive(app: FastifyInstance, ctx: AppContext) {
         else if (parsed.data.type === 'resync') void sendSnapshot().catch(() => {});
       });
     } catch (e) {
-      const code = e instanceof SpinroomError ? (e.status === 404 ? 4404 : e.status === 401 ? 4401 : 4403) : 1011;
+      const code = e instanceof SpinroomError ? (e.status === 404 || e.status === 410 ? 4404 : e.status === 401 ? 4401 : 4403) : 1011;
       if (ws.readyState === 1) {
         ws.send(JSON.stringify({ type: 'error', code: e instanceof SpinroomError ? e.code : 'internal', message: (e as Error).message }));
         ws.close(code, 'error');

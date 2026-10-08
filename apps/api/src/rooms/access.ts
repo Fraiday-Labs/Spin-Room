@@ -20,6 +20,7 @@ export function toRoom(row: RoomRow): Room {
     ownerId: row.ownerId,
     settings: roomSettings(row),
     createdAt: row.createdAt,
+    closedAt: row.closedAt ?? null,
   };
 }
 
@@ -35,6 +36,8 @@ export async function memberRow(ctx: AppContext, roomId: string, userId: string)
 
 /** Can this user see the room at all? Public rooms: anyone not banned; invite-only: members. */
 export async function assertCanView(ctx: AppContext, room: RoomRow, userId: string | null): Promise<MemberRow | null> {
+  // Closed rooms are shut for everyone, owner included (they reopen it from the lobby first).
+  if (room.closedAt) throw new SpinroomError('room_closed', 'This room was closed by its owner');
   const m = userId ? await memberRow(ctx, room.id, userId) : null;
   if (m?.banned) throw new SpinroomError('banned', 'You were banned from this room');
   if (room.visibility === 'invite_only' && !m) throw new SpinroomError('not_member', 'This room is invite-only — ask for an invite link');
@@ -61,4 +64,9 @@ export async function assertMod(ctx: AppContext, room: RoomRow, userId: string):
   const m = await memberRow(ctx, room.id, userId);
   if (!m || !isMod(m.role)) throw new SpinroomError('forbidden', 'Only the room owner and moderators can do that');
   return m;
+}
+
+/** Close, reopen and delete are the owner's alone. */
+export function assertOwner(room: RoomRow, userId: string) {
+  if (room.ownerId !== userId) throw new SpinroomError('forbidden', 'Only the room owner can close, reopen or delete it');
 }

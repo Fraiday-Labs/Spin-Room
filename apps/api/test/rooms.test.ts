@@ -1,5 +1,7 @@
 import type { RoomEvent } from '@spinroom/contracts';
-import { afterEach, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { chatMessages, crateItems, invites, roomMembers, spins } from '../src/db/schema.js';
 import { ManualClock } from '../src/lib/clock.js';
 import { sha256 } from '../src/lib/crypto.js';
 import { FakeSpotifyGateway, FAKE_CATALOG } from '../src/spotify/fake.js';
@@ -386,5 +388,90 @@ describe('live socket', () => {
     // Signed-out callers can't mint tickets.
     const anon = await t.app.inject({ method: 'POST', url: `/v1/rooms/${room.slug}/live-ticket` });
     expect(anon.statusCode).toBe(401);
+  });
+});
+
+describe('closing and deleting rooms', () => {
+  it('closes a playing room: ends the spin, tells live listeners, hides it, and reopens fresh', async () => {
+    t = await createTestApp();
+    const alice = await login(t, 'alice');
+    const bob = await login(t, 'bob');
+    const { room } = await createRoom(alice);
+    await heartbeat(alice, room.slug);
+    await alice.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Neon Tide' });
+    await alice.req('POST', `/v1/rooms/${room.slug}/dj-queue`);
+    await bob.req('POST', `/v1/rooms/${room.slug}/join`);
+    const playing = (await alice.req('GET', `/v1/rooms/${room.slug}`)).json();
+    expect(playing.status).toBe('playing');
+
+    // Bob is listening live when the owner closes the room.
+    const got: { type: string; reason?: string; code?: string }[] = [];
+    let closedWith = 0;
+    const ws = await t.app.injectWS(
+      `/v1/rooms/${room.slug}/live`,
+      { headers: { authorization: `Bearer ${bob.token}` } },
+      {
+        onInit: (w) => {
+          w.on('message', (d) => got.push(JSON.parse(String(d))));
+          w.on('close', (code) => (closedWith = code));
+        },
+      },
+    );
+    await vi.waitFor(() => expect(got.some((m) => m.type === 'room.snapshot')).toBe(true));
+
+    expect((await bob.req('POST', `/v1/rooms/${room.slug}/close`)).statusCode).toBe(403);
+    expect((await alice.req('POST', `/v1/rooms/${room.slug}/close`)).json()).toEqual({ ok: true });
+    await vi.waitFor(() => expect(closedWith).toBe(4404));
+    expect(got.find((m) => m.type === 'room.closed')?.reason).toBe('closed');
+    expect(got.find((m) => m.type === 'error')?.code).toBe('room_closed');
+    ws.terminate();
+
+    const spin = await t.db.query.spins.findFirst({ where: eq(spins.id, playing.currentSpin.id) });
+    expect(spin?.endReason).toBe('room_closed');
+    expect(spin?.endedAt).not.toBeNull();
+
+    // Hidden and shut: not in the directory, nobody can open, join or reconfigure it.
+    const pub = (await bob.req('GET', '/v1/rooms?filter=public')).json();
+    expect(pub.rooms.map((r: { slug: string }) => r.slug)).not.toContain(room.slug);
+    expect((await bob.req('GET', '/v1/rooms?filter=mine')).json().rooms).toHaveLength(0);
+    const mine = (await alice.req('GET', '/v1/rooms?filter=mine')).json().rooms;
+    expect(mine).toHaveLength(1);
+    expect(mine[0].closedAt).toEqual(expect.any(Number));
+    for (const u of [alice, bob]) {
+      const j = await u.req('POST', `/v1/rooms/${room.slug}/join`);
+      expect(j.statusCode).toBe(410);
+      expect(j.json().code).toBe('room_closed');
+    }
+    expect((await alice.req('PATCH', `/v1/rooms/${room.slug}`, { name: 'Renamed' })).json().code).toBe('room_closed');
+
+    // Reopened rooms start fresh: no booth, no queue, idle.
+    const reopened = await alice.req('POST', `/v1/rooms/${room.slug}/reopen`);
+    expect(reopened.json().closedAt).toBeNull();
+    const snap = (await bob.req('POST', `/v1/rooms/${room.slug}/join`)).json();
+    expect(snap.status).toBe('idle');
+    expect(snap.booth.every((b: { userId: string | null }) => b.userId === null)).toBe(true);
+    expect(snap.queue).toHaveLength(0);
+  });
+
+  it('deletes a room and everything in it, freeing the name', async () => {
+    t = await createTestApp();
+    const alice = await login(t, 'alice');
+    const bob = await login(t, 'bob');
+    const { room } = await createRoom(alice);
+    await bob.req('POST', `/v1/rooms/${room.slug}/join`);
+    await alice.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Neon Tide' });
+    await alice.req('POST', `/v1/rooms/${room.slug}/chat`, { text: 'bye' });
+
+    expect((await bob.req('DELETE', `/v1/rooms/${room.slug}`)).statusCode).toBe(403);
+    expect((await alice.req('DELETE', `/v1/rooms/${room.slug}`)).json()).toEqual({ ok: true });
+
+    expect((await alice.req('GET', `/v1/rooms/${room.slug}`)).json().code).toBe('room_not_found');
+    for (const table of [roomMembers, invites, crateItems, chatMessages]) {
+      const rows = await t.db.select().from(table).where(eq(table.roomId, room.id));
+      expect(rows).toHaveLength(0);
+    }
+    expect((await alice.req('GET', '/v1/rooms?filter=mine')).json().rooms).toHaveLength(0);
+    // The slug can be used again.
+    expect((await createRoom(alice)).room.slug).toBe(room.slug);
   });
 });

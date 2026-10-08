@@ -7,7 +7,7 @@ import { requireUser, type Handlers } from '../http/router.js';
 import { sha256 } from '../lib/crypto.js';
 import { newId, randomToken } from '../lib/ids.js';
 import { LIVE_TICKET_TTL_MS, liveTicketKey } from '../rooms/live-ticket.js';
-import { assertCanView, assertMod, ensureMember, isMod, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
+import { assertCanView, assertMod, assertOwner, ensureMember, isMod, memberRow, roomBySlug, roomSettings, toRoom, type RoomRow } from '../rooms/access.js';
 import type { RoomLiveSummary } from '../rooms/snapshot.js';
 
 export function slugify(name: string): string {
@@ -92,6 +92,7 @@ function summaryOf(r: RoomRow, live: RoomLiveSummary | undefined, myRole: RoomSu
     description: r.description,
     visibility: r.visibility,
     ownerId: r.ownerId,
+    closedAt: r.closedAt ?? null,
     listeners: live?.listeners ?? 0,
     liveSpeakers: live?.liveSpeakers ?? 0,
     status: live?.status ?? 'idle',
@@ -123,7 +124,7 @@ export const roomHandlers: Handlers = {
             )
         : [];
     } else {
-      const conds = [eq(rooms.visibility, 'public' as const)];
+      const conds = [eq(rooms.visibility, 'public' as const), isNull(rooms.closedAt)];
       if (query.q) conds.push(or(ilike(rooms.name, `%${query.q}%`), ilike(rooms.description, `%${query.q}%`))!);
       rows = await ctx.db
         .select()
@@ -147,6 +148,8 @@ export const roomHandlers: Handlers = {
         for (const m of ms) roles.set(m.roomId, m.role);
       }
     }
+    // Closed rooms are hidden, except from their owner's own list (to reopen or delete them).
+    rows = rows.filter((r) => !r.closedAt || (query.filter === 'mine' && r.ownerId === auth?.userId));
     if (query.q && query.filter === 'mine') rows = rows.filter((r) => `${r.name} ${r.description}`.toLowerCase().includes(query.q!.toLowerCase()));
     const live = await ctx.services.rooms.summaries(rows.map((r) => r.id));
     const all = rows
@@ -195,6 +198,7 @@ export const roomHandlers: Handlers = {
     const { userId } = requireUser(c);
     const { ctx, params, body } = c;
     const room = await roomBySlug(ctx, params.slug);
+    if (room.closedAt) throw new SpinroomError('room_closed', 'Reopen the room before changing its settings');
     await assertMod(ctx, room, userId);
     const settings = RoomSettingsSchema.parse({ ...roomSettings(room), ...(body.settings ?? {}) });
     const [updated] = await ctx.db
@@ -209,6 +213,41 @@ export const roomHandlers: Handlers = {
       .returning();
     await ctx.services.rooms.settingsChanged(updated!, settings);
     return toRoom(updated!);
+  },
+
+  'rooms.close': async (c) => {
+    const { userId } = requireUser(c);
+    const { ctx, params } = c;
+    const room = await roomBySlug(ctx, params.slug);
+    assertOwner(room, userId);
+    if (!room.closedAt) {
+      await ctx.db.update(rooms).set({ closedAt: ctx.clock.now() }).where(eq(rooms.id, room.id));
+      await ctx.services.rooms.shutdown(room.id, 'closed');
+      ctx.services.analytics.track('room_closed', { userId, roomId: room.id });
+    }
+    return { ok: true as const };
+  },
+
+  'rooms.reopen': async (c) => {
+    const { userId } = requireUser(c);
+    const { ctx, params } = c;
+    const room = await roomBySlug(ctx, params.slug);
+    assertOwner(room, userId);
+    const [updated] = await ctx.db.update(rooms).set({ closedAt: null }).where(eq(rooms.id, room.id)).returning();
+    return toRoom(updated!);
+  },
+
+  'rooms.delete': async (c) => {
+    const { userId } = requireUser(c);
+    const { ctx, params } = c;
+    const room = await roomBySlug(ctx, params.slug);
+    assertOwner(room, userId);
+    // Close first so nobody can rejoin while the rows go, then remove everything.
+    if (!room.closedAt) await ctx.db.update(rooms).set({ closedAt: ctx.clock.now() }).where(eq(rooms.id, room.id));
+    await ctx.services.rooms.shutdown(room.id, 'deleted');
+    await ctx.services.rooms.purge(room.id);
+    ctx.services.analytics.track('room_deleted', { userId, roomId: room.id });
+    return { ok: true as const };
   },
 
   'rooms.join': async (c) => {

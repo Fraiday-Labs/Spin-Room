@@ -20,7 +20,7 @@ export type PresenceState = z.infer<typeof PresenceStateSchema>;
 export const VoteValueSchema = z.enum(['hype', 'skip']);
 export type VoteValue = z.infer<typeof VoteValueSchema>;
 
-export const EndReasonSchema = z.enum(['completed', 'auto_skip', 'dj_skip', 'mod_skip', 'dj_left']);
+export const EndReasonSchema = z.enum(['completed', 'auto_skip', 'dj_skip', 'mod_skip', 'dj_left', 'room_closed']);
 export type EndReason = z.infer<typeof EndReasonSchema>;
 
 export const RoomStatusSchema = z.enum(['idle', 'playing', 'paused']);
@@ -98,6 +98,8 @@ export const RoomSchema = z.object({
   ownerId: IdSchema,
   settings: RoomSettingsSchema,
   createdAt: TimestampSchema,
+  /** Set while the owner has closed the room (hidden, no one can join; reopenable). */
+  closedAt: TimestampSchema.nullable(),
 });
 export type Room = z.infer<typeof RoomSchema>;
 
@@ -108,6 +110,7 @@ export const RoomSummarySchema = RoomSchema.pick({
   description: true,
   visibility: true,
   ownerId: true,
+  closedAt: true,
 }).extend({
   listeners: z.number().int().nonnegative(),
   liveSpeakers: z.number().int().nonnegative(),

@@ -104,3 +104,44 @@ test('a hidden tab pauses scene animation but keeps the speaker live', async ({ 
   await p.waitForTimeout(16_000); // one heartbeat interval
   await expect(p.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
 });
+
+test('owners close, reopen and delete rooms, and listeners are told', async ({ page, browser }) => {
+  const host = uid('closer');
+  await signInViaUi(page, host);
+  await expect(page).toHaveURL(/\/lobby/);
+  const name = `Closing ${host}`;
+  await page.getByTestId('room-name').fill(name);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/closing-/);
+  const roomPath = new URL(page.url()).pathname;
+
+  // A friend is listening when the owner closes the room.
+  const friend = await newUserPage(browser, uid('guest'));
+  await friend.goto(roomPath);
+  await expect(friend.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+  await expect(friend.getByRole('tab', { name: 'DJ queue' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Close room' }).click();
+  await page.getByRole('alert').getByRole('button', { name: 'Close room' }).click();
+  await expect(page).toHaveURL(/\/lobby/);
+  await expect(friend.getByText('This room was closed by its owner')).toBeVisible();
+
+  // The owner sees it as closed in their rooms, and can reopen it.
+  await expect(page.getByText('Closed', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Reopen room' }).click();
+  // Back as a normal room (in My rooms, and in the public directory again).
+  await expect(page.getByRole('link', { name: new RegExp(name) }).first()).toBeVisible();
+
+  // Deleting needs the room's name typed in.
+  await page.goto(`${roomPath}/settings`);
+  await page.getByRole('button', { name: 'Delete room' }).click();
+  const confirm = page.getByRole('button', { name: 'Delete forever' });
+  await expect(confirm).toBeDisabled();
+  await page.getByLabel('Type the room name to confirm').fill(name);
+  await confirm.click();
+  await expect(page).toHaveURL(/\/lobby/);
+  await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveCount(0);
+  await friend.goto(roomPath);
+  await expect(friend.getByText(/No room called/)).toBeVisible();
+});

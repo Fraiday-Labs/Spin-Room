@@ -1,8 +1,23 @@
-import { channels, TIMING, type RoomEvent, type RoomEventBody, type RoomSettings, type RoomSnapshot } from '@spinroom/contracts';
+import { channels, SpinroomError, TIMING, type RoomEvent, type RoomEventBody, type RoomSettings, type RoomSnapshot } from '@spinroom/contracts';
 import { apply, createRoomState, spinEndsAt, type Command, type Effect, type RoomState } from '@spinroom/room-engine';
 import { and, asc, desc, eq, inArray, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
-import { boothSlots, chatMessages, crateItems, deletionRequests, djQueue, roomMembers, rooms, spins, users, votes } from '../db/schema.js';
+import {
+  avatarReports,
+  boothSlots,
+  chatMessages,
+  crateItems,
+  deletionRequests,
+  djQueue,
+  invites,
+  roomMembers,
+  rooms,
+  slackLinks,
+  speakers,
+  spins,
+  users,
+  votes,
+} from '../db/schema.js';
 import { newId } from '../lib/ids.js';
 import type { RoomHooks } from '../services/index.js';
 import { roomSettings, type RoomRow } from './access.js';
@@ -99,6 +114,8 @@ export class RoomRuntime implements RoomHooks {
 
   /** Rebuild live state from Postgres (Redis lost or first use). */
   private async rebuild(room: RoomRow): Promise<RoomState> {
+    // A closed room has no live state; never resurrect it (stray timers, late commands).
+    if (room.closedAt) throw new SpinroomError('room_closed', 'This room was closed by its owner');
     const now = this.ctx.clock.now();
     const settings = roomSettings(room);
     const s = createRoomState(room.id, settings, now);
@@ -324,6 +341,48 @@ export class RoomRuntime implements RoomHooks {
     for (const e of events) p.publish(channels.room(roomId), JSON.stringify(e));
     await p.exec();
     return events;
+  }
+
+  /**
+   * Close or delete: end the current spin, tell every client (live sockets close after this
+   * event) and drop the live state. Booth and DJ queue are cleared, so a reopened room starts fresh.
+   */
+  async shutdown(roomId: string, reason: 'closed' | 'deleted') {
+    await this.locks.with(roomId, async () => {
+      const raw = await this.ctx.redis.get(stateKey(roomId));
+      const state = raw ? (JSON.parse(raw) as RoomState) : null;
+      if (state?.current)
+        await this.ctx.db
+          .update(spins)
+          .set({ endedAt: this.ctx.clock.now(), endReason: 'room_closed' })
+          .where(and(eq(spins.id, state.current.id), isNull(spins.endedAt)));
+      this.clearTimer(roomId);
+      await this.publishLocked(roomId, [{ type: 'room.closed', reason }]);
+      await this.ctx.redis.del(stateKey(roomId), summaryKey(roomId), `room:${roomId}:tick`);
+      await this.ctx.redis.srem(ACTIVE, roomId);
+      await this.ctx.db.delete(boothSlots).where(eq(boothSlots.roomId, roomId));
+      await this.ctx.db.delete(djQueue).where(eq(djQueue.roomId, roomId));
+    });
+  }
+
+  /** Delete a (shut down) room and everything that belongs to it. Spotify playlists are untouched. */
+  async purge(roomId: string) {
+    await this.ctx.db.transaction(async (tx) => {
+      const spinIds = (await tx.select({ id: spins.id }).from(spins).where(eq(spins.roomId, roomId))).map((r) => r.id);
+      if (spinIds.length) await tx.delete(votes).where(inArray(votes.spinId, spinIds));
+      await tx.delete(spins).where(eq(spins.roomId, roomId));
+      await tx.delete(chatMessages).where(eq(chatMessages.roomId, roomId));
+      await tx.delete(crateItems).where(eq(crateItems.roomId, roomId));
+      await tx.delete(djQueue).where(eq(djQueue.roomId, roomId));
+      await tx.delete(boothSlots).where(eq(boothSlots.roomId, roomId));
+      await tx.delete(speakers).where(eq(speakers.roomId, roomId));
+      await tx.delete(invites).where(eq(invites.roomId, roomId));
+      await tx.delete(slackLinks).where(eq(slackLinks.roomId, roomId));
+      await tx.update(avatarReports).set({ roomId: null }).where(eq(avatarReports.roomId, roomId));
+      await tx.delete(roomMembers).where(eq(roomMembers.roomId, roomId));
+      await tx.delete(rooms).where(eq(rooms.id, roomId));
+    });
+    await this.ctx.redis.del(seqKey(roomId));
   }
 
   /** Publish events that don't go through the engine (chat, settings, avatars). */

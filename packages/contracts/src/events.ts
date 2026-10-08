@@ -52,6 +52,8 @@ export const RoomEventSchema = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('chat.reaction'), messageId: IdSchema, reactions: z.record(z.string(), z.array(IdSchema)) }),
   z.object({ ...base, type: z.literal('room.settings_changed'), settings: RoomSettingsSchema, name: z.string(), description: z.string() }),
   z.object({ ...base, type: z.literal('room.status_changed'), status: RoomStatusSchema }),
+  /** The owner closed or deleted the room: playback stops and every socket is closed after this. */
+  z.object({ ...base, type: z.literal('room.closed'), reason: z.enum(['closed', 'deleted']) }),
   z.object({ ...base, type: z.literal('up_next.changed'), upNext: z.array(UpNextItemSchema) }),
   /** A notice aimed at one member (FR-L4 up next, FR-L5 crate ran out, FR-C3 unplayable). */
   z.object({

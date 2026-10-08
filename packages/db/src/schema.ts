@@ -77,6 +77,8 @@ export const rooms = pgTable('rooms', {
   visibility: text('visibility', { enum: ['public', 'invite_only'] }).notNull(),
   settingsJson: jsonb('settings_json').$type<Record<string, unknown>>().notNull(),
   createdAt: ms('created_at').notNull(),
+  /** Closed by the owner: hidden from the directory, nobody can join, reopenable. */
+  closedAt: ms('closed_at'),
 });
 
 export const roomMembers = pgTable(
@@ -175,7 +177,7 @@ export const spins = pgTable(
     durationMs: integer('duration_ms').notNull(),
     startedAt: ms('started_at').notNull(),
     endedAt: ms('ended_at'),
-    endReason: text('end_reason', { enum: ['completed', 'auto_skip', 'dj_skip', 'mod_skip', 'dj_left'] }),
+    endReason: text('end_reason', { enum: ['completed', 'auto_skip', 'dj_skip', 'mod_skip', 'dj_left', 'room_closed'] }),
     hypeCount: integer('hype_count').notNull().default(0),
     skipCount: integer('skip_count').notNull().default(0),
     eligibleVoters: integer('eligible_voters').notNull().default(0),

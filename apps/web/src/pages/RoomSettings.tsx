@@ -1,14 +1,16 @@
 import type { Room, RoomSettings as Settings } from '@spinroom/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { CopyButton } from '../components/CopyButton';
+import { RoomLifecycle } from '../components/RoomLifecycle';
 import { api, errorMessage } from '../lib/api';
 
 const MIN = 60_000;
 
 export default function RoomSettings({ slug }: { slug?: string }) {
   const qc = useQueryClient();
+  const [, navigate] = useLocation();
   const snap = useQuery({ queryKey: ['room', slug], queryFn: () => api.call('rooms.get', { params: { slug: slug! } }) });
   const invites = useQuery({ queryKey: ['invites', slug], queryFn: () => api.call('invites.list', { params: { slug: slug! } }) });
   const members = useQuery({ queryKey: ['members', slug], queryFn: () => api.call('rooms.members', { params: { slug: slug! } }) });
@@ -191,6 +193,16 @@ export default function RoomSettings({ slug }: { slug?: string }) {
           </tbody>
         </table>
       </section>
+
+      {isOwner && (
+        <section className="card stack">
+          <h2>Close or delete this room</h2>
+          <p className="muted">
+            Closing stops the music, sends everyone out and hides the room; you can reopen it from your rooms in the lobby. Deleting removes it for good.
+          </p>
+          <RoomLifecycle room={room} onDone={() => navigate('/lobby')} />
+        </section>
+      )}
 
       <section className="card stack">
         <h2>Slack</h2>

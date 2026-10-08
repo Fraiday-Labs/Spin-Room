@@ -57,6 +57,10 @@ export function applyEvent(s: RoomSnapshot, ev: RoomEvent, myUserId: string | nu
     case 'room.settings_changed':
       next.room = { ...s.room, settings: ev.settings, name: ev.name, description: ev.description };
       break;
+    case 'room.closed':
+      next.status = 'idle';
+      next.currentSpin = null;
+      break;
     case 'room.status_changed':
       next.status = ev.status;
       if (ev.status === 'idle') next.currentSpin = null;

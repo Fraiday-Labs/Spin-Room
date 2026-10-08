@@ -1,0 +1,1 @@
+ALTER TABLE "rooms" ADD COLUMN "closed_at" bigint;

@@ -26,6 +26,7 @@ export const ERROR_CODES = {
   already_in_queue: 409,
   speaker_exists: 409,
   invalid_invite: 410,
+  room_closed: 410,
   room_full: 409,
   crate_empty: 422,
   on_cooldown: 422,
