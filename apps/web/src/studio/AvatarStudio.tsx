@@ -88,53 +88,53 @@ export function AvatarStudio({ me }: { me: Me }) {
   const warnings = report?.issues.filter((i) => i.level === 'warning') ?? [];
   // Defaults I offer to everyone don't count toward my upload limit.
   const count = mine.data?.filter((a) => !a.featured).length ?? 0;
+  // The avatar you're wearing, when it's one you uploaded: the only one the actions below apply to.
+  const wearing = mine.data?.find((x) => x.id === me.avatar.id) ?? null;
 
   return (
     <div className="stack">
       <section className="card stack">
         <h2>Your Avatar</h2>
         <AvatarPicker me={me} onError={setMsg} />
-        {mine.data && mine.data.length > 0 && (
-          <div className="row">
-            {mine.data.map((a) => (
-              <span key={a.id} className="row">
-                <button className="btn" onClick={() => setEditing(editing === a.id ? null : a.id)} aria-expanded={editing === a.id}>
-                  Choose views for “{a.name}”
-                </button>
-                {me.isAdmin && (
-                  <button
-                    className="btn"
-                    aria-pressed={a.featured}
-                    onClick={async () => {
-                      try {
-                        await api.call('admin.featureAvatar', { params: { id: a.id }, body: { featured: !a.featured } });
-                        await qc.invalidateQueries({ queryKey: ['avatars'] });
-                        setMsg(a.featured ? `“${a.name}” is no longer a default.` : `“${a.name}” is now a default everyone can pick.`);
-                      } catch (e) {
-                        setMsg(errorMessage(e));
-                      }
-                    }}
-                  >
-                    {a.featured ? 'Remove from defaults' : 'Make default for everyone'}
-                  </button>
-                )}
-                <button
-                  className="btn btn-ghost"
-                  onClick={async () => {
-                    if (a.featured && !confirm(`“${a.name}” is a default. Deleting it also switches everyone using it back to their own avatar.`)) return;
-                    if (editing === a.id) setEditing(null);
-                    await api.call('avatars.delete', { params: { id: a.id } });
+        {/* Actions only for the avatar you're wearing, when it's one you uploaded. */}
+        {wearing && (
+          <div className="row" data-testid="avatar-actions">
+            <button className="btn" onClick={() => setEditing(editing === wearing.id ? null : wearing.id)} aria-expanded={editing === wearing.id}>
+              Choose views for “{wearing.name}”
+            </button>
+            {me.isAdmin && (
+              <button
+                className="btn"
+                aria-pressed={wearing.featured}
+                onClick={async () => {
+                  try {
+                    await api.call('admin.featureAvatar', { params: { id: wearing.id }, body: { featured: !wearing.featured } });
                     await qc.invalidateQueries({ queryKey: ['avatars'] });
-                    await qc.invalidateQueries({ queryKey: ['me'] });
-                  }}
-                >
-                  Delete “{a.name}”
-                </button>
-              </span>
-            ))}
+                    setMsg(wearing.featured ? `“${wearing.name}” is no longer a default.` : `“${wearing.name}” is now a default everyone can pick.`);
+                  } catch (e) {
+                    setMsg(errorMessage(e));
+                  }
+                }}
+              >
+                {wearing.featured ? 'Remove from defaults' : 'Make default for everyone'}
+              </button>
+            )}
+            <button
+              className="btn btn-ghost"
+              onClick={async () => {
+                if (wearing.featured && !confirm(`“${wearing.name}” is a default. Deleting it also switches everyone using it back to their own avatar.`))
+                  return;
+                setEditing(null);
+                await api.call('avatars.delete', { params: { id: wearing.id } });
+                await qc.invalidateQueries({ queryKey: ['avatars'] });
+                await qc.invalidateQueries({ queryKey: ['me'] });
+              }}
+            >
+              Delete “{wearing.name}”
+            </button>
           </div>
         )}
-        {editing && mine.data?.some((a) => a.id === editing) && <ViewsEditor key={editing} avatarId={editing} onClose={() => setEditing(null)} />}
+        {wearing && editing === wearing.id && <ViewsEditor key={wearing.id} avatarId={wearing.id} onClose={() => setEditing(null)} />}
       </section>
 
       <section className="card stack">

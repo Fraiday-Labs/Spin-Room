@@ -120,3 +120,31 @@ test('a site admin makes an uploaded avatar a default that everyone can pick', a
   // Regular members don't get the admin button.
   await expect(friend.getByRole('button', { name: 'Make default for everyone' })).toHaveCount(0);
 });
+
+test('avatar actions show only for the avatar you have selected', async ({ browser }) => {
+  const p = await newUserPage(browser, uid('twopets'));
+  await p.goto('/profile/avatar');
+  for (const name of ['Alpha', 'Beta']) {
+    await p
+      .getByTestId('avatar-file')
+      .setInputFiles({ name: `${name}.png`, mimeType: 'image/png', buffer: await sheet(1536, 1872, [6, 6, 6, 4, 5, 3, 2, 6, 0]) });
+    await p.getByLabel('Name').fill(name);
+    await p.getByTestId('rights').check();
+    await p.getByTestId('save-avatar').click();
+    await expect(p.getByRole('status')).toContainText(/Saved/);
+  }
+  // Wearing Beta (saved last): only Beta's actions.
+  const actions = p.getByTestId('avatar-actions');
+  await expect(actions).toContainText('Choose views for “Beta”');
+  await expect(actions).toContainText('Delete “Beta”');
+  await expect(p.getByText(/“Alpha”/)).toHaveCount(0);
+
+  // Switch to Alpha: the actions follow.
+  await p.getByRole('radiogroup', { name: 'Avatar' }).getByRole('radio', { name: 'Alpha' }).click();
+  await expect(actions).toContainText('Choose views for “Alpha”');
+  await expect(p.getByText(/“Beta”/)).toHaveCount(0);
+
+  // A built-in avatar has none.
+  await p.getByRole('radiogroup', { name: 'Avatar' }).getByRole('radio').first().click();
+  await expect(p.getByTestId('avatar-actions')).toHaveCount(0);
+});
