@@ -1,4 +1,4 @@
-import { AVATAR_LIMITS, DEFAULT_PRESET_ID, SpinroomError, type AvatarImportReport } from '@spinroom/contracts';
+import { AVATAR_LIMITS, DEFAULT_PRESET_ID, SpinroomError, type AvatarImportReport, type AvatarViews } from '@spinroom/contracts';
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { MultipartFile } from '@fastify/multipart';
 import type { AppContext } from '../context.js';
@@ -6,9 +6,19 @@ import { avatarReports, avatars, blobs, users } from '../db/schema.js';
 import { requireUser, type Handlers } from '../http/router.js';
 import { sha256 } from '../lib/crypto.js';
 import { newId } from '../lib/ids.js';
-import { AvatarImportError, buildRuntimeSheet, parsePetJson, readSpriteKit, sanitizeName, sniff, type PetMeta } from '../avatars/pipeline.js';
+import {
+  AvatarImportError,
+  buildRuntimeSheet,
+  parsePetJson,
+  readSpriteKit,
+  sanitizeName,
+  sniff,
+  VIEW_CELL,
+  type BuiltSheet,
+  type PetMeta,
+} from '../avatars/pipeline.js';
 import { autoApprove, manualReview } from '../avatars/safety.js';
-import { avatarFull } from '../services/users.js';
+import { avatarFull, type AvatarRow } from '../services/users.js';
 import { roomBySlug } from '../rooms/access.js';
 
 /** Users with this many confirmed violations lose upload access (FR-A16). */
@@ -121,6 +131,7 @@ export const avatarHandlers: Handlers = {
         .where(and(eq(avatars.ownerId, userId), ne(avatars.status, 'removed')));
       if (mine.length >= AVATAR_LIMITS.customPerUser)
         throw new SpinroomError('avatar_limit', `You can keep up to ${AVATAR_LIMITS.customPerUser} custom avatars — delete one first.`);
+      const viewsBlob = await putBlob(ctx, built.viewsSheet, 'views', 'webp', 'image/webp');
       const orig = await putBlob(
         ctx,
         original,
@@ -146,6 +157,9 @@ export const avatarHandlers: Handlers = {
           sha256: orig.sha,
           frameCounts: built.frameCounts,
           rows: built.rows,
+          views: built.views,
+          viewsUrl: viewsBlob.key,
+          choices: built.choices,
           grid: built.layout.version ? null : { cols: built.layout.cols, rows: built.layout.rows },
           petJson: pet ? { name: pet.name, spritesheet: pet.spritesheet, spriteVersionNumber: pet.version } : null,
           status: status === 'rejected' ? 'rejected' : status,
@@ -197,6 +211,21 @@ export const avatarHandlers: Handlers = {
     await ctx.db.update(avatars).set({ status: 'removed' }).where(eq(avatars.id, a.id));
     await revertUsers(ctx, a.id);
     return { ok: true as const };
+  },
+
+  'avatars.views': async (c) => {
+    const { userId } = requireUser(c);
+    let a = await ownUpload(c.ctx, c.params.id, userId);
+    // Avatars saved before views existed: build them from the stored upload once.
+    if (!a.views || !a.viewsUrl || !a.choices) a = await rebuild(c.ctx, a, a.choices ?? {});
+    return viewsOf(c.ctx, a);
+  },
+
+  'avatars.setViews': async (c) => {
+    const { userId } = requireUser(c);
+    const a = await ownUpload(c.ctx, c.params.id, userId);
+    const picks = Object.fromEntries(Object.entries(c.body.choices).filter(([, v]) => v !== undefined)) as Record<string, number>;
+    return viewsOf(c.ctx, await rebuild(c.ctx, a, { ...(a.choices ?? {}), ...picks }));
   },
 
   'avatars.report': async (c) => {
@@ -281,4 +310,60 @@ async function revertUsers(ctx: AppContext, avatarId: string) {
     await ctx.services.rooms.onProfileChanged(u.id);
   }
   ctx.services.users.invalidateAvatar(avatarId);
+}
+
+/** One of the caller's own uploaded avatars (not presets, not deleted). */
+async function ownUpload(ctx: AppContext, id: string, userId: string): Promise<AvatarRow> {
+  const a = await ctx.db.query.avatars.findFirst({ where: eq(avatars.id, id) });
+  if (!a || a.ownerId !== userId || a.kind !== 'custom' || a.status === 'removed') throw new SpinroomError('not_found', 'Avatar not found');
+  if (!a.originalKey) throw new SpinroomError('bad_request', 'This avatar has no stored upload to pick views from.');
+  return a;
+}
+
+/**
+ * Rebuild an uploaded avatar's runtime sheet from its stored original with the owner's view
+ * picks. The art is the same upload that was already reviewed, so the review status stays.
+ */
+async function rebuild(ctx: AppContext, a: AvatarRow, picks: Record<string, number>): Promise<AvatarRow> {
+  const original = await ctx.storage.get(a.originalKey!);
+  if (!original) throw new SpinroomError('not_found', 'The original upload for this avatar is missing — upload it again.');
+  let built: BuiltSheet;
+  try {
+    const sheet = sniff(original) === 'zip' ? readSpriteKit(original).sheet : original;
+    built = await buildRuntimeSheet(sheet, a.grid ?? undefined, picks);
+  } catch (e) {
+    if (e instanceof AvatarImportError) throw new SpinroomError('bad_request', e.message);
+    throw e;
+  }
+  const sheetBlob = await putBlob(ctx, built.sheet, 'sheet', 'webp', 'image/webp');
+  const thumbBlob = await putBlob(ctx, built.thumb, 'thumb', 'png', 'image/png');
+  const viewsBlob = await putBlob(ctx, built.viewsSheet, 'views', 'webp', 'image/webp');
+  const [row] = await ctx.db
+    .update(avatars)
+    .set({
+      sheetUrl: sheetBlob.key,
+      thumbUrl: thumbBlob.key,
+      rows: built.rows,
+      frameCounts: built.frameCounts,
+      views: built.views,
+      viewsUrl: viewsBlob.key,
+      choices: built.choices,
+    })
+    .where(eq(avatars.id, a.id))
+    .returning();
+  // Everyone wearing it sees the new views right away.
+  ctx.services.users.invalidateAvatar(a.id);
+  const wearing = await ctx.db.select({ id: users.id }).from(users).where(eq(users.avatarId, a.id));
+  for (const u of wearing) await ctx.services.rooms.onProfileChanged(u.id);
+  return row!;
+}
+
+function viewsOf(ctx: AppContext, a: AvatarRow): AvatarViews {
+  return {
+    sheetUrl: ctx.storage.url(a.viewsUrl!),
+    cell: { w: VIEW_CELL.w, h: VIEW_CELL.h },
+    views: a.views ?? [],
+    choices: a.choices ?? {},
+    avatar: avatarFull(ctx, a),
+  };
 }

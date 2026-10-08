@@ -1,4 +1,6 @@
+import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
+import { avatars } from '../src/db/schema.js';
 import { makeKit, makeSheet, multipart, V1_ROWS } from './fixtures/pets.js';
 import { createTestApp, login, type TestApp, type TestUser } from './helpers.js';
 
@@ -34,6 +36,7 @@ describe('avatar import (ChatGPT pets)', () => {
       ['hype', 5],
       ['skip', 3],
       ['dj', 6],
+      ['booth', 8],
       ['walk', 6],
       ['wave', 4],
       ['away', 2],
@@ -157,6 +160,48 @@ describe('avatar import (ChatGPT pets)', () => {
     const b = (await upload(u, [{ filename: 'b.png', data }], '?dryRun=true')).json();
     expect(a.preview.sheetUrl).toBe(b.preview.sheetUrl);
     expect(a.preview.sheetUrl).toMatch(/\/v1\/assets\/avatars\/sheet\/[0-9a-f]{64}\.webp$/);
+  });
+});
+
+describe('choosing views (which sheet row plays where)', () => {
+  it('lists every view and rebuilds the avatar from the original with the owner’s picks', async () => {
+    t = await createTestApp();
+    const u = await login(t, 'alice');
+    const rows = [...V1_ROWS, 6, 8]; // v2: two extra rows (e.g. back views)
+    const saved = (await upload(u, [{ filename: 'sheet.webp', data: await makeSheet({ h: 2288, rows, format: 'webp' }) }], '?rightsConfirmed=true')).json();
+    const id = saved.avatar.id;
+    await u.req('PUT', '/v1/me/avatar', { avatarId: id });
+
+    // Avatars saved before views existed get them built on first look.
+    await t.ctx.db.update(avatars).set({ views: null, viewsUrl: null, choices: null }).where(eq(avatars.id, id));
+    const v = (await u.req('GET', `/v1/avatars/${id}/views`)).json();
+    expect(v.views.map((x: { row: number }) => x.row)).toEqual(rows.flatMap((n, i) => (n ? [i] : [])));
+    expect(v.views.at(-1)).toMatchObject({ row: 10, name: 'row-11', frames: 8 });
+    expect(v.choices).toMatchObject({ idle: 0, booth: 0, dj: 7 });
+    expect((await t.app.inject({ method: 'GET', url: v.sheetUrl })).headers['content-type']).toBe('image/webp');
+    // Floor and booth share one sheet row.
+    const at = (a: { rows: { state: string; at?: number }[] }, s: string) => a.rows.find((r) => r.state === s)!.at;
+    expect(at(v.avatar, 'booth')).toBe(at(v.avatar, 'idle'));
+
+    // Back view on the floor, front view at the booth; a pick past the sheet falls back.
+    const set = (await u.req('PUT', `/v1/avatars/${id}/views`, { choices: { idle: 9, booth: 0, dj: 10, hype: 40 } })).json();
+    expect(set.choices).toMatchObject({ idle: 9, booth: 0, dj: 10, hype: 4 });
+    expect(at(set.avatar, 'idle')).not.toBe(at(set.avatar, 'booth'));
+    expect(set.avatar.rows.find((r: { state: string }) => r.state === 'dj').frames).toBe(8);
+    expect(set.avatar.sheetUrl).not.toBe(saved.avatar.sheetUrl);
+    expect(set.avatar.status).toBe('pending'); // same reviewed art, so the review status stays
+    // Unchanged states keep their picks on the next save.
+    expect((await u.req('PUT', `/v1/avatars/${id}/views`, { choices: { wave: 3 } })).json().choices).toMatchObject({ idle: 9, dj: 10, wave: 3 });
+
+    // The new sheet is what the owner wears.
+    const me = (await u.req('GET', '/v1/me')).json();
+    expect(at(me.avatar, 'idle')).toBe(at(set.avatar, 'idle'));
+
+    // Only the owner, and only uploaded avatars.
+    const bob = await login(t, 'bob');
+    expect((await bob.req('GET', `/v1/avatars/${id}/views`)).statusCode).toBe(404);
+    expect((await bob.req('PUT', `/v1/avatars/${id}/views`, { choices: { idle: 1 } })).statusCode).toBe(404);
+    expect((await u.req('GET', '/v1/avatars/preset-bolt/views')).statusCode).toBe(404);
   });
 });
 

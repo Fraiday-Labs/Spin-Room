@@ -43,7 +43,7 @@ export const AvatarStatusSchema = z.enum(['pending', 'approved', 'rejected', 're
 export const AvatarSourceFormatSchema = z.enum(['preset', 'pet_v1', 'pet_v2', 'single_sheet']);
 
 /** Spinroom avatar states and the per-state frame counts in the runtime sheet. */
-export const AvatarStateSchema = z.enum(['idle', 'hype', 'skip', 'dj', 'walk', 'wave', 'away']);
+export const AvatarStateSchema = z.enum(['idle', 'hype', 'skip', 'dj', 'booth', 'walk', 'wave', 'away']);
 export type AvatarState = z.infer<typeof AvatarStateSchema>;
 
 export const AvatarRefSchema = z.object({
@@ -52,8 +52,13 @@ export const AvatarRefSchema = z.object({
   name: z.string(),
   sheetUrl: z.string(),
   thumbUrl: z.string(),
-  /** Rows in the runtime sheet, in order, with frame counts. */
-  rows: z.array(z.object({ state: AvatarStateSchema, frames: z.number().int().min(0), dimmed: z.boolean().optional() })),
+  /**
+   * One entry per state, with frame counts. `at` is the sheet row the state plays; when absent
+   * it is the entry's own index. States can share a sheet row (e.g. floor and booth).
+   */
+  rows: z.array(
+    z.object({ state: AvatarStateSchema, frames: z.number().int().min(0), dimmed: z.boolean().optional(), at: z.number().int().min(0).optional() }),
+  ),
   cell: z.object({ w: z.number().int(), h: z.number().int() }),
 });
 export type AvatarRef = z.infer<typeof AvatarRefSchema>;
@@ -65,6 +70,28 @@ export const AvatarSchema = AvatarRefSchema.extend({
   createdAt: TimestampSchema,
 });
 export type Avatar = z.infer<typeof AvatarSchema>;
+
+/** The states an owner can point at any view (row) of their uploaded sheet. */
+export const AVATAR_VIEW_STATES = ['idle', 'booth', 'dj', 'hype', 'skip', 'wave'] as const;
+export const AvatarViewChoicesSchema = z.object(
+  Object.fromEntries(AVATAR_VIEW_STATES.map((s) => [s, z.number().int().min(0).max(63).optional()])) as Record<
+    (typeof AVATAR_VIEW_STATES)[number],
+    z.ZodOptional<z.ZodNumber>
+  >,
+);
+export type AvatarViewChoices = z.infer<typeof AvatarViewChoicesSchema>;
+
+/** Every non-empty row of an uploaded sheet, for picking which one plays where. */
+export const AvatarViewsSchema = z.object({
+  /** Sheet with one row per view, `cell`-sized frames, in `views` order. */
+  sheetUrl: z.string(),
+  cell: z.object({ w: z.number().int(), h: z.number().int() }),
+  views: z.array(z.object({ row: z.number().int(), name: z.string(), frames: z.number().int() })),
+  /** The source row each state plays (the defaults filled in). */
+  choices: z.record(z.string(), z.number().int()),
+  avatar: AvatarSchema,
+});
+export type AvatarViews = z.infer<typeof AvatarViewsSchema>;
 
 export const PublicUserSchema = z.object({
   id: IdSchema,

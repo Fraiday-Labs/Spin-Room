@@ -17,8 +17,13 @@ export const avatars = pgTable(
     thumbUrl: text('thumb_url').notNull(),
     sha256: text('sha256'),
     frameCounts: jsonb('frame_counts').$type<Record<string, number>>().notNull().default({}),
-    rows: jsonb('rows').$type<{ state: string; frames: number; dimmed?: boolean }[]>().notNull().default([]),
+    rows: jsonb('rows').$type<{ state: string; frames: number; dimmed?: boolean; at?: number }[]>().notNull().default([]),
     grid: jsonb('grid').$type<{ cols: number; rows: number } | null>(),
+    /** Uploaded sheets: every non-empty source row, and a small sheet of them for picking. */
+    views: jsonb('views').$type<{ row: number; name: string; frames: number }[] | null>(),
+    viewsUrl: text('views_url'),
+    /** Owner's picks: state → source row. Missing states use the default mapping. */
+    choices: jsonb('choices').$type<Record<string, number> | null>(),
     petJson: jsonb('pet_json').$type<Record<string, unknown> | null>(),
     status: text('status', { enum: ['pending', 'approved', 'rejected', 'removed'] }).notNull(),
     createdAt: ms('created_at').notNull(),

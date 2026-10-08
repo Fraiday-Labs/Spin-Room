@@ -4,13 +4,15 @@ import { avatars } from './schema.js';
 
 /** Preset avatar rows in runtime-sheet order; art is built by tools/art. */
 export const PRESET_ROWS = [
-  { state: 'idle', frames: 4 },
-  { state: 'hype', frames: 4 },
-  { state: 'skip', frames: 4 },
-  { state: 'dj', frames: 4 },
-  { state: 'walk', frames: 4 },
-  { state: 'wave', frames: 4 },
-  { state: 'away', frames: 2 },
+  { state: 'idle', frames: 4, at: 0 },
+  { state: 'hype', frames: 4, at: 1 },
+  { state: 'skip', frames: 4, at: 2 },
+  { state: 'dj', frames: 4, at: 3 },
+  { state: 'walk', frames: 4, at: 4 },
+  { state: 'wave', frames: 4, at: 5 },
+  { state: 'away', frames: 2, at: 6 },
+  // Waiting at the booth: the idle row.
+  { state: 'booth', frames: 4, at: 0 },
 ] as const;
 
 export function presetUrls(id: string) {
@@ -26,7 +28,7 @@ export async function seedPresetAvatars(db: Db): Promise<void> {
     kind: 'preset' as const,
     sourceFormat: 'preset' as const,
     ...presetUrls(p.id),
-    frameCounts: Object.fromEntries(PRESET_ROWS.map((r) => [r.state, r.frames])),
+    frameCounts: Object.fromEntries(PRESET_ROWS.filter((r) => r.state !== 'booth').map((r) => [r.state, r.frames])),
     rows: PRESET_ROWS.map((r) => ({ ...r })),
     status: 'approved' as const,
     createdAt: 0,

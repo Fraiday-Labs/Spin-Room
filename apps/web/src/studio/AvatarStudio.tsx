@@ -6,12 +6,14 @@ import { AvatarPicker } from '../components/AvatarPicker';
 import { api, errorMessage } from '../lib/api';
 import { AvatarSprite } from '../room/AvatarSprite';
 import s from './AvatarStudio.module.css';
+import { ViewsEditor } from './ViewsEditor';
 
 const STATE_LABEL: Record<string, string> = {
   idle: 'On the dance floor',
   hype: 'Hype',
   skip: 'Skip',
   dj: 'DJing',
+  booth: 'Waiting at the booth',
   walk: 'Walking in',
   wave: 'Waving hello',
   away: 'Away / remote',
@@ -29,6 +31,7 @@ export function AvatarStudio({ me }: { me: Me }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const send = async (fs: File[], opts: { dryRun: boolean; grid?: { cols: number; rows: number } | null }) => {
     const form = new FormData();
@@ -67,7 +70,8 @@ export function AvatarStudio({ me }: { me: Me }) {
         await qc.invalidateQueries({ queryKey: ['avatars'] });
         await qc.invalidateQueries({ queryKey: ['me'] });
         setMsg(
-          r.avatar.status === 'approved' ? 'Saved and in use.' : 'Saved! Others will see it after a quick safety review — until then they see your preset.',
+          (r.avatar.status === 'approved' ? 'Saved and in use.' : 'Saved! Others will see it after a quick safety review — until then they see your preset.') +
+            ' Use “Choose views” above to pick how you look on the floor, at the booth and more.',
         );
         setReport(null);
         setFiles([]);
@@ -92,20 +96,26 @@ export function AvatarStudio({ me }: { me: Me }) {
         {mine.data && mine.data.length > 0 && (
           <div className="row">
             {mine.data.map((a) => (
-              <button
-                key={a.id}
-                className="btn btn-ghost"
-                onClick={async () => {
-                  await api.call('avatars.delete', { params: { id: a.id } });
-                  await qc.invalidateQueries({ queryKey: ['avatars'] });
-                  await qc.invalidateQueries({ queryKey: ['me'] });
-                }}
-              >
-                Delete “{a.name}”
-              </button>
+              <span key={a.id} className="row">
+                <button className="btn" onClick={() => setEditing(editing === a.id ? null : a.id)} aria-expanded={editing === a.id}>
+                  Choose views for “{a.name}”
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  onClick={async () => {
+                    if (editing === a.id) setEditing(null);
+                    await api.call('avatars.delete', { params: { id: a.id } });
+                    await qc.invalidateQueries({ queryKey: ['avatars'] });
+                    await qc.invalidateQueries({ queryKey: ['me'] });
+                  }}
+                >
+                  Delete “{a.name}”
+                </button>
+              </span>
             ))}
           </div>
         )}
+        {editing && mine.data?.some((a) => a.id === editing) && <ViewsEditor key={editing} avatarId={editing} onClose={() => setEditing(null)} />}
       </section>
 
       <section className="card stack">

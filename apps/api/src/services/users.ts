@@ -16,7 +16,12 @@ export function avatarRef(ctx: AppContext, a: AvatarRow): AvatarRef {
     name: a.name,
     sheetUrl: url(a.sheetUrl),
     thumbUrl: url(a.thumbUrl),
-    rows: a.rows.map((r) => ({ state: r.state as AvatarRef['rows'][number]['state'], frames: r.frames, ...(r.dimmed ? { dimmed: true } : {}) })),
+    rows: a.rows.map((r) => ({
+      state: r.state as AvatarRef['rows'][number]['state'],
+      frames: r.frames,
+      ...(r.dimmed ? { dimmed: true } : {}),
+      ...(r.at !== undefined ? { at: r.at } : {}),
+    })),
     cell: { w: RUNTIME_SHEET.cellW, h: RUNTIME_SHEET.cellH },
   };
 }

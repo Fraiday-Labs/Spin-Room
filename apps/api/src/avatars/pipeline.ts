@@ -171,10 +171,24 @@ function cellHasPixels(raw: Buffer, w: number, x0: number, y0: number, cw: numbe
   return false;
 }
 
+export interface SourceView {
+  row: number;
+  name: string;
+  frames: number;
+}
+
+/** Cell size of the views sheet used to pick which view plays where. */
+export const VIEW_CELL = { w: 48, h: 52 } as const;
+
 export interface BuiltSheet {
   sheet: Buffer;
   thumb: Buffer;
-  rows: { state: AvatarState; frames: number; dimmed?: boolean }[];
+  rows: { state: AvatarState; frames: number; dimmed?: boolean; at: number }[];
+  /** Every non-empty source row, and a small sheet of them (one row each, in this order). */
+  views: SourceView[];
+  viewsSheet: Buffer;
+  /** The source row each state plays. */
+  choices: Record<string, number>;
   frameCounts: Record<string, number>;
   issues: AvatarValidationIssue[];
   layout: Layout;
@@ -194,7 +208,12 @@ const WEBP_LADDER: readonly (readonly [number, number])[] = [
 /** When thinning a busy sheet, rows with fewer frames than this keep them all. */
 const THIN_KEEP_UNDER = 5;
 
-export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: number; rows?: number }): Promise<BuiltSheet> {
+export async function buildRuntimeSheet(
+  input: Buffer,
+  manualGrid?: { cols?: number; rows?: number },
+  /** Owner's picks: state → source row. Empty or out-of-range picks use the default mapping. */
+  picks: Record<string, number | undefined> = {},
+): Promise<BuiltSheet> {
   const kind = sniff(input);
   if (kind !== 'png' && kind !== 'webp') {
     throw new AvatarImportError('format_unsupported', 'Upload a PNG or WebP sprite sheet, or the .codex-pet.zip from Download sprite kit.');
@@ -227,7 +246,9 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
     const idx = rowIndex(m.row);
     const frames = idx >= 0 && idx < layout.rows ? (counts[idx] ?? 0) : 0;
     frameCounts[m.row] = frames;
-    if (frames > 0) plan.push({ state: m.state, srcRow: idx, frames });
+    const pick = picks[m.state];
+    if (pick !== undefined && pick < layout.rows && counts[pick]) plan.push({ state: m.state, srcRow: pick, frames: counts[pick] });
+    else if (frames > 0) plan.push({ state: m.state, srcRow: idx, frames });
     else {
       issues.push({
         level: 'warning',
@@ -257,15 +278,18 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
   /** Frame indices kept per row: all of them, or every other one for long rows (busy sheets). */
   const keptFrames = (frames: number, thin: boolean) =>
     Array.from({ length: frames }, (_, i) => i).filter((i) => !thin || frames <= THIN_KEEP_UNDER || i % 2 === 0);
+  // States that play the same source row share one sheet row.
+  const sources = [...new Set(plan.map((p) => p.srcRow))];
+  const sheetRow = (srcRow: number) => sources.indexOf(srcRow);
   const compose = async (thin: boolean) => {
     const composites: OverlayOptions[] = [];
-    const kept = plan.map((p) => keptFrames(p.frames, thin));
-    for (let r = 0; r < plan.length; r++) {
+    const kept = sources.map((src) => keptFrames(counts[src]!, thin));
+    for (let r = 0; r < sources.length; r++) {
       const frames = kept[r]!;
-      for (let f = 0; f < frames.length; f++) composites.push({ input: await cellAt(plan[r]!.srcRow, frames[f]!), left: f * cw, top: r * ch });
+      for (let f = 0; f < frames.length; f++) composites.push({ input: await cellAt(sources[r]!, frames[f]!), left: f * cw, top: r * ch });
     }
     const maxFrames = Math.max(...kept.map((k) => k.length));
-    const flat = await sharp({ create: { width: maxFrames * cw, height: plan.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    const flat = await sharp({ create: { width: maxFrames * cw, height: sources.length * ch, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
       .composite(composites)
       .png()
       .toBuffer();
@@ -275,7 +299,7 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
   // Detailed, anti-aliased art (e.g. ChatGPT pet sheets) is dominated by the alpha channel, so
   // step colour and alpha quality down together; as a last resort, drop every other frame.
   let sheet: Buffer | null = null;
-  let rowFrames = plan.map((p) => p.frames);
+  let rowFrames = sources.map((src) => counts[src]!);
   for (const thin of [false, true]) {
     const built = await compose(thin);
     for (const [quality, alphaQuality] of WEBP_LADDER) {
@@ -303,19 +327,48 @@ export async function buildRuntimeSheet(input: Buffer, manualGrid?: { cols?: num
       'This pet is too detailed to shrink under 150 KB, even with fewer frames. Try a simpler pet or one with fewer frames.',
     );
 
-  const firstIdle = cellCache.get(`${idleRow}:0`)!;
+  const firstIdle = await cellAt(idleRow, 0);
   const thumb = await sharp(firstIdle)
     .resize(RUNTIME_SHEET.thumbSize, RUNTIME_SHEET.thumbSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png({ compressionLevel: 9 })
     .toBuffer();
 
+  const views: SourceView[] = counts.flatMap((frames, row) => (frames ? [{ row, name: petRows[row] ?? `row-${row + 1}`, frames }] : []));
+  const viewsSheet = await buildViewsSheet(input, views, layout.cols);
+
   return {
     sheet,
     thumb,
-    rows: plan.map((p, i) => ({ state: p.state, frames: rowFrames[i]!, ...(p.dimmed ? { dimmed: true } : {}) })),
+    rows: plan.map((p) => {
+      const at = sheetRow(p.srcRow);
+      return { state: p.state, frames: rowFrames[at]!, at, ...(p.dimmed ? { dimmed: true } : {}) };
+    }),
+    views,
+    viewsSheet,
+    choices: Object.fromEntries(plan.map((p) => [p.state, p.srcRow])),
     frameCounts,
     issues,
     layout,
     size: { w, h },
   };
+}
+
+/** A small sheet with one row per view, so owners can see every animation and pick one. */
+async function buildViewsSheet(input: Buffer, views: SourceView[], cols: number): Promise<Buffer> {
+  const { w, h } = VIEW_CELL;
+  const composites: OverlayOptions[] = [];
+  for (let r = 0; r < views.length; r++) {
+    for (let f = 0; f < views[r]!.frames; f++) {
+      const cell = await sharp(input)
+        .extract({ left: f * PET_FORMAT.cellW, top: views[r]!.row * PET_FORMAT.cellH, width: PET_FORMAT.cellW, height: PET_FORMAT.cellH })
+        .resize(w, h, { kernel: 'lanczos3' })
+        .png()
+        .toBuffer();
+      composites.push({ input: cell, left: f * w, top: r * h });
+    }
+  }
+  return sharp({ create: { width: cols * w, height: Math.max(1, views.length) * h, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(composites)
+    .webp({ quality: 80, alphaQuality: 80, effort: 6 })
+    .toBuffer();
 }

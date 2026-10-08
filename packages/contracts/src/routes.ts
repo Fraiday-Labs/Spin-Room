@@ -2,6 +2,8 @@ import { z } from 'zod';
 import {
   ApiTokenSchema,
   AvatarImportReportSchema,
+  AvatarViewChoicesSchema,
+  AvatarViewsSchema,
   AvatarReportSchema,
   AvatarSchema,
   ChatMessageSchema,
@@ -746,6 +748,23 @@ export const routes = {
     summary: 'Delete one of my custom avatars.',
     params: z.object({ id: IdSchema }),
     response: Ok,
+  }),
+  'avatars.views': route({
+    method: 'GET',
+    path: '/v1/avatars/{id}/views',
+    auth: 'user',
+    summary: 'Every view (row) of one of my uploaded avatars, and which one plays where.',
+    params: z.object({ id: IdSchema }),
+    response: AvatarViewsSchema,
+  }),
+  'avatars.setViews': route({
+    method: 'PUT',
+    path: '/v1/avatars/{id}/views',
+    auth: 'user',
+    summary: 'Choose which view of my uploaded avatar plays on the floor, at the booth, when DJing, and so on.',
+    params: z.object({ id: IdSchema }),
+    body: z.object({ choices: AvatarViewChoicesSchema }),
+    response: AvatarViewsSchema,
   }),
   'avatars.report': route({
     method: 'POST',

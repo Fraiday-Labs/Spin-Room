@@ -132,7 +132,7 @@ export function Stage({ snap, myId, onSelectMember }: { snap: RoomSnapshot; myId
                 <span className={s.label} style={{ color }}>
                   {m?.user.displayName ?? 'DJ'}
                 </span>
-                {m && <AvatarSprite avatar={m.user.avatar} state={b.userId === activeDj ? 'dj' : 'idle'} width={48} paused={hidden} />}
+                {m && <AvatarSprite avatar={m.user.avatar} state={b.userId === activeDj ? 'dj' : 'booth'} width={48} paused={hidden} />}
               </div>
             );
           })}

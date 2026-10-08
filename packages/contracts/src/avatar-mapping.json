@@ -6,6 +6,7 @@
     { "state": "hype", "row": "jumping", "fallback": "idle" },
     { "state": "skip", "row": "failed", "fallback": "idle" },
     { "state": "dj", "row": "running", "fallback": "idle" },
+    { "state": "booth", "row": "idle", "fallback": "idle" },
     { "state": "walk", "row": "running-right", "fallback": "idle" },
     { "state": "wave", "row": "waving", "fallback": "idle" },
     { "state": "away", "row": "waiting", "fallback": "idle", "dimWhenFallback": true }
