@@ -501,10 +501,15 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
             </button>
           </div>
         )}
-        <label className="field">
-          Search Spotify
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Song or artist" data-testid="set-search" />
-        </label>
+        <input
+          className="input"
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search Spotify"
+          aria-label="Search Spotify"
+          data-testid="set-search"
+        />
         {results.data && (
           <ul className={s.list} data-testid="search-results">
             {results.data.map((t) => (
