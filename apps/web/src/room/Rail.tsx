@@ -354,16 +354,60 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   const inSetIds = new Set(c?.items.map((it) => it.id));
   const isAdded = (uri: string) => inSetUris.has(uri) || inSetIds.has(justAdded.get(uri) ?? '');
   return (
-    <div className={`stack ${s.setPanel}`}>
+    <div className={s.setPanel}>
       {c?.notice && <div className="notice">{c.notice}</div>}
       <div className={s.setHead}>
-        <span className={`muted ${s.hint}`}>{c && c.items.length > 1 ? 'Drag to change order' : ''}</span>
+        <button className="btn btn-sm" onClick={() => setLinking((v) => !v)} aria-expanded={linking}>
+          {linking ? 'Close' : 'Link a playlist'}
+        </button>
         {!!c?.items.length && !confirmClear && (
           <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClear(true)}>
             Clear set
           </button>
         )}
       </div>
+      {linking && (
+        <div className="card stack">
+          <p className="muted">
+            Pick one of your Spotify playlists as your set. Spinroom plays it top to bottom; edits you make in Spotify show up before your next turn.
+          </p>
+          {playlists.isLoading && <p className="muted">Loading playlists…</p>}
+          {playlists.error && <p className="error">{errorMessage(playlists.error)}</p>}
+          <ul className={s.list}>
+            {playlists.data?.map((p) => (
+              <li key={p.id} className={s.item}>
+                <span className={s.grow}>
+                  {p.name} <span className="muted">· {p.trackCount} tracks</span>
+                </span>
+                {p.ownedByMe && (
+                  <button
+                    className="btn"
+                    onClick={() =>
+                      run(() => api.call('crate.import', { params: { slug }, body: { mode: 'link', playlist: p.id } })).then(() => setLinking(false))
+                    }
+                  >
+                    Link
+                  </button>
+                )}
+                <button
+                  className="btn btn-ghost"
+                  onClick={() =>
+                    run(() => api.call('crate.import', { params: { slug }, body: { mode: 'copy', playlist: p.id } })).then(() => setLinking(false))
+                  }
+                >
+                  Copy
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="btn"
+            onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'create' } })).then(() => setLinking(false))}
+          >
+            Create “Spinroom – {snap.room.name}” playlist
+          </button>
+        </div>
+      )}
       {c && confirmClear && (
         <div className="notice stack" role="alert">
           <p style={{ margin: 0 }}>
@@ -443,64 +487,6 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
           ))}
       </ol>
       <div className={s.addArea}>
-        <div className={s.setHead}>
-          {c?.playlist ? (
-            <span>
-              Playing from{' '}
-              <a href={c.playlist.url} target="_blank" rel="noreferrer">
-                {c.playlist.name}
-              </a>{' '}
-              in Spotify
-            </span>
-          ) : (
-            <span className="muted">{c?.mode === 'local' && c.items.length ? 'Set stored in Spinroom' : 'Add a track to start your set.'}</span>
-          )}
-          <button className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setLinking((v) => !v)}>
-            {linking ? 'Close' : 'Link a playlist'}
-          </button>
-        </div>
-        {linking && (
-          <div className="card stack">
-            <p className="muted">
-              Pick one of your Spotify playlists as your set. Spinroom plays it top to bottom; edits you make in Spotify show up before your next turn.
-            </p>
-            {playlists.isLoading && <p className="muted">Loading playlists…</p>}
-            {playlists.error && <p className="error">{errorMessage(playlists.error)}</p>}
-            <ul className={s.list}>
-              {playlists.data?.map((p) => (
-                <li key={p.id} className={s.item}>
-                  <span className={s.grow}>
-                    {p.name} <span className="muted">· {p.trackCount} tracks</span>
-                  </span>
-                  {p.ownedByMe && (
-                    <button
-                      className="btn"
-                      onClick={() =>
-                        run(() => api.call('crate.import', { params: { slug }, body: { mode: 'link', playlist: p.id } })).then(() => setLinking(false))
-                      }
-                    >
-                      Link
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost"
-                    onClick={() =>
-                      run(() => api.call('crate.import', { params: { slug }, body: { mode: 'copy', playlist: p.id } })).then(() => setLinking(false))
-                    }
-                  >
-                    Copy
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button
-              className="btn"
-              onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'create' } })).then(() => setLinking(false))}
-            >
-              Create “Spinroom – {snap.room.name}” playlist
-            </button>
-          </div>
-        )}
         <input
           className="input"
           type="search"
@@ -538,6 +524,19 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
           </ul>
         )}
       </div>
+      <p className={s.source} data-testid="set-source">
+        {c?.playlist ? (
+          <span>
+            Playing from{' '}
+            <a href={c.playlist.url} target="_blank" rel="noreferrer">
+              {c.playlist.name}
+            </a>{' '}
+            in Spotify
+          </span>
+        ) : (
+          c?.mode === 'local' && !!c.items.length && <span>Set stored in Spinroom</span>
+        )}
+      </p>
     </div>
   );
 }

@@ -231,7 +231,11 @@
 
 /* My set: the list on top, then linking a playlist and search. */
 .setPanel {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
+  /* Fill the tab so the "Playing from …" line can sit at the bottom. */
+  min-height: 100%;
 }
 .setPanel > .setHead {
   min-height: 32px;
@@ -298,4 +302,15 @@
 }
 .remove:hover {
   color: var(--text);
+}
+
+/* Where the set lives (a Spotify playlist, or Spinroom), at the bottom of the tab. */
+.source {
+  margin: auto 0 0;
+  padding-top: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.source:empty {
+  display: none;
 }
