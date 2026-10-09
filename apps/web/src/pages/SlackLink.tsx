@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 /** Landing page for the Slack "Connect Spinroom" button. */
 export default function SlackLink() {
@@ -20,7 +21,7 @@ export default function SlackLink() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me.data]);
-  if (me.isLoading) return <div className="page muted">Loading…</div>;
+  if (me.isLoading) return <PageSkeleton cards={1} />;
   if (!me.data) {
     return (
       <div className="page stack" style={{ maxWidth: 560 }}>

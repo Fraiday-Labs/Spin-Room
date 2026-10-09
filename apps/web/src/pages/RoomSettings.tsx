@@ -6,6 +6,7 @@ import { CopyButton } from '../components/CopyButton';
 import { RoomLifecycle } from '../components/RoomLifecycle';
 import { api, errorMessage, useMe } from '../lib/api';
 import css from './RoomSettings.module.css';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 const MIN = 60_000;
 
@@ -23,7 +24,7 @@ export default function RoomSettings({ slug }: { slug?: string }) {
     if (snap.data) setRoom(snap.data.room);
   }, [snap.data]);
   if (snap.error) return <div className="page notice error">{errorMessage(snap.error)}</div>;
-  if (!room || !snap.data) return <div className="page muted">Loading…</div>;
+  if (!room || !snap.data) return <PageSkeleton cards={3} />;
   const s = room.settings;
   const set = (patch: Partial<Settings>) => setRoom({ ...room, settings: { ...s, ...patch } });
   const isOwner = snap.data.me?.role === 'owner' || !!me.data?.isAdmin;

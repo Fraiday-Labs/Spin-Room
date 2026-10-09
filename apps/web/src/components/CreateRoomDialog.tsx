@@ -42,7 +42,9 @@ export function CreateRoomDialog({ onClose }: { onClose: () => void }) {
         }}
       >
         <div className={s.head}>
-          <h2 id="create-room-title">Create a room</h2>
+          <h2 className="pixel" id="create-room-title">
+            Create a room
+          </h2>
           <button type="button" className={s.close} onClick={() => ref.current?.close()} aria-label="Close">
             ✕
           </button>

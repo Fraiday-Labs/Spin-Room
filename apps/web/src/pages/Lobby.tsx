@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { CreateRoomDialog } from '../components/CreateRoomDialog';
 import { RoomCard } from '../components/RoomCard';
 import { api, signInUrl, useMe } from '../lib/api';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 export default function Lobby() {
   const me = useMe();
@@ -19,7 +20,7 @@ export default function Lobby() {
   });
   const [creating, setCreating] = useState(false);
 
-  if (me.isLoading) return <div className="page muted">Loading…</div>;
+  if (me.isLoading) return <PageSkeleton cards={6} grid />;
   if (!me.data) {
     return (
       <div className="page stack">

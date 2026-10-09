@@ -7,6 +7,7 @@ import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { AvatarSprite } from '../room/AvatarSprite';
 import { AvatarStudio } from '../studio/AvatarStudio';
 import { IntegrationsPanel } from './Integrations';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 export default function Profile({ tab, sub }: { tab?: string; sub?: string }) {
   const me = useMe();
@@ -14,7 +15,7 @@ export default function Profile({ tab, sub }: { tab?: string; sub?: string }) {
   const tokens = useQuery({ queryKey: ['tokens'], queryFn: () => api.call('tokens.list'), enabled: !!me.data });
   const [name, setName] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  if (me.isLoading) return <div className="page muted">Loading…</div>;
+  if (me.isLoading) return <PageSkeleton cards={3} />;
   if (!me.data)
     return (
       <a className="page btn btn-spotify" href={signInUrl()}>
@@ -150,8 +151,8 @@ export default function Profile({ tab, sub }: { tab?: string; sub?: string }) {
             <h2>Delete account</h2>
             <p className="muted">Removes your profile, sets, tokens and connections now; remaining personal data is purged within 30 days.</p>
             <button
-              className="btn"
-              style={{ justifySelf: 'start', borderColor: 'var(--danger)' }}
+              className="btn btn-danger"
+              style={{ justifySelf: 'start' }}
               onClick={async () => {
                 if (!confirm('Delete your Spinroom account? This can’t be undone.')) return;
                 await api.call('me.delete');

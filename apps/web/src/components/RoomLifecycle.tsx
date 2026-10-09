@@ -48,7 +48,7 @@ export function RoomLifecycle({ room, onDone }: Props) {
               Close room
             </button>
           )}
-          <button className="btn btn-skip" disabled={busy} onClick={() => setStep('delete')}>
+          <button className="btn btn-danger" disabled={busy} onClick={() => setStep('delete')}>
             Delete room
           </button>
         </div>
@@ -82,7 +82,7 @@ export function RoomLifecycle({ room, onDone }: Props) {
             <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={room.name} autoFocus />
           </label>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-skip" disabled={busy || typed.trim() !== room.name} onClick={() => void run('deleted')}>
+            <button className="btn btn-danger" disabled={busy || typed.trim() !== room.name} onClick={() => void run('deleted')}>
               {busy ? 'Deleting…' : 'Delete forever'}
             </button>
             <button

@@ -42,7 +42,9 @@ export function ShareDialog({ snap, canManage, onClose }: { snap: RoomSnapshot; 
   return (
     <dialog ref={ref} className={s.dialog} onClose={onClose} aria-labelledby="share-title" data-testid="share-dialog">
       <div className={s.head}>
-        <h2 id="share-title">Share “{snap.room.name}”</h2>
+        <h2 className="pixel" id="share-title">
+          Share “{snap.room.name}”
+        </h2>
         <button className={s.close} onClick={() => ref.current?.close()} aria-label="Close">
           ✕
         </button>

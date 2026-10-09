@@ -16,7 +16,8 @@
   border: 0;
   border-bottom: 3px solid transparent;
   cursor: pointer;
-  font-family: var(--font-pixel);
+  font-weight: 600;
+  font-size: 14px;
   color: var(--text-dim);
 }
 .tab[aria-selected='true'] {

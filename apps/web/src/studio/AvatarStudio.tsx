@@ -120,7 +120,7 @@ export function AvatarStudio({ me }: { me: Me }) {
               </button>
             )}
             <button
-              className="btn btn-ghost"
+              className="btn btn-danger"
               onClick={async () => {
                 if (wearing.featured && !confirm(`“${wearing.name}” is a default. Deleting it also switches everyone using it back to their own avatar.`))
                   return;

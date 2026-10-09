@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
+import { PageSkeleton } from '../components/PageSkeleton';
 
 /** Consent screen for remote MCP clients (OAuth 2.1 authorize step). */
 export default function OAuthConsent() {
@@ -8,7 +9,7 @@ export default function OAuthConsent() {
   const id = new URLSearchParams(location.search).get('request') ?? '';
   const req = useQuery({ queryKey: ['oauth', id], queryFn: () => api.call('oauth.request', { params: { id } }), enabled: !!me.data && !!id, retry: false });
   const [busy, setBusy] = useState(false);
-  if (me.isLoading) return <div className="page muted">Loading…</div>;
+  if (me.isLoading) return <PageSkeleton cards={1} />;
   if (!me.data) {
     return (
       <div className="page stack" style={{ maxWidth: 520 }}>
@@ -21,7 +22,7 @@ export default function OAuthConsent() {
     );
   }
   if (req.error) return <div className="page notice error">{errorMessage(req.error)}</div>;
-  if (!req.data) return <div className="page muted">Loading…</div>;
+  if (!req.data) return <PageSkeleton cards={1} />;
   const decide = async (approve: boolean) => {
     setBusy(true);
     try {

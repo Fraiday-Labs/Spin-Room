@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Redirect, Route, Switch } from 'wouter';
 import { Layout } from './components/Layout';
+import { PageSkeleton } from './components/PageSkeleton';
 import { Connect } from './pages/Connect';
 import { DevLogin } from './pages/DevLogin';
 import { Landing } from './pages/Landing';
@@ -17,11 +18,7 @@ const OAuthConsent = lazy(() => import('./pages/OAuthConsent'));
 const Admin = lazy(() => import('./pages/Admin'));
 
 function Loading() {
-  return (
-    <div className="page muted" role="status">
-      Loading…
-    </div>
-  );
+  return <PageSkeleton />;
 }
 
 export function App() {

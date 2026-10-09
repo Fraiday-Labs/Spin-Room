@@ -348,7 +348,7 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
         ) : (
           <span className="muted">{c?.mode === 'local' && c.items.length ? 'Set stored in Spinroom' : 'Add a track to start your set.'}</span>
         )}
-        <button className="btn btn-ghost" onClick={() => setLinking((v) => !v)}>
+        <button className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setLinking((v) => !v)}>
           {linking ? 'Close' : 'Link a playlist'}
         </button>
       </div>
@@ -428,7 +428,7 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
       <div className={s.setHead}>
         <h3 className={s.h}>My set ({c?.items.length ?? 0})</h3>
         {!!c?.items.length && !confirmClear && (
-          <button className="btn btn-ghost" onClick={() => setConfirmClear(true)}>
+          <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClear(true)}>
             Clear set
           </button>
         )}
