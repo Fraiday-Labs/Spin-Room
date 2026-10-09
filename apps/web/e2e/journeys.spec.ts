@@ -572,6 +572,24 @@ test('the DJ can skip forward, and go back to the song before', async ({ page })
   // The interrupted song is back at the front of the set.
   await page.getByRole('tab', { name: 'My set' }).click();
   await expect(page.getByTestId('my-set').locator('li').filter({ hasText: 'Up next' })).toContainText('Booth Lights');
+  // …and the song on now is marked in the set.
+  await expect(
+    page
+      .getByTestId('my-set')
+      .locator('li')
+      .filter({ has: page.getByTestId('set-now-playing') }),
+  ).toContainText('Neon Tide');
+  await expect(page.getByTestId('set-now-playing')).toHaveCount(1);
+  await page.getByRole('button', { name: 'Skip to the next song' }).click();
+  await expect(page.getByTestId('np-title')).toHaveText('Booth Lights');
+  await expect(
+    page
+      .getByTestId('my-set')
+      .locator('li')
+      .filter({ has: page.getByTestId('set-now-playing') }),
+  ).toContainText('Booth Lights');
+  await page.getByRole('button', { name: 'Pause the track for everyone' }).click();
+  await expect(page.getByTestId('set-now-playing')).toHaveText(/^Paused/);
 });
 
 test('the speaker stops and starts again cleanly, and a second tab takes it over without asking', async ({ page }) => {

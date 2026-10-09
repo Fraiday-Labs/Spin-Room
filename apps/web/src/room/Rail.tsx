@@ -355,6 +355,16 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   const drag = reorder.drag;
   const shown = c ? (drag ? moveItem(c.items, drag.from, drag.to) : c.items) : [];
   const nextId = c?.items[c.position]?.id;
+  // Your song on now: the set entry for it (the one just before "Up next" if it's in there twice).
+  const spin = snap.currentSpin;
+  const mine = !!spin && !!me && spin.djUserId === me.id;
+  const playingId = (() => {
+    if (!c || !spin || !mine) return undefined;
+    const before = c.items[(c.position - 1 + c.items.length) % c.items.length];
+    if (before?.track.uri === spin.track.uri) return before.id;
+    return c.items.find((it) => it.track.uri === spin.track.uri)?.id;
+  })();
+  const paused = !!spin?.pausedAtServerMs;
   const draggingId = drag ? c?.items[drag.from]?.id : undefined;
   const inSetUris = new Set(c?.items.map((it) => it.track.uri));
   const inSetIds = new Set(c?.items.map((it) => it.id));
@@ -446,7 +456,7 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
           shown.map((it, i) => (
             <li
               key={it.id}
-              className={`${s.item} ${s.setItem} ${s.draggable} ${it.id === nextId && !it.flags.length ? s.next : ''} ${it.flags.length ? s.blocked : ''} ${it.id === draggingId ? s.dragging : ''}`}
+              className={`${s.item} ${s.setItem} ${s.draggable} ${it.id === playingId ? s.playing : it.id === nextId && !it.flags.length ? s.next : ''} ${it.flags.length ? s.blocked : ''} ${it.id === draggingId ? s.dragging : ''}`}
               onPointerDown={(e) => reorder.onPointerDown(e, i)}
             >
               {/* Drag handle; with the keyboard, focus it and press ↑ / ↓. (A span, so drags can start on it.) */}
@@ -478,7 +488,16 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
               <span className={s.lines}>
                 <span className={s.title}>{it.track.title}</span>
                 <span className={s.sub}>
-                  {it.flags.length ? (
+                  {it.id === playingId ? (
+                    <span className={`${s.nowPlaying} ${paused ? s.held : ''}`} data-testid="set-now-playing">
+                      <span className={s.eq} aria-hidden="true">
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                      {paused ? 'Paused' : 'Now playing'} ·{' '}
+                    </span>
+                  ) : it.flags.length ? (
                     <span className={s.why}>{FLAG_TEXT[it.flags[0]!]} · </span>
                   ) : (
                     it.id === nextId && <span className={s.upNext}>Up next · </span>
