@@ -1,7 +1,7 @@
 import type { RoomEvent, RoomSnapshot } from '@spinroom/contracts';
-import { ApiError, ServerClock } from '@spinroom/sdk';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { api } from '../lib/api';
+import { ServerClock } from '@spinroom/sdk';
+import { useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
+import { api, readCookie } from '../lib/api';
 import { SpeakerController } from './controller';
 import { FakePlayer } from './fakePlayer';
 import { SpotifyPlayer } from './spotifyPlayer';
@@ -64,7 +64,24 @@ export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' |
     },
     () => controller?.view ?? OFF_VIEW,
   );
-  const [needsTakeover, setNeedsTakeover] = useState(false);
+  useEffect(() => {
+    if (!controller) return;
+    // Leaving or reloading the page: free the speaker now, so starting again (here or in another
+    // tab) doesn't find this one still "live" for up to 40 s.
+    const leave = () => {
+      const id = controller.id;
+      if (!id) return;
+      const csrf = readCookie('sr_csrf');
+      void fetch(`/v1/speakers/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        keepalive: true,
+        headers: csrf ? { 'x-csrf-token': csrf } : {},
+      }).catch(() => {});
+    };
+    window.addEventListener('pagehide', leave);
+    return () => window.removeEventListener('pagehide', leave);
+  }, [controller]);
 
   useEffect(() => {
     void syncClock().catch(() => {});
@@ -76,18 +93,9 @@ export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' |
   return {
     controller,
     view,
-    needsTakeover,
-    async start(takeover = false) {
-      if (!controller) return;
-      try {
-        await controller.start(takeover);
-        setNeedsTakeover(false);
-      } catch (e) {
-        if (e instanceof ApiError && e.code === 'speaker_exists') {
-          await controller.stop('You already have a speaker open for this room.');
-          setNeedsTakeover(true);
-        }
-      }
+    async start() {
+      // Errors show on the speaker button (the controller's view); nothing more to do here.
+      await controller?.start().catch(() => {});
     },
     /** Feed live room changes to the speaker. */
     onRoom(snapshot: RoomSnapshot | null, ev: RoomEvent | null) {

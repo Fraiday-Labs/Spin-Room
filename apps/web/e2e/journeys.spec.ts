@@ -568,3 +568,33 @@ test('the DJ can skip forward, and go back to the song before', async ({ page })
   await page.getByRole('tab', { name: 'My set' }).click();
   await expect(page.getByTestId('my-set').locator('li').filter({ hasText: 'Up next' })).toContainText('Booth Lights');
 });
+
+test('the speaker stops and starts again cleanly, and a second tab takes it over without asking', async ({ page }) => {
+  await signInViaUi(page, uid('listener'));
+  await page.getByTestId('open-create-room').click();
+  await page.getByTestId('room-name').fill(`Speaker ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/speaker-/);
+  const roomPath = new URL(page.url()).pathname;
+  const banner = page.getByTestId('speaker-banner');
+
+  await page.getByRole('button', { name: 'Listen' }).click();
+  await expect(banner).toHaveAttribute('data-status', 'live');
+  await page.getByRole('button', { name: 'Listening — stop' }).click();
+  await expect(banner).toHaveAttribute('data-status', 'off');
+  await page.getByRole('button', { name: 'Listen' }).click();
+  await expect(banner).toHaveAttribute('data-status', 'live');
+
+  // The same person opens the room in another tab: Listen there just works, and this tab steps back.
+  const other = await page.context().newPage();
+  await other.goto(roomPath);
+  await other.getByRole('button', { name: 'Listen' }).click();
+  await expect(other.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  await expect(banner).toHaveAttribute('data-status', 'off');
+  await expect(banner).toContainText('Your speaker moved to another tab.');
+
+  // Reloading frees the speaker at once: starting again needs no takeover.
+  await other.reload();
+  await other.getByRole('button', { name: 'Listen' }).click();
+  await expect(other.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+});

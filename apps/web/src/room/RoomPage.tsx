@@ -243,8 +243,7 @@ export default function RoomPage({ slug }: { slug: string }) {
         <SpeakerBanner
           me={me.data ?? null}
           view={speaker.view}
-          needsTakeover={speaker.needsTakeover}
-          onStart={(takeover) => void speaker.start(takeover)}
+          onStart={() => void speaker.start()}
           onStop={() => void speaker.controller?.stop()}
           onReclaim={() => void speaker.controller?.reclaim()}
           autoFocus={params.get('speaker') === '1'}

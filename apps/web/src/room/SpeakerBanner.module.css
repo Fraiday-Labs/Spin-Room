@@ -1,44 +1,159 @@
-.banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--charcoal);
-  border: 1px solid var(--border);
-  font-size: 14px;
-  flex-wrap: nowrap;
+/* One pill that changes with the speaker: calm, one word, one tap. */
+.wrap {
+  position: relative;
   flex: none;
-  white-space: nowrap;
 }
-/* Phones: the dot and the button say enough. */
-@media (max-width: 720px) {
-  .banner {
-    padding: 4px 6px 4px 10px;
-    gap: 8px;
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px 0 13px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.pill:active:not(:disabled) {
+  transform: scale(0.96);
+  transition-duration: 40ms;
+}
+
+/* Off: the room's invitation. */
+.off .pill {
+  background: var(--violet);
+  color: #fff;
+}
+.off .pill:hover {
+  background: #6a40ff;
+}
+
+/* Connecting. */
+.starting .pill {
+  background: rgb(255 255 255 / 0.08);
+  color: var(--text-dim);
+  cursor: default;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
-  .label {
+}
+
+/* Listening: quiet green, little moving bars; hover says what a tap does. */
+.live .pill {
+  background: rgb(124 242 176 / 0.12);
+  color: var(--ok);
+}
+.live .pill:hover,
+.live .pill:focus-visible {
+  background: rgb(255 255 255 / 0.1);
+  color: var(--text);
+}
+.label {
+  display: inline-grid;
+}
+.now,
+.hover {
+  grid-area: 1 / 1;
+  transition: opacity 120ms ease;
+}
+.hover {
+  opacity: 0;
+}
+.live .pill:hover .now,
+.live .pill:focus-visible .now {
+  opacity: 0;
+}
+.live .pill:hover .hover,
+.live .pill:focus-visible .hover {
+  opacity: 1;
+}
+.bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.bars i {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: bar 900ms ease-in-out infinite alternate;
+}
+.bars i:nth-child(2) {
+  animation-delay: -300ms;
+}
+.bars i:nth-child(3) {
+  animation-delay: -600ms;
+}
+@keyframes bar {
+  from {
+    transform: scaleY(0.3);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/* Spotify moved to another device. */
+.paused_elsewhere .pill {
+  background: rgb(255 176 0 / 0.14);
+  color: var(--amber);
+}
+
+/* Something went wrong. */
+.error .pill {
+  background: rgb(255 107 107 / 0.14);
+  color: var(--danger);
+}
+.note {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 25;
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #241c52;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  font-size: 13px;
+  white-space: normal;
+  color: var(--text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bars i,
+  .spinner {
+    animation: none;
+  }
+}
+
+/* Phones: Listen keeps its word; once listening, the bars say it. */
+@media (max-width: 720px) {
+  .pill {
+    height: 34px;
+    padding: 0 12px;
+  }
+  .live .label {
     display: none;
   }
-}
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--text-dim);
-  flex: none;
-}
-.live .dot {
-  background: var(--ok);
-}
-.starting .dot {
-  background: var(--amber);
-}
-.paused_elsewhere .dot,
-.error .dot {
-  background: var(--danger);
-}
-.banner :global(.btn) {
-  min-height: 32px;
-  padding: 4px 12px;
 }

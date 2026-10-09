@@ -57,6 +57,11 @@ export class SpeakerController {
   /** Consecutive checks that found the player paused, empty or on another track. */
   private offTrackChecks = 0;
 
+  /** The server's id for this speaker while it's registered (closed on page unload). */
+  get id() {
+    return this.speakerId;
+  }
+
   constructor(
     readonly player: PlayerAdapter,
     private readonly clock: ServerClock,
@@ -95,7 +100,11 @@ export class SpeakerController {
       this.player.onError((m) => this.set({ message: m }));
       const { deviceId } = await this.player.connect(this.opts.deviceName);
       this.deviceId = deviceId;
-      const sp = await this.api.register(takeover, deviceId);
+      // Already live in another tab (or on a page just reloaded): move it here; that tab is told and stops.
+      const sp = await this.api.register(takeover, deviceId).catch((e: unknown) => {
+        if ((e as { code?: string }).code === 'speaker_exists') return this.api.register(true, deviceId);
+        throw e;
+      });
       this.speakerId = sp.id;
       this.set({ status: 'live' });
       this.loop = this.t.setInterval(() => void this.correct(), TIMING.driftCheckMs);
@@ -218,6 +227,8 @@ export class SpeakerController {
     try {
       await this.player.play(spin.track.uri, pos);
       this.settle();
+      // Playing again: an earlier hiccup's message no longer applies.
+      if (this.view.message && this.view.status === 'live') this.set({ message: null });
       if (this.startedClickAt !== null && this.joinToAudioMs === null) this.joinToAudioMs = this.localNow() - this.startedClickAt;
     } catch (e) {
       this.set({ message: (e as Error).message });

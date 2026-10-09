@@ -170,6 +170,14 @@ describe('SpeakerController', () => {
     expect((await player.getState())!.paused).toBe(false);
   });
 
+  it('moves a speaker that is still live elsewhere (another tab, or a page just reloaded) instead of failing', async () => {
+    const { c, api } = setup();
+    vi.mocked(api.register).mockRejectedValueOnce(Object.assign(new Error('exists'), { code: 'speaker_exists' }));
+    await c.start();
+    expect(api.register).toHaveBeenLastCalledWith(true, expect.anything());
+    expect(c.view.status).toBe('live');
+  });
+
   it('stops when the server says another tab took over', async () => {
     const { c, supersede } = setup();
     await c.start();

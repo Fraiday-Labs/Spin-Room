@@ -76,13 +76,18 @@ export class SpotifyPlayer implements PlayerAdapter {
 
   private async api(method: string, path: string, body?: unknown) {
     const token = await this.getToken();
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
       const res = await fetch(`https://api.spotify.com/v1${path}`, {
         method,
         headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) },
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
       if (res.ok || res.status === 204) return;
+      // A just-connected player can take a moment to register with Spotify: "Device not found".
+      if (res.status === 404 && path.includes('device_id=') && attempt < 5) {
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+        continue;
+      }
       if (res.status === 429 || res.status >= 500) {
         const ra = Number(res.headers.get('retry-after'));
         await new Promise((r) => setTimeout(r, Number.isFinite(ra) && ra > 0 ? ra * 1000 : 500 * 2 ** attempt));
@@ -108,7 +113,10 @@ export class SpotifyPlayer implements PlayerAdapter {
       player.addListener('account_error', () => reject(new Error('Spotify Premium is required to play in Spinroom.')));
     });
     player.addListener('not_ready', () => this.lostCb?.());
-    player.addListener('playback_error', ({ message }: { message: string }) => this.errorCb?.(message));
+    // "No list was loaded" only means a pause or seek reached an empty player: nothing to tell anyone.
+    player.addListener('playback_error', ({ message }: { message: string }) => {
+      if (!/no list was loaded/i.test(message)) this.errorCb?.(message);
+    });
     player.addListener('autoplay_failed', () => this.errorCb?.('The browser blocked audio — click Start speaker again.'));
     player.addListener('player_state_changed', (state: SdkState | null) => {
       // A null state means this device is no longer the active one (playing elsewhere).
@@ -126,11 +134,17 @@ export class SpotifyPlayer implements PlayerAdapter {
       position_ms: Math.max(0, Math.round(positionMs)),
     });
   }
+  /** Whether a track is loaded on this device (pause and seek fail on an empty player). */
+  private async loaded() {
+    return !!(await this.player?.getCurrentState().catch(() => null))?.track_window.current_track;
+  }
   async seek(positionMs: number) {
+    if (!(await this.loaded())) return;
     await this.player?.seek(Math.max(0, Math.round(positionMs)));
   }
   async pause() {
     this.expectingUri = null;
+    if (!(await this.loaded())) return;
     await this.player?.pause();
   }
   async getState(): Promise<PlayerState | null> {

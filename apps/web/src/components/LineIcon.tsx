@@ -10,6 +10,10 @@ const PATHS = {
   // Three dots, stacked: a menu.
   moreVertical: 'M12 5h.01M12 12h.01M12 19h.01',
   forward: 'M9 5l7 7-7 7',
+  // Headphones: listen in this tab.
+  headphones: 'M4 16v-4a8 8 0 0 1 16 0v4M4 15h3v6H5a1 1 0 0 1-1-1zM20 15h-3v6h2a1 1 0 0 0 1-1z',
+  // Arrow coming back round: try again.
+  retry: 'M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4',
 } as const;
 
 export function LineIcon({ name, size = 18 }: { name: keyof typeof PATHS; size?: number }) {
