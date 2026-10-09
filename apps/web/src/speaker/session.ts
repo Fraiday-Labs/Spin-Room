@@ -88,6 +88,27 @@ export async function startListening(slug: string, roomName: string, controller:
   await controller.start();
 }
 
+/** Speakers of the room pages currently open, so switching to that room reuses the page's own. */
+const pages = new Map<string, { controller: SpeakerController; conn: RoomConn }>();
+
+/** A room page offers its speaker for switching while it's open. */
+export function registerRoomSpeaker(slug: string, controller: SpeakerController, conn: RoomConn) {
+  pages.set(slug, { controller, conn });
+  return () => {
+    if (pages.get(slug)?.controller === controller) pages.delete(slug);
+  };
+}
+
+/**
+ * Switch what this tab is listening to (from the Listening menu): the open room page's speaker
+ * if there is one, else a new one from `make`. The current room stops; one click, no Stop/Listen.
+ */
+export async function switchListening(slug: string, roomName: string, make: () => { controller: SpeakerController; conn: RoomConn }) {
+  if (active?.slug === slug) return;
+  const { controller, conn } = pages.get(slug) ?? make();
+  await startListening(slug, roomName, controller, conn);
+}
+
 // Leaving or reloading the page: free the speaker now, so starting again (here or in another
 // tab) doesn't find this one still "live" for up to 40 s.
 if (typeof window !== 'undefined') {

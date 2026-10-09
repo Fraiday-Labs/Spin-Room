@@ -11,7 +11,7 @@ const OFF: SpeakerView = { status: 'off', message: null, driftMs: null, volume: 
 
 /**
  * The room you're listening to, on any page: its name (back to the room) and the same
- * Listening / Stop button as in the room. Hidden when nothing is playing, and in that room itself.
+ * Listening button as in the room (its menu switches rooms or stops). Hidden when nothing is playing, and in that room itself.
  */
 export function NowListening({ exceptSlug }: { exceptSlug?: string }) {
   const me = useMe();
@@ -24,7 +24,14 @@ export function NowListening({ exceptSlug }: { exceptSlug?: string }) {
       <Link href={`/r/${now.slug}`} className={s.room} title={`Back to ${now.roomName}`}>
         {now.roomName}
       </Link>
-      <SpeakerBanner me={me.data ?? null} view={view} onStart={() => void c.start()} onStop={() => void c.stop()} onReclaim={() => void c.reclaim()} />
+      <SpeakerBanner
+        me={me.data ?? null}
+        room={{ slug: now.slug, name: now.roomName }}
+        view={view}
+        onStart={() => void c.start()}
+        onStop={() => void c.stop()}
+        onReclaim={() => void c.reclaim()}
+      />
     </div>
   );
 }

@@ -1,17 +1,20 @@
 import type { Me } from '@spinroom/contracts';
 import { useEffect, useState } from 'react';
 import { LineIcon } from '../components/LineIcon';
+import { ListeningMenu } from './ListeningMenu';
 import type { SpeakerView } from '../speaker/types';
 import s from './SpeakerBanner.module.css';
 
 /**
  * Your speaker as one pill-shaped button that says what it will do:
- * Listen → Connecting… → Listening (hover: Stop); "Play here" if Spotify moved to another
+ * Listen → Connecting… → Listening ▾ (switch rooms, or stop); "Play here" if Spotify moved to another
  * device; "Try again" (with the reason under it) after an error.
  */
 export function SpeakerBanner(props: {
   me: Me | null;
   view: SpeakerView;
+  /** The room this speaker plays (named in the Listening menu). */
+  room: { slug: string; name: string };
   onStart: () => void;
   onStop: () => void;
   onReclaim: () => void;
@@ -43,21 +46,7 @@ export function SpeakerBanner(props: {
           <span>Connecting…</span>
         </button>
       )}
-      {st === 'live' && (
-        <button className={s.pill} onClick={props.onStop} aria-label="Listening — stop" title={`Stop listening in this tab${sync}`}>
-          <span className={s.bars} aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span className={s.label}>
-            <span className={s.now}>Listening</span>
-            <span className={s.hover} aria-hidden="true">
-              Stop
-            </span>
-          </span>
-        </button>
-      )}
+      {st === 'live' && <ListeningMenu slug={props.room.slug} roomName={props.room.name} title={`Listening${sync}`} onStop={props.onStop} />}
       {st === 'paused_elsewhere' && (
         <button className={s.pill} onClick={props.onReclaim} title="Spotify is playing on another device">
           <LineIcon name="headphones" size={17} />

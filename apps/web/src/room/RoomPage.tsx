@@ -238,6 +238,7 @@ export default function RoomPage({ slug }: { slug: string }) {
         <NowListening exceptSlug={slug} />
         <SpeakerBanner
           me={me.data ?? null}
+          room={{ slug, name: snap.room.name }}
           view={speaker.view}
           onStart={() => void speaker.start()}
           onStop={() => void speaker.controller?.stop()}

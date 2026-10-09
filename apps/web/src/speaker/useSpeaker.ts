@@ -4,7 +4,7 @@ import type { RoomConn } from '../room/store';
 import { serverClock, syncClock } from './clock';
 import { SpeakerController } from './controller';
 import { FakePlayer } from './fakePlayer';
-import { listening, startListening } from './session';
+import { listening, registerRoomSpeaker, startListening } from './session';
 import { SpotifyPlayer } from './spotifyPlayer';
 import type { SpeakerView } from './types';
 
@@ -74,6 +74,7 @@ export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' |
   }, [controller, spotifyMode]);
 
   useEffect(() => listening.setRoomName(slug, roomName), [slug, roomName]);
+  useEffect(() => (controller ? registerRoomSpeaker(slug, controller, conn) : undefined), [slug, controller, conn]);
 
   return {
     controller,

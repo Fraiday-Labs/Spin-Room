@@ -54,34 +54,17 @@
   }
 }
 
-/* Listening: quiet green, little moving bars; hover says what a tap does. */
+/* Listening: quiet green, little moving bars; a tap opens the room switcher. */
 .live .pill {
   background: rgb(124 242 176 / 0.12);
   color: var(--ok);
 }
 .live .pill:hover,
-.live .pill:focus-visible {
-  background: rgb(255 255 255 / 0.1);
-  color: var(--text);
+.live .pill[aria-expanded='true'] {
+  background: rgb(124 242 176 / 0.18);
 }
 .label {
-  display: inline-grid;
-}
-.now,
-.hover {
-  grid-area: 1 / 1;
-  transition: opacity 120ms ease;
-}
-.hover {
-  opacity: 0;
-}
-.live .pill:hover .now,
-.live .pill:focus-visible .now {
-  opacity: 0;
-}
-.live .pill:hover .hover,
-.live .pill:focus-visible .hover {
-  opacity: 1;
+  display: inline-block;
 }
 .bars {
   display: inline-flex;

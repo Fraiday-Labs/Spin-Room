@@ -585,7 +585,8 @@ test('the speaker stops and starts again cleanly, and a second tab takes it over
 
   await page.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(banner).toHaveAttribute('data-status', 'live');
-  await page.getByRole('button', { name: 'Listening — stop' }).click();
+  await page.getByRole('button', { name: /^Listening to / }).click();
+  await page.getByRole('menuitem', { name: 'Stop listening' }).click();
   await expect(banner).toHaveAttribute('data-status', 'off');
   await page.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(banner).toHaveAttribute('data-status', 'live');
@@ -655,7 +656,68 @@ test('music keeps playing on other pages, with Listening in the top bar', async 
 
   // Stopping from the top bar on another page ends it.
   await page.getByRole('link', { name: 'Spinroom home' }).click();
-  await page.getByTestId('now-listening').getByRole('button', { name: 'Listening — stop' }).click();
+  await page
+    .getByTestId('now-listening')
+    .getByRole('button', { name: /^Listening to / })
+    .click();
+  await page.getByRole('menuitem', { name: 'Stop listening' }).click();
   await expect(page.getByTestId('now-listening')).toHaveCount(0);
   expect(await playing()).toBeNull();
+});
+
+test('the Listening menu switches between rooms with music on, in one step', async ({ page }) => {
+  await signInViaUi(page, uid('hopper'));
+  const makeRoom = async (name: string, track: string) => {
+    await page.getByRole('link', { name: 'Spinroom home' }).click();
+    await page.getByTestId('open-create-room').click();
+    await page.getByTestId('room-name').fill(name);
+    await page.getByTestId('create-room').click();
+    await expect(page).toHaveURL(/\/r\//);
+    await addTrack(page, track);
+    await page.getByRole('tab', { name: 'DJ queue' }).click();
+    await page.getByTestId('queue-toggle').click();
+    await expect(page.getByTestId('np-title')).toHaveText(track);
+    return new URL(page.url()).pathname;
+  };
+  const a = `Hop A ${run}`;
+  const b = `Hop B ${run}`;
+  await makeRoom(a, 'Neon Tide');
+  await page.getByRole('button', { name: 'Listen', exact: true }).click();
+  await expect(page.getByRole('button', { name: `Listening to ${a}` })).toBeVisible();
+  const bPath = await makeRoom(b, 'Booth Lights');
+
+  // In room B, still hearing A: its menu lists both rooms with what's playing, A ticked.
+  const bar = page.getByTestId('now-listening');
+  await bar.getByRole('button', { name: `Listening to ${a}` }).click();
+  const menu = page.getByRole('menu', { name: 'Listening' });
+  await expect(menu.getByRole('menuitemradio', { name: new RegExp(a) })).toHaveAttribute('aria-checked', 'true');
+  await expect(menu.getByRole('menuitemradio', { name: new RegExp(b) })).toContainText('Booth Lights');
+
+  // Pick B: this room's own button goes live, and A stops (no Stop / Listen needed).
+  await menu.getByRole('menuitemradio', { name: new RegExp(b) }).click();
+  await expect(page.getByRole('button', { name: `Listening to ${b}` })).toBeVisible();
+  await expect(page.getByTestId('now-listening')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const sp = (window as unknown as { __speaker: { player: { getState(): Promise<{ paused: boolean } | null> } } }).__speaker;
+        return (await sp.player.getState())?.paused ?? null;
+      }),
+    )
+    .toBe(false);
+
+  // From another page, switch back to A.
+  await page.getByRole('link', { name: 'Spinroom home' }).click();
+  await page
+    .getByTestId('now-listening')
+    .getByRole('button', { name: `Listening to ${b}` })
+    .click();
+  await page
+    .getByRole('menu', { name: 'Listening' })
+    .getByRole('menuitemradio', { name: new RegExp(a) })
+    .click();
+  await expect(page.getByTestId('now-listening')).toContainText(a);
+  await expect(page.getByTestId('now-listening').getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  await page.goto(bPath);
+  await expect(page.getByRole('button', { name: 'Listen', exact: true })).toBeVisible();
 });
