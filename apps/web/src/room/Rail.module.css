@@ -314,3 +314,17 @@
 .source:empty {
   display: none;
 }
+
+/* Album art where the track number used to be. */
+.setArt {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--charcoal);
+  user-select: none;
+}
+.blocked .setArt {
+  opacity: 0.5;
+}

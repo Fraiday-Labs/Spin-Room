@@ -470,7 +470,11 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
               >
                 ⠿
               </span>
-              <span className={s.num}>{i + 1}</span>
+              {it.track.artUrl ? (
+                <img src={it.track.artUrl} alt="" className={s.setArt} draggable={false} loading="lazy" />
+              ) : (
+                <span className={s.setArt} aria-hidden="true" />
+              )}
               <span className={s.lines}>
                 <span className={s.title}>{it.track.title}</span>
                 <span className={s.sub}>
