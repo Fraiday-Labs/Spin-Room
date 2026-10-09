@@ -42,13 +42,15 @@ export function SpeakerBanner(props: {
           <span>Listen</span>
         </button>
       )}
-      {st === 'starting' && (
+      {st === 'starting' && !view.switching && (
         <button className={s.pill} disabled aria-busy="true">
           <span className={s.spinner} aria-hidden="true" />
           <span>Connecting…</span>
         </button>
       )}
-      {st === 'live' && <ListeningMenu slug={props.room.slug} roomName={props.room.name} here={props.here} title={`Listening${sync}`} onStop={props.onStop} />}
+      {(st === 'live' || (st === 'starting' && view.switching)) && (
+        <ListeningMenu slug={props.room.slug} roomName={props.room.name} here={props.here} title={`Listening${sync}`} onStop={props.onStop} />
+      )}
       {st === 'paused_elsewhere' && (
         <button className={s.pill} onClick={props.onReclaim} title="Spotify is playing on another device">
           <LineIcon name="headphones" size={17} />

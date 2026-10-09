@@ -94,9 +94,14 @@ export async function startListening(slug: string, roomName: string, controller:
     active = { slug, roomName, controller, conn, release, offEvents, offState, offView };
     changed();
   }
+  // Both calls begin in this same tick: the old room just went off, and the new one must already
+  // read "connecting", or the page shows "not listening" (its Listen button) for a frame.
+  // (Not live yet, setSpin only records the song; start plays it once connected.)
   const snap = conn.store.state.snapshot;
-  if (snap) await controller.setSpin(snap.currentSpin);
-  await controller.start(false, { fadeIn: !!handing, after: handing });
+  const spinSet = snap ? controller.setSpin(snap.currentSpin) : undefined;
+  const started = controller.start(false, { fadeIn: !!handing, after: handing });
+  await spinSet;
+  await started;
 }
 
 /** Speakers of the room pages currently open, so switching to that room reuses the page's own. */

@@ -196,6 +196,21 @@ describe('SpeakerController', () => {
     expect(player.volume).toBeCloseTo(0.6, 5);
   });
 
+  it('a switch reads "Listening" while it starts, and Stop pressed meanwhile sticks', async () => {
+    const { c, player, api } = setup();
+    await c.setSpin(spin('q', Date.now()));
+    let fadeDone!: () => void;
+    const starting = c.start(false, { fadeIn: true, after: new Promise<void>((r) => (fadeDone = r)) });
+    expect(c.view).toMatchObject({ status: 'starting', switching: true });
+    await vi.advanceTimersByTimeAsync(10);
+    await c.stop();
+    fadeDone();
+    await starting;
+    expect(c.view).toMatchObject({ status: 'off', switching: false });
+    expect((await player.getState())?.uri ?? null).toBeNull();
+    expect(api.close).toHaveBeenCalledWith('sp1');
+  });
+
   it('never leaves the music playing at zero: the next drift check puts the volume back', async () => {
     const { c, player } = setup();
     await c.start();

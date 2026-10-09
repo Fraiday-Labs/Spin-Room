@@ -17,10 +17,13 @@ function useNowListening() {
   return { now, c, view };
 }
 
-/** Listening to a room other than `slug` (its Listening ▾ menu is showing, so `slug` needs no Listen button). */
+/**
+ * Listening (or switching) to a room other than `slug`: its Listening ▾ button is showing, so
+ * `slug` needs no Listen button of its own.
+ */
 export function useListeningElsewhere(slug: string) {
   const { now, view } = useNowListening();
-  return !!now && now.slug !== slug && view.status === 'live';
+  return !!now && now.slug !== slug && (view.status === 'live' || view.status === 'starting');
 }
 
 /**

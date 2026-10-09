@@ -33,4 +33,6 @@ export interface SpeakerView {
   driftMs: number | null;
   volume: number;
   muted: boolean;
+  /** Starting as a switch from another room (already connected): it still reads "Listening". */
+  switching?: boolean;
 }

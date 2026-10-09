@@ -93,6 +93,7 @@ export class SpeakerController {
 
   private set(patch: Partial<SpeakerView>) {
     this.view = { ...this.view, ...patch };
+    if (this.view.switching && this.view.status !== 'starting') this.view = { ...this.view, switching: false };
     for (const l of this.listeners) l(this.view);
   }
 
@@ -104,7 +105,7 @@ export class SpeakerController {
     if (this.view.status === 'live' || this.view.status === 'starting') return;
     this.startedClickAt = this.localNow();
     this.fadeInNext = !!opts.fadeIn;
-    this.set({ status: 'starting', message: null });
+    this.set({ status: 'starting', message: null, switching: !!opts.fadeIn });
     try {
       this.player.onLost(() => this.handleLost());
       this.player.onError((m) => this.set({ message: m }));
@@ -115,10 +116,15 @@ export class SpeakerController {
         if ((e as { code?: string }).code === 'speaker_exists') return this.api.register(true, deviceId);
         throw e;
       });
-      this.speakerId = sp.id;
       // Let the last room finish fading out before going live: nothing here may play (or set the
       // volume) while its fade is still turning the shared player down.
       if (opts.after) await opts.after;
+      // Stopped while starting (Stop listening mid-switch): stay off.
+      if ((this.view.status as SpeakerStatus) !== 'starting') {
+        void this.api.close(sp.id).catch(() => {});
+        return;
+      }
+      this.speakerId = sp.id;
       this.set({ status: 'live' });
       this.loop = this.t.setInterval(() => void this.correct(), TIMING.driftCheckMs);
       this.beat = this.t.setInterval(() => void this.heartbeat(), TIMING.heartbeatMs);

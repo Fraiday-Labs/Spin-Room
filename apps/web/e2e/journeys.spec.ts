@@ -723,6 +723,32 @@ test('the Listening menu switches between rooms with music on, in one step', asy
   await expect.poll(async () => (await player()).uri).not.toBe(aUri);
   const bUri = (await player()).uri;
   expect(bUri).toMatch(/^spotify:track:/);
+
+  // Switching away and back from this page never flashes the Listen button or "Connecting…", not
+  // even for a frame: it reads "Listening" throughout.
+  await page.evaluate(() => {
+    const w = window as unknown as { __listenFlashed: boolean };
+    w.__listenFlashed = false;
+    new MutationObserver(() => {
+      if (document.querySelector('[data-testid="start-speaker"], [data-testid="speaker-banner"] [aria-busy="true"]')) w.__listenFlashed = true;
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await page.getByRole('button', { name: `Listening to ${b}` }).click();
+  await page
+    .getByRole('menu', { name: 'Listening' })
+    .getByRole('menuitemradio', { name: new RegExp(a) })
+    .click();
+  await expect(bar.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  await expect.poll(async () => (await player()).uri).toBe(aUri);
+  await bar.getByRole('button', { name: `Listening to ${a}` }).click();
+  await page
+    .getByRole('menu', { name: 'Listening' })
+    .getByRole('menuitemradio', { name: new RegExp(b) })
+    .click();
+  await expect(page.getByRole('button', { name: `Listening to ${b}` })).toBeVisible();
+  await expect(bar).toHaveCount(0);
+  expect(await page.evaluate(() => (window as unknown as { __listenFlashed: boolean }).__listenFlashed)).toBe(false);
+
   // Turn it down a little: the level follows you to the next room.
   await page.getByLabel('Local volume').fill('0.4');
   await expect.poll(async () => (await player()).volume).toBeCloseTo(0.4, 5);
