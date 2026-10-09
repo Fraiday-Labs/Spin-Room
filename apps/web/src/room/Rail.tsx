@@ -1,7 +1,7 @@
 import type { Crate, Me, Member, RoomSnapshot, Track } from '@spinroom/contracts';
 import { ApiError, formatMs } from '@spinroom/sdk';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { api, errorMessage } from '../lib/api';
 import { AvatarSprite } from './AvatarSprite';
@@ -283,19 +283,32 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   const [justAdded, setJustAdded] = useState<ReadonlyMap<string, string>>(new Map());
   const playlists = useQuery({ queryKey: ['playlists'], queryFn: () => api.call('me.playlists'), enabled: linking });
 
-  const reorder = useDragReorder<HTMLOListElement>((from, to) => {
+  const moveTo = (from: number, to: number) => {
     const cur = qc.getQueryData<Crate>(['crate', slug]);
     const it = cur?.items[from];
-    if (!cur || !it) return;
+    if (!cur || !it) return Promise.resolve();
     // Show the new order right away; the server's reply (or a refetch on error) settles it.
     qc.setQueryData<Crate>(['crate', slug], { ...cur, items: moveItem(cur.items, from, to) });
-    api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: to } }).then(
+    return api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: to } }).then(
       (c) => qc.setQueryData(['crate', slug], c),
       (e: unknown) => {
         notify(e instanceof ApiError ? e.message : errorMessage(e));
         void qc.invalidateQueries({ queryKey: ['crate', slug] });
       },
     );
+  };
+  const reorder = useDragReorder<HTMLOListElement>(moveTo);
+  // Moving a row with the keyboard redraws the list (the server's reply even gives rows new ids), which drops
+  // focus: put it back on the handle of the row now at the new spot, until the server's reply has landed.
+  const refocus = useRef<{ uri: string; at: number; until: number; settled: boolean } | null>(null);
+  useLayoutEffect(() => {
+    const want = refocus.current;
+    if (!want) return;
+    if (Date.now() > want.until) return void (refocus.current = null);
+    const grip = reorder.listRef.current?.querySelectorAll<HTMLElement>('[data-grip]')[want.at];
+    if (grip?.dataset.track !== want.uri) return;
+    if (document.activeElement !== grip) grip.focus();
+    if (want.settled) refocus.current = null;
   });
 
   if (!me) return <p className="muted">Sign in to build your set.</p>;
@@ -464,7 +477,25 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
               className={`${s.item} ${s.draggable} ${it.id === nextId ? s.next : ''} ${it.id === draggingId ? s.dragging : ''}`}
               onPointerDown={(e) => reorder.onPointerDown(e, i)}
             >
-              <span className={s.grip} data-grip aria-hidden="true" title="Drag to reorder">
+              {/* Drag handle; with the keyboard, focus it and press ↑ / ↓. (A span, so drags can start on it.) */}
+              <span
+                className={s.grip}
+                data-grip
+                data-track={it.track.uri}
+                role="button"
+                tabIndex={0}
+                title="Drag to reorder"
+                aria-label={`Reorder ${it.track.title}: use the up and down arrow keys`}
+                onKeyDown={(e) => {
+                  const to = e.key === 'ArrowUp' ? i - 1 : e.key === 'ArrowDown' ? i + 1 : null;
+                  if (to === null) return;
+                  e.preventDefault();
+                  if (to < 0 || to >= c.items.length) return;
+                  const want = { uri: it.track.uri, at: to, until: Date.now() + 2000, settled: false };
+                  refocus.current = want;
+                  void moveTo(i, to).finally(() => (want.settled = true));
+                }}
+              >
                 ⠿
               </span>
               <span className={s.num}>{i + 1}</span>
@@ -477,22 +508,6 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
                 ))}
                 {it.id === nextId && <span className="badge badge-ok">next</span>}
               </span>
-              <button
-                className="btn btn-ghost"
-                disabled={i === 0}
-                aria-label="Move up"
-                onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i - 1 } }))}
-              >
-                ↑
-              </button>
-              <button
-                className="btn btn-ghost"
-                disabled={i === c.items.length - 1}
-                aria-label="Move down"
-                onClick={() => run(() => api.call('crate.move', { params: { slug, itemId: it.id }, body: { position: i + 1 } }))}
-              >
-                ↓
-              </button>
               <button
                 className="btn btn-ghost"
                 aria-label={`Remove ${it.track.title}`}

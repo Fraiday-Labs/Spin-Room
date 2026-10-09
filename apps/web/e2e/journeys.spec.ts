@@ -158,7 +158,7 @@ test('owners close, reopen and delete rooms, and listeners are told', async ({ p
   await expect(friend.getByText(/No room called/)).toBeVisible();
 });
 
-test('drag tracks in My set to reorder them', async ({ page }) => {
+test('drag tracks in My set to reorder them (or use the arrow keys on the handle)', async ({ page }) => {
   await signInViaUi(page, uid('dragger'));
   await expect(page).toHaveURL(/\/lobby/);
   await page.getByTestId('open-create-room').click();
@@ -185,6 +185,17 @@ test('drag tracks in My set to reorder them', async ({ page }) => {
   await page.reload();
   await page.getByRole('tab', { name: 'My set' }).click();
   await expect(page.getByTestId('my-set').locator('li').nth(2)).toContainText('Neon Tide');
+
+  // No up/down arrow buttons; the drag handle moves a track with the arrow keys instead.
+  const set = page.getByTestId('my-set');
+  await expect(set.getByRole('button', { name: /^Move (up|down)$/ })).toHaveCount(0);
+  await set.getByRole('button', { name: /^Reorder Neon Tide/ }).focus();
+  const saved = page.waitForResponse((r) => r.request().method() === 'PATCH' && /\/crate\//.test(r.url()));
+  await page.keyboard.press('ArrowUp');
+  await expect(set.locator('li').nth(1)).toContainText('Neon Tide');
+  // Still on the handle once the server's reply has redrawn the list.
+  await saved;
+  await expect(set.getByRole('button', { name: /^Reorder Neon Tide/ })).toBeFocused();
 });
 
 test('a crash in one panel stays in that panel and is reported', async ({ browser }) => {
