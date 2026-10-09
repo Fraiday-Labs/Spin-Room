@@ -52,9 +52,6 @@
   border-radius: 6px;
   background: rgb(255 255 255 / 0.03);
 }
-.next {
-  outline: 1px solid var(--ok);
-}
 .grow {
   flex: 1;
   min-width: 0;
@@ -203,8 +200,7 @@
   cursor: grabbing;
 }
 .hint {
-  margin: -4px 0 0;
-  font-size: 0.85em;
+  font-size: 13px;
 }
 
 /* Search result already in the set. */
@@ -231,4 +227,75 @@
   .added {
     animation: none;
   }
+}
+
+/* My set: the list on top, then linking a playlist and search. */
+.setPanel {
+  gap: 10px;
+}
+.setPanel > .setHead {
+  min-height: 32px;
+}
+.empty {
+  margin: 0;
+  padding: 18px 12px;
+  text-align: center;
+  font-size: 14px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+}
+.addArea {
+  display: grid;
+  gap: var(--gap);
+  margin-top: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+/* Set rows: two calm lines (title; artist with any status in front), no pills. */
+.setItem {
+  gap: 10px;
+  padding: 10px 6px 10px 8px;
+  border-radius: 10px;
+}
+.lines {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.title,
+.sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title {
+  font-weight: 600;
+}
+.sub {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.upNext {
+  color: var(--ok);
+  font-weight: 600;
+}
+.why {
+  color: var(--amber);
+}
+.next {
+  outline: none;
+  background: rgb(124 242 176 / 0.08);
+}
+.blocked .title {
+  color: var(--text-dim);
+}
+.remove {
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
+  color: var(--text-dim);
+}
+.remove:hover {
+  color: var(--text);
 }

@@ -262,7 +262,7 @@ test('a DJ can clear their whole set', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('playlist in Spotify is emptied too');
   await page.getByRole('alert').getByRole('button', { name: 'Clear set' }).click();
   await expect(page.getByTestId('my-set').locator('li')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: 'My set (0)' })).toBeVisible();
+  await expect(page.getByTestId('set-empty')).toBeVisible();
   // Still usable afterwards.
   await addTrack(page, 'Pixel Rain');
   await expect(page.getByTestId('my-set').locator('li')).toHaveCount(1);

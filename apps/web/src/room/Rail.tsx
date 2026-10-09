@@ -262,6 +262,13 @@ function Queue(props: {
   );
 }
 
+/** Why a track in your set won't play, in a few words. */
+const FLAG_TEXT: Record<'unplayable' | 'too_long' | 'explicit_blocked', string> = {
+  unplayable: 'Not available on Spotify',
+  too_long: 'Too long for this room',
+  explicit_blocked: 'Explicit — off in this room',
+};
+
 function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify: (m: string) => void }) {
   const qc = useQueryClient();
   const slug = snap.room.slug;
@@ -347,99 +354,10 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   const inSetIds = new Set(c?.items.map((it) => it.id));
   const isAdded = (uri: string) => inSetUris.has(uri) || inSetIds.has(justAdded.get(uri) ?? '');
   return (
-    <div className="stack">
+    <div className={`stack ${s.setPanel}`}>
       {c?.notice && <div className="notice">{c.notice}</div>}
       <div className={s.setHead}>
-        {c?.playlist ? (
-          <span>
-            Playing from{' '}
-            <a href={c.playlist.url} target="_blank" rel="noreferrer">
-              {c.playlist.name}
-            </a>{' '}
-            in Spotify
-          </span>
-        ) : (
-          <span className="muted">{c?.mode === 'local' && c.items.length ? 'Set stored in Spinroom' : 'Add a track to start your set.'}</span>
-        )}
-        <button className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setLinking((v) => !v)}>
-          {linking ? 'Close' : 'Link a playlist'}
-        </button>
-      </div>
-      {linking && (
-        <div className="card stack">
-          <p className="muted">
-            Pick one of your Spotify playlists as your set. Spinroom plays it top to bottom; edits you make in Spotify show up before your next turn.
-          </p>
-          {playlists.isLoading && <p className="muted">Loading playlists…</p>}
-          {playlists.error && <p className="error">{errorMessage(playlists.error)}</p>}
-          <ul className={s.list}>
-            {playlists.data?.map((p) => (
-              <li key={p.id} className={s.item}>
-                <span className={s.grow}>
-                  {p.name} <span className="muted">· {p.trackCount} tracks</span>
-                </span>
-                {p.ownedByMe && (
-                  <button
-                    className="btn"
-                    onClick={() =>
-                      run(() => api.call('crate.import', { params: { slug }, body: { mode: 'link', playlist: p.id } })).then(() => setLinking(false))
-                    }
-                  >
-                    Link
-                  </button>
-                )}
-                <button
-                  className="btn btn-ghost"
-                  onClick={() =>
-                    run(() => api.call('crate.import', { params: { slug }, body: { mode: 'copy', playlist: p.id } })).then(() => setLinking(false))
-                  }
-                >
-                  Copy
-                </button>
-              </li>
-            ))}
-          </ul>
-          <button
-            className="btn"
-            onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'create' } })).then(() => setLinking(false))}
-          >
-            Create “Spinroom – {snap.room.name}” playlist
-          </button>
-        </div>
-      )}
-      <label className="field">
-        Search Spotify
-        <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Song or artist" data-testid="set-search" />
-      </label>
-      {results.data && (
-        <ul className={s.list} data-testid="search-results">
-          {results.data.map((t) => (
-            <li key={t.uri} className={s.item}>
-              {t.artUrl ? <img src={t.artUrl} alt="" width={32} height={32} className={s.thumbSm} /> : <span className={s.thumbSm} />}
-              <span className={s.grow}>
-                <span className={s.strong}>{t.title}</span>
-                <span className="muted">
-                  {' '}
-                  {t.artists.join(', ')} · {formatMs(t.durationMs)}
-                  {t.explicit && ' · E'}
-                </span>
-              </span>
-              {isAdded(t.uri) ? (
-                <span className={s.added} role="status" aria-label={`${t.title} added to your set`}>
-                  ✓ Added
-                </span>
-              ) : (
-                <button className="btn" onClick={() => void add(t)} disabled={adding.has(t.uri)} aria-label={`Add ${t.title}`}>
-                  {adding.has(t.uri) ? 'Adding…' : 'Add'}
-                </button>
-              )}
-            </li>
-          ))}
-          {results.data.length === 0 && <li className="muted">No matches.</li>}
-        </ul>
-      )}
-      <div className={s.setHead}>
-        <h3 className={s.h}>My set ({c?.items.length ?? 0})</h3>
+        <span className={`muted ${s.hint}`}>{c && c.items.length > 1 ? 'Drag to change order' : ''}</span>
         {!!c?.items.length && !confirmClear && (
           <button className="btn btn-ghost btn-sm" onClick={() => setConfirmClear(true)}>
             Clear set
@@ -468,13 +386,17 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
           </div>
         </div>
       )}
-      {c && c.items.length > 1 && <p className={`muted ${s.hint}`}>Drag tracks to reorder.</p>}
+      {c && c.items.length === 0 && (
+        <p className={`muted ${s.empty}`} data-testid="set-empty">
+          Your set is empty. Search below to add a track.
+        </p>
+      )}
       <ol className={s.list} data-testid="my-set" ref={reorder.listRef}>
         {c &&
           shown.map((it, i) => (
             <li
               key={it.id}
-              className={`${s.item} ${s.draggable} ${it.id === nextId ? s.next : ''} ${it.id === draggingId ? s.dragging : ''}`}
+              className={`${s.item} ${s.setItem} ${s.draggable} ${it.id === nextId && !it.flags.length ? s.next : ''} ${it.flags.length ? s.blocked : ''} ${it.id === draggingId ? s.dragging : ''}`}
               onPointerDown={(e) => reorder.onPointerDown(e, i)}
             >
               {/* Drag handle; with the keyboard, focus it and press ↑ / ↓. (A span, so drags can start on it.) */}
@@ -499,17 +421,19 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
                 ⠿
               </span>
               <span className={s.num}>{i + 1}</span>
-              <span className={s.grow}>
-                <span className={s.strong}>{it.track.title}</span> <span className="muted">{it.track.artists.join(', ')}</span>
-                {it.flags.map((f) => (
-                  <span key={f} className="badge badge-warn">
-                    {f === 'unplayable' ? 'unavailable' : f === 'too_long' ? 'too long' : 'explicit'}
-                  </span>
-                ))}
-                {it.id === nextId && <span className="badge badge-ok">next</span>}
+              <span className={s.lines}>
+                <span className={s.title}>{it.track.title}</span>
+                <span className={s.sub}>
+                  {it.flags.length ? (
+                    <span className={s.why}>{FLAG_TEXT[it.flags[0]!]} · </span>
+                  ) : (
+                    it.id === nextId && <span className={s.upNext}>Up next · </span>
+                  )}
+                  {it.track.artists.join(', ')}
+                </span>
               </span>
               <button
-                className="btn btn-ghost"
+                className={`btn btn-ghost btn-icon ${s.remove}`}
                 aria-label={`Remove ${it.track.title}`}
                 onClick={() => run(() => api.call('crate.remove', { params: { slug, itemId: it.id } }))}
               >
@@ -518,6 +442,97 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
             </li>
           ))}
       </ol>
+      <div className={s.addArea}>
+        <div className={s.setHead}>
+          {c?.playlist ? (
+            <span>
+              Playing from{' '}
+              <a href={c.playlist.url} target="_blank" rel="noreferrer">
+                {c.playlist.name}
+              </a>{' '}
+              in Spotify
+            </span>
+          ) : (
+            <span className="muted">{c?.mode === 'local' && c.items.length ? 'Set stored in Spinroom' : 'Add a track to start your set.'}</span>
+          )}
+          <button className="btn btn-sm" style={{ justifySelf: 'start' }} onClick={() => setLinking((v) => !v)}>
+            {linking ? 'Close' : 'Link a playlist'}
+          </button>
+        </div>
+        {linking && (
+          <div className="card stack">
+            <p className="muted">
+              Pick one of your Spotify playlists as your set. Spinroom plays it top to bottom; edits you make in Spotify show up before your next turn.
+            </p>
+            {playlists.isLoading && <p className="muted">Loading playlists…</p>}
+            {playlists.error && <p className="error">{errorMessage(playlists.error)}</p>}
+            <ul className={s.list}>
+              {playlists.data?.map((p) => (
+                <li key={p.id} className={s.item}>
+                  <span className={s.grow}>
+                    {p.name} <span className="muted">· {p.trackCount} tracks</span>
+                  </span>
+                  {p.ownedByMe && (
+                    <button
+                      className="btn"
+                      onClick={() =>
+                        run(() => api.call('crate.import', { params: { slug }, body: { mode: 'link', playlist: p.id } })).then(() => setLinking(false))
+                      }
+                    >
+                      Link
+                    </button>
+                  )}
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() =>
+                      run(() => api.call('crate.import', { params: { slug }, body: { mode: 'copy', playlist: p.id } })).then(() => setLinking(false))
+                    }
+                  >
+                    Copy
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              className="btn"
+              onClick={() => run(() => api.call('crate.import', { params: { slug }, body: { mode: 'create' } })).then(() => setLinking(false))}
+            >
+              Create “Spinroom – {snap.room.name}” playlist
+            </button>
+          </div>
+        )}
+        <label className="field">
+          Search Spotify
+          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Song or artist" data-testid="set-search" />
+        </label>
+        {results.data && (
+          <ul className={s.list} data-testid="search-results">
+            {results.data.map((t) => (
+              <li key={t.uri} className={s.item}>
+                {t.artUrl ? <img src={t.artUrl} alt="" width={32} height={32} className={s.thumbSm} /> : <span className={s.thumbSm} />}
+                <span className={s.grow}>
+                  <span className={s.strong}>{t.title}</span>
+                  <span className="muted">
+                    {' '}
+                    {t.artists.join(', ')} · {formatMs(t.durationMs)}
+                    {t.explicit && ' · E'}
+                  </span>
+                </span>
+                {isAdded(t.uri) ? (
+                  <span className={s.added} role="status" aria-label={`${t.title} added to your set`}>
+                    ✓ Added
+                  </span>
+                ) : (
+                  <button className="btn" onClick={() => void add(t)} disabled={adding.has(t.uri)} aria-label={`Add ${t.title}`}>
+                    {adding.has(t.uri) ? 'Adding…' : 'Add'}
+                  </button>
+                )}
+              </li>
+            ))}
+            {results.data.length === 0 && <li className="muted">No matches.</li>}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
