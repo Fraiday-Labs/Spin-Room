@@ -361,6 +361,25 @@ describe('voting', () => {
     expect(h.state.current!.id).not.toBe(cur.id);
   });
 
+  it('Back replays the previous song on this DJ’s turn; the interrupted song plays next for them', () => {
+    const h = playingRoom(2);
+    expect(h.fails({ type: 'previous', userId: 'dj', by: 'dj' })).toBe('no_previous');
+    const first = h.state.current!.track;
+    h.playThrough();
+    const second = h.state.current!;
+    expect(second.track.uri).not.toBe(first.uri);
+    expect(h.fails({ type: 'previous', userId: 'l0', by: 'dj' })).toBe('forbidden');
+    h.run({ type: 'previous', userId: 'dj', by: 'dj' });
+    const replay = h.state.current!;
+    expect(replay.id).not.toBe(second.id);
+    expect(replay.track.uri).toBe(first.uri);
+    expect(replay.djUserId).toBe('dj');
+    expect(h.eventsOf('spin.started').at(-1)!.previousTrack?.uri).toBe(second.track.uri);
+    // After the replay, the interrupted song is next in the DJ's set.
+    h.playThrough();
+    expect(h.state.current!.track.uri).toBe(second.track.uri);
+  });
+
   it('a forgotten pause resumes by itself after 10 minutes', () => {
     const h = playingRoom(1);
     h.run({ type: 'pause', userId: 'dj', by: 'dj', paused: true });

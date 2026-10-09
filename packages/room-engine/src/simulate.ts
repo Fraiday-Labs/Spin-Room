@@ -49,7 +49,7 @@ export class EngineHarness {
       if (ef.type === 'schedule') this.timers.push({ at: ef.at, spinId: ef.spinId });
       else if (ef.type === 'advanceSet') {
         const set = this.sets[ef.userId];
-        if (set && set.tracks.length) set.position = (set.position + ef.by) % set.tracks.length;
+        if (set && set.tracks.length) set.position = (((set.position + ef.by) % set.tracks.length) + set.tracks.length) % set.tracks.length;
         follow.push({ type: 'setUpdated', userId: ef.userId, preview: this.preview(ef.userId) });
       } else if (ef.type === 'awardPoints') this.points[ef.userId] = (this.points[ef.userId] ?? 0) + ef.points;
       else if (ef.type === 'spinStarted') this.persistedSpins.push({ id: ef.spin.id });

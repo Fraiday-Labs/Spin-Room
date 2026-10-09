@@ -1,11 +1,11 @@
-/* Now playing: track | votes | yours. */
+/* Now playing: track | DJ transport (centred) | thumbs and volume. */
 .panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 20px;
   align-items: center;
-  padding: 14px 20px;
+  padding: 12px 20px;
   background: var(--indigo);
   border-top: 1px solid var(--border);
 }
@@ -35,9 +35,9 @@
 .art img,
 .noArt {
   display: block;
-  width: 72px;
-  height: 72px;
-  border-radius: 8px;
+  width: 56px;
+  height: 56px;
+  border-radius: 7px;
   object-fit: cover;
   flex: none;
 }
@@ -47,19 +47,23 @@
 .meta {
   min-width: 0;
 }
-.title {
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+/* "Song | Artist" on one line. */
+.headline {
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.sep {
+  color: var(--text-dim);
+  opacity: 0.6;
+}
 .artist {
   color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .sub {
   display: flex;
@@ -145,6 +149,21 @@
 .pause {
   color: var(--text);
 }
+/* Back · Pause/Play · Forward, centred in the bar. */
+.transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.transport .pause {
+  min-width: 44px;
+  min-height: 44px;
+  background: rgb(255 255 255 / 0.08);
+}
+.transport .pause:hover {
+  background: rgb(255 255 255 / 0.14);
+}
 .votes {
   display: flex;
   align-items: center;
@@ -178,7 +197,7 @@
   accent-color: var(--cyan);
 }
 
-/* Narrow windows: Skip spin wraps under the other controls if it must. */
+/* Narrow windows: tighter controls. */
 @media (max-width: 1100px) and (min-width: 721px) {
   .controls {
     flex-wrap: wrap;
@@ -192,8 +211,8 @@
 /* Phones: one compact strip — track, pause (DJ), thumbs, mute. Use the phone's own volume buttons. */
 @media (max-width: 720px) {
   .panel {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   }
   .art img,
@@ -205,19 +224,22 @@
   .track {
     gap: 10px;
   }
-  .title {
+  .headline {
     font-size: 15px;
-  }
-  .artist {
-    font-size: 13px;
   }
   .controls {
     gap: 2px;
   }
   .sub,
-  .volume,
-  .skipSpin {
+  .volume {
     display: none;
+  }
+  /* The DJ can't vote on their own song: make room for Back / Pause / Forward. */
+  .djVotes {
+    display: none;
+  }
+  .transport {
+    gap: 0;
   }
   .iconBtn {
     min-width: 40px;

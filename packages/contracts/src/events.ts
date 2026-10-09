@@ -11,6 +11,7 @@ import {
   RoomStatusSchema,
   SpinSchema,
   TallySchema,
+  TrackSchema,
   TimestampSchema,
   UpNextItemSchema,
   MemberSchema,
@@ -34,7 +35,14 @@ export const RoomEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({ ...base, type: z.literal('booth.changed'), booth: z.array(BoothSlotSchema), activeSlot: z.number().int().nullable() }),
   z.object({ ...base, type: z.literal('dj_queue.changed'), queue: z.array(QueueEntrySchema) }),
-  z.object({ ...base, type: z.literal('spin.started'), spin: SpinSchema, upNext: z.array(UpNextItemSchema) }),
+  z.object({
+    ...base,
+    type: z.literal('spin.started'),
+    spin: SpinSchema,
+    upNext: z.array(UpNextItemSchema),
+    /** The song before this one, which the DJ's Back button replays. */
+    previousTrack: TrackSchema.nullable().optional(),
+  }),
   z.object({
     ...base,
     type: z.literal('spin.ended'),

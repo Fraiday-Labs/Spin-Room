@@ -267,6 +267,8 @@ export const RoomSnapshotSchema = z.object({
   activeSlot: z.number().int().nullable(),
   queue: z.array(QueueEntrySchema),
   currentSpin: SpinSchema.nullable(),
+  /** The song before the current one (the DJ's Back button replays it). */
+  previousTrack: TrackSchema.nullable().optional(),
   tally: TallySchema,
   upNext: z.array(UpNextItemSchema),
   recentChat: z.array(ChatMessageSchema),

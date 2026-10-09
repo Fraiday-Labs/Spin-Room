@@ -273,6 +273,12 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
   const qc = useQueryClient();
   const slug = snap.room.slug;
   const crate = useQuery({ queryKey: ['crate', slug], queryFn: () => api.call('crate.get', { params: { slug } }), enabled: !!me });
+  // A new song moves set positions (yours, if you're DJing): re-read so "Up next" stays right.
+  const spinId = snap.currentSpin?.id ?? null;
+  const signedIn = !!me;
+  useEffect(() => {
+    if (signedIn) void qc.invalidateQueries({ queryKey: ['crate', slug] });
+  }, [spinId, signedIn, qc, slug]);
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
   useEffect(() => {

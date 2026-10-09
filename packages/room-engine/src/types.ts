@@ -70,6 +70,8 @@ export interface RoomState {
   lastSpeakerLiveAt: number;
   /** User already told they are up next for the coming spin (FR-L4). */
   upNextNotified: string | null;
+  /** The last spin that ended (its track), for the DJ's Back button. */
+  previous?: { track: Track } | null;
 }
 
 export type Command =
@@ -84,6 +86,8 @@ export type Command =
   | { type: 'vote'; userId: string; spinId: string; value: VoteValue | null; surface: Surface }
   | { type: 'skip'; userId: string; by: 'dj' | 'mod' }
   | { type: 'pause'; userId: string; by: 'dj' | 'mod'; paused: boolean }
+  /** Back: replay the song that played before this one, on this DJ's turn. */
+  | { type: 'previous'; userId: string; by: 'dj' | 'mod' }
   | { type: 'removeFromBooth'; userId: string }
   | { type: 'timer'; spinId: string }
   | { type: 'setUpdated'; userId: string; preview: SetPreview }

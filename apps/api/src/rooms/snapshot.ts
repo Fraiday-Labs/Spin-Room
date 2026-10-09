@@ -100,6 +100,7 @@ export async function buildSnapshot(ctx: AppContext, room: RoomRow, state: RoomS
           pausedAtServerMs: cur.pausedAt ?? null,
         }
       : null,
+    previousTrack: state.previous?.track ?? null,
     tally: { hype: t.hype, skip: t.skip, eligibleVoters: t.eligibleVoters },
     upNext: computeUpNext(state),
     recentChat: chat.reverse().map(chatView),

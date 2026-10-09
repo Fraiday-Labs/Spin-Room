@@ -272,7 +272,15 @@ export default function RoomPage({ slug }: { slug: string }) {
                 notify(errorMessage(e));
               }
             }}
+            onPreviousSpin={async () => {
+              try {
+                await api.call('spins.previous', { params: { slug } });
+              } catch (e) {
+                notify(errorMessage(e));
+              }
+            }}
             canControlSpin={isMod || snap.currentSpin?.djUserId === userId}
+            isMySpin={!!userId && snap.currentSpin?.djUserId === userId}
             onPauseSpin={async (paused) => {
               try {
                 await api.call('spins.pause', { params: { slug }, body: { paused } });

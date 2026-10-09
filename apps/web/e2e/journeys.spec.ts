@@ -534,3 +534,25 @@ test('the DJ can pause and resume the track for everyone', async ({ page, browse
   await expect(friend.getByTestId('np-paused')).toHaveCount(0);
   await expect.poll(playerPaused).toBe(false);
 });
+
+test('the DJ can skip forward, and go back to the song before', async ({ page }) => {
+  await signInViaUi(page, uid('backer'));
+  await page.getByTestId('open-create-room').click();
+  await page.getByTestId('room-name').fill(`Back ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/back-/);
+  for (const t of ['Neon Tide', 'Booth Lights', 'Pixel Rain']) await addTrack(page, t);
+  await page.getByRole('tab', { name: 'DJ queue' }).click();
+  await page.getByTestId('queue-toggle').click();
+  await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
+  // Nothing before the first song yet.
+  await expect(page.getByTestId('previous-spin')).toBeDisabled();
+
+  await page.getByRole('button', { name: 'Skip to the next song' }).click();
+  await expect(page.getByTestId('np-title')).toHaveText('Booth Lights');
+  await page.getByRole('button', { name: /^Back to the previous song, Neon Tide/ }).click();
+  await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
+  // The interrupted song is back at the front of the set.
+  await page.getByRole('tab', { name: 'My set' }).click();
+  await expect(page.getByTestId('my-set').locator('li').filter({ hasText: 'Up next' })).toContainText('Booth Lights');
+});

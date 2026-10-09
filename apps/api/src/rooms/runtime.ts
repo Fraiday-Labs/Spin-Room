@@ -1,6 +1,6 @@
 import { channels, SpinroomError, TIMING, type RoomEvent, type RoomEventBody, type RoomSettings, type RoomSnapshot } from '@spinroom/contracts';
 import { apply, createRoomState, spinEndsAt, type Command, type Effect, type RoomState } from '@spinroom/room-engine';
-import { and, asc, desc, eq, inArray, isNull, lt, notInArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, notInArray, sql } from 'drizzle-orm';
 import type { AppContext } from '../context.js';
 import {
   avatarReports,
@@ -158,6 +158,21 @@ export class RoomRuntime implements RoomHooks {
       .orderBy(desc(spins.startedAt))
       .limit(TIMING.historyLimit);
     s.recent = recent.map((r) => r.uri).reverse();
+    // The last finished song, for the DJ's Back button.
+    const last = await this.ctx.db.query.spins.findFirst({ where: and(eq(spins.roomId, room.id), isNotNull(spins.endedAt)), orderBy: desc(spins.endedAt) });
+    if (last)
+      s.previous = {
+        track: {
+          uri: last.trackUri,
+          title: last.title,
+          artists: last.artists,
+          album: last.album,
+          artUrl: last.artUrl,
+          durationMs: last.durationMs,
+          explicit: last.explicit,
+          playable: true,
+        },
+      };
     for (const uid of new Set([...s.booth.map((b) => b.userId).filter((x): x is string => !!x), ...s.queue.map((x) => x.userId)])) {
       s.sets[uid] = await this.sets.preview(room.id, uid);
     }

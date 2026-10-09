@@ -562,6 +562,14 @@ export const routes = {
     body: z.object({ paused: z.boolean() }),
     response: Ok,
   }),
+  'spins.previous': route({
+    method: 'POST',
+    path: '/v1/rooms/{slug}/spins/current/previous',
+    auth: 'user',
+    summary: 'Back: replay the song before this one, on the current DJ’s turn (its DJ or a moderator).',
+    params: Slug,
+    response: Ok,
+  }),
   'spins.votes': route({
     method: 'GET',
     path: '/v1/rooms/{slug}/spins/current/votes',

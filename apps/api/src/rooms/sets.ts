@@ -143,7 +143,8 @@ export function createSetService(ctx: AppContext) {
       const rows = await items(roomId, userId);
       if (!rows.length) return;
       const m = await member(roomId, userId);
-      await updateMember(roomId, userId, { setPosition: (m.setPosition + by) % rows.length });
+      // `by` may be negative (Back puts the interrupted track first again).
+      await updateMember(roomId, userId, { setPosition: (((m.setPosition + by) % rows.length) + rows.length) % rows.length });
     },
 
     /** Re-read a linked playlist when its snapshot ID changed (edits made in Spotify). */

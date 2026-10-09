@@ -32,6 +32,7 @@ export function createRoomState(roomId: string, settings: RoomSettings, now: num
     recent: [],
     lastSpeakerLiveAt: now,
     upNextNotified: null,
+    previous: null,
   };
 }
 
@@ -173,6 +174,14 @@ export function apply(state: RoomState, cmd: Command, env: Env): ApplyResult {
       if (cmd.by === 'dj' && cur.djUserId !== cmd.userId) throw new SpinroomError('forbidden', 'Only the DJ can pause their own spin');
       if (cmd.paused) pauseSpin(tx);
       else resumeSpin(tx);
+      break;
+    }
+    case 'previous': {
+      const cur = s.current;
+      if (!cur) throw new SpinroomError('spin_not_current', 'Nothing is playing');
+      if (cmd.by === 'dj' && cur.djUserId !== cmd.userId) throw new SpinroomError('forbidden', 'Only the DJ can go back');
+      if (!s.previous) throw new SpinroomError('no_previous', 'Nothing has played before this song');
+      playPrevious(tx, s.previous.track);
       break;
     }
     case 'removeFromBooth':
@@ -371,45 +380,68 @@ function startNext(tx: Tx, afterFade: boolean) {
       fillBooth(tx);
       continue;
     }
-    const spin: EngineSpin = {
-      id: tx.env.newId(),
-      djUserId: dj,
-      slot,
-      track: chosen,
-      startedAtServerMs: tx.now + (afterFade ? TIMING.fadeMs : 0),
-      durationMs: chosen.durationMs,
-      votes: {},
-    };
-    s.current = spin;
-    s.activeSlot = slot;
     s.booth[slot]!.spinsThisTurn++;
-    tx.boothDirty = true;
-    s.recent.push(chosen.uri);
-    if (s.recent.length > TIMING.historyLimit) s.recent.splice(0, s.recent.length - TIMING.historyLimit);
     // Consume locally so Up next stays right until the runtime sends a fresh preview.
     s.sets[dj] = { tracks: preview.tracks.slice(consumed), length: preview.length };
     tx.effect({ type: 'advanceSet', userId: dj, by: consumed });
-    tx.effect({ type: 'spinStarted', spin: { ...spin, votes: {} } });
-    tx.effect({ type: 'schedule', at: spinEndsAt(spin), spinId: spin.id });
-    setStatus(tx, 'playing');
-    const upNext = computeUpNext(s);
-    tx.emit({
-      type: 'spin.started',
-      spin: {
-        id: spin.id,
-        djUserId: dj,
-        track: chosen,
-        startedAtServerMs: spin.startedAtServerMs,
-        durationMs: spin.durationMs,
-        endedAt: null,
-        endReason: null,
-      },
-      upNext,
-    });
-    tx.upNextDirty = false;
-    notifyUpNext(tx, upNext);
+    startSpin(tx, dj, slot, chosen, afterFade);
     return;
   }
+}
+
+/** Put `track` on the decks for `dj` in `slot` and tell everyone. */
+function startSpin(tx: Tx, dj: string, slot: number, track: Track, afterFade: boolean) {
+  const s = tx.s;
+  const spin: EngineSpin = {
+    id: tx.env.newId(),
+    djUserId: dj,
+    slot,
+    track,
+    startedAtServerMs: tx.now + (afterFade ? TIMING.fadeMs : 0),
+    durationMs: track.durationMs,
+    votes: {},
+  };
+  s.current = spin;
+  s.activeSlot = slot;
+  tx.boothDirty = true;
+  s.recent.push(track.uri);
+  if (s.recent.length > TIMING.historyLimit) s.recent.splice(0, s.recent.length - TIMING.historyLimit);
+  tx.effect({ type: 'spinStarted', spin: { ...spin, votes: {} } });
+  tx.effect({ type: 'schedule', at: spinEndsAt(spin), spinId: spin.id });
+  setStatus(tx, 'playing');
+  const upNext = computeUpNext(s);
+  tx.emit({
+    type: 'spin.started',
+    spin: {
+      id: spin.id,
+      djUserId: dj,
+      track,
+      startedAtServerMs: spin.startedAtServerMs,
+      durationMs: spin.durationMs,
+      endedAt: null,
+      endReason: null,
+    },
+    upNext,
+    previousTrack: s.previous?.track ?? null,
+  });
+  tx.upNextDirty = false;
+  notifyUpNext(tx, upNext);
+}
+
+/**
+ * Back: the song that played before this one plays again now, still on this DJ's turn. The
+ * interrupted song goes back to the front of the DJ's set, so it isn't lost.
+ */
+function playPrevious(tx: Tx, track: Track) {
+  const s = tx.s;
+  const cur = s.current!;
+  closeSpin(tx, 'dj_skip');
+  const preview = s.sets[cur.djUserId];
+  if (preview && !s.queue.some((q) => q.userId === cur.djUserId)) {
+    s.sets[cur.djUserId] = { tracks: [cur.track, ...preview.tracks], length: preview.length };
+    tx.effect({ type: 'advanceSet', userId: cur.djUserId, by: -1 });
+  }
+  startSpin(tx, cur.djUserId, cur.slot, track, true);
 }
 
 /** FR-L4: tell the next DJ one spin ahead, and have the runtime re-read their set. */
@@ -496,13 +528,14 @@ function checkAutoSkip(tx: Tx) {
   if (t.eligibleSkips >= s.settings.minSkips && t.eligibleSkips >= s.settings.skipRatio * t.eligibleVoters) endSpin(tx, 'auto_skip');
 }
 
-function endSpin(tx: Tx, reason: EndReason, opts: { refill?: boolean } = {}) {
+/** End the current spin: announce it, record it, award points. No booth changes or next spin. */
+function closeSpin(tx: Tx, reason: EndReason): { fade: number } {
   const s = tx.s;
-  const cur = s.current;
-  if (!cur) return;
+  const cur = s.current!;
   const t = tally(s, tx.now);
   const fade = reason === 'completed' ? 0 : TIMING.fadeMs;
   s.current = null;
+  s.previous = { track: cur.track };
   tx.emit({ type: 'spin.ended', spinId: cur.id, reason, hype: t.hype, skip: t.skip, eligibleVoters: t.eligibleVoters, fadeMs: fade });
   tx.effect({ type: 'spinEnded', spinId: cur.id, reason, endedAt: tx.now, hype: t.hype, skip: t.skip, eligibleVoters: t.eligibleVoters });
 
@@ -510,6 +543,14 @@ function endSpin(tx: Tx, reason: EndReason, opts: { refill?: boolean } = {}) {
   if (t.eligibleVoters > 0 && t.eligibleHype > 0 && t.eligibleHype >= s.settings.hypeRatio * t.eligibleVoters) {
     tx.effect({ type: 'awardPoints', userId: cur.djUserId, points: 1, spinId: cur.id });
   }
+  return { fade };
+}
+
+function endSpin(tx: Tx, reason: EndReason, opts: { refill?: boolean } = {}) {
+  const s = tx.s;
+  const cur = s.current;
+  if (!cur) return;
+  const { fade } = closeSpin(tx, reason);
 
   const slot = s.booth[cur.slot];
   if (slot && slot.userId === cur.djUserId && reason !== 'dj_left') {

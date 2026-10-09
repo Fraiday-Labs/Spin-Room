@@ -33,17 +33,20 @@ function voteSummary(snap: RoomSnapshot): string {
 }
 
 /**
- * Now playing: the track (art, title, progress) on the left; on the right, the DJ's pause, the
- * thumbs, your volume, and Skip spin for the DJ. On phones it's a compact strip docked at the
- * bottom of the room.
+ * Now playing: the track ("Song | Artist", DJ, time) on the left; in the middle, the DJ's Back,
+ * Pause/Play and Forward; on the right, the thumbs and your volume. On phones it's a compact
+ * strip docked at the bottom of the room.
  */
 export function PlayerPanel(props: {
   snap: RoomSnapshot;
   djName: string | null;
   onVote: (v: VoteValue | null) => void;
   onSkipSpin: () => void;
-  /** The DJ or a moderator: may pause and skip. */
+  onPreviousSpin: () => void;
+  /** The DJ or a moderator: may go back, pause and skip. */
   canControlSpin: boolean;
+  /** You're the DJ of this song (you can't vote on it). */
+  isMySpin: boolean;
   onPauseSpin: (paused: boolean) => void;
   volume: number;
   muted: boolean;
@@ -81,18 +84,23 @@ export function PlayerPanel(props: {
         <div className={s.meta}>
           {spin ? (
             <>
-              <div className={s.title} data-testid="np-title">
-                {spin.track.title}
+              <div className={s.headline}>
+                <span className={s.title} data-testid="np-title">
+                  {spin.track.title}
+                </span>
+                <span className={s.sep} aria-hidden="true">
+                  {' '}
+                  |{' '}
+                </span>
+                <span className="sr-only">by </span>
+                <span className={s.artist}>{spin.track.artists.join(', ')}</span>
               </div>
-              <div className={s.artist}>
+              <div className={s.sub}>
                 {paused && (
                   <span className={s.pausedTag} data-testid="np-paused">
                     Paused
                   </span>
                 )}
-                {spin.track.artists.join(', ')}
-              </div>
-              <div className={s.sub}>
                 {props.djName && <span>DJ {props.djName}</span>}
                 <span className={s.times}>
                   {formatMs(elapsed)} / {formatMs(spin.durationMs)}
@@ -111,19 +119,43 @@ export function PlayerPanel(props: {
         </div>
       </div>
 
-      <div className={s.controls}>
+      <div className={s.transport}>
         {props.canControlSpin && spin && (
-          <button
-            className={`${s.iconBtn} ${s.pause}`}
-            onClick={() => props.onPauseSpin(!paused)}
-            aria-label={paused ? 'Resume the track for everyone' : 'Pause the track for everyone'}
-            title={paused ? 'Resume for everyone' : 'Pause for everyone'}
-            data-testid="pause-spin"
-          >
-            <PixelIcon name={paused ? 'play' : 'pause'} size={20} />
-          </button>
+          <>
+            <button
+              className={`${s.iconBtn} ${s.skipBtn}`}
+              onClick={props.onPreviousSpin}
+              disabled={!snap.previousTrack}
+              aria-label={snap.previousTrack ? `Back to the previous song, ${snap.previousTrack.title}` : 'Back to the previous song'}
+              title={snap.previousTrack ? `Back to “${snap.previousTrack.title}”` : 'Nothing has played before this song'}
+              data-testid="previous-spin"
+            >
+              <PixelIcon name="previous" size={18} />
+            </button>
+            <button
+              className={`${s.iconBtn} ${s.pause}`}
+              onClick={() => props.onPauseSpin(!paused)}
+              aria-label={paused ? 'Resume the track for everyone' : 'Pause the track for everyone'}
+              title={paused ? 'Resume for everyone' : 'Pause for everyone'}
+              data-testid="pause-spin"
+            >
+              <PixelIcon name={paused ? 'play' : 'pause'} size={18} />
+            </button>
+            <button
+              className={`${s.iconBtn} ${s.skipBtn}`}
+              onClick={props.onSkipSpin}
+              aria-label="Skip to the next song"
+              title="Next song"
+              data-testid="skip-spin"
+            >
+              <PixelIcon name="next" size={18} />
+            </button>
+          </>
         )}
-        <div className={s.votes} role="group" aria-label="Vote" title={voteHint ?? undefined}>
+      </div>
+
+      <div className={s.controls}>
+        <div className={`${s.votes} ${props.isMySpin ? s.djVotes : ''}`} role="group" aria-label="Vote" title={voteHint ?? undefined}>
           <button
             className={`${s.iconBtn} ${s.vote} ${s.hype}`}
             aria-pressed={myVote === 'hype'}
@@ -171,11 +203,6 @@ export function PlayerPanel(props: {
             className={s.volume}
           />
         </div>
-        {props.canControlSpin && spin && (
-          <button className={`btn btn-ghost btn-sm ${s.skipSpin}`} onClick={props.onSkipSpin} data-testid="skip-spin">
-            Skip spin
-          </button>
-        )}
       </div>
     </section>
   );

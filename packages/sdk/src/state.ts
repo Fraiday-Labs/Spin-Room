@@ -37,6 +37,7 @@ export function applyEvent(s: RoomSnapshot, ev: RoomEvent, myUserId: string | nu
     case 'spin.started':
       next.currentSpin = ev.spin;
       next.upNext = ev.upNext;
+      if (ev.previousTrack !== undefined) next.previousTrack = ev.previousTrack;
       next.tally = { hype: 0, skip: 0, eligibleVoters: s.tally.eligibleVoters };
       next.status = 'playing';
       if (next.me) next.me = { ...next.me, vote: null };

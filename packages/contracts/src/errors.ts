@@ -21,6 +21,7 @@ export const ERROR_CODES = {
   not_found: 404,
   room_not_found: 404,
   spin_not_current: 409,
+  no_previous: 409,
   conflict: 409,
   slug_taken: 409,
   already_in_queue: 409,
