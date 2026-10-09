@@ -110,6 +110,31 @@ describe('SpeakerController', () => {
     expect((await player.getState())!.paused).toBe(false);
   });
 
+  it('pauses when the DJ pauses, stays paused through drift checks, and resumes at the held position', async () => {
+    const { c, player } = setup();
+    await c.start();
+    const started = Date.now();
+    await c.setSpin(spin('h', started));
+    await vi.advanceTimersByTimeAsync(20_000);
+    await c.setSpin({ ...spin('h', started), pausedAtServerMs: Date.now() });
+    expect((await player.getState())!.paused).toBe(true);
+    const play = vi.spyOn(player, 'play');
+    await vi.advanceTimersByTimeAsync(60_000); // many drift checks: no restart while paused
+    expect(play).not.toHaveBeenCalled();
+    // Resume: the start moves 60 s later, so it picks up ~20 s in.
+    await c.setSpin(spin('h', started + 60_000));
+    const st = await player.getState();
+    expect(st!.paused).toBe(false);
+    expect(st!.positionMs).toBeCloseTo(20_000, -2);
+  });
+
+  it('a late joiner to a paused spin stays silent until it resumes', async () => {
+    const { c, player } = setup();
+    await c.setSpin({ ...spin('q', Date.now() - 30_000), pausedAtServerMs: Date.now() - 10_000 });
+    await c.start();
+    expect((await player.getState())?.uri ?? null).toBeNull();
+  });
+
   it('heartbeats every 15 s with position and audibility', async () => {
     const { c, beats } = setup();
     await c.start();

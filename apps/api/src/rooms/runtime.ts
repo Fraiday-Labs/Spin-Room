@@ -236,6 +236,10 @@ export class RoomRuntime implements RoomHooks {
         this.ctx.services.analytics.track('dj_turn_taken', { userId: ef.spin.djUserId, roomId });
         return null;
       }
+      case 'spinShifted':
+        // Keep Postgres in step so a rebuild from it (Redis lost) still knows where the track is.
+        await db.update(spins).set({ startedAt: ef.startedAtServerMs }).where(eq(spins.id, ef.spinId));
+        return null;
       case 'spinEnded':
         await db
           .update(spins)
@@ -411,6 +415,8 @@ export class RoomRuntime implements RoomHooks {
   private schedule(roomId: string, at: number, spinId: string) {
     if (this.stopped || !this.ctx.cfg.RUN_ROOM_ENGINE) return;
     this.clearTimer(roomId);
+    // A paused spin has no end yet; resuming schedules it again.
+    if (!Number.isFinite(at)) return;
     const handle = setTimeout(
       () => {
         this.timers.delete(roomId);

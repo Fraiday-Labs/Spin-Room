@@ -2,7 +2,7 @@
 .panel {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 20px;
   align-items: center;
   padding: 14px 20px;
@@ -90,75 +90,109 @@
   color: var(--text-dim);
 }
 
-.votes {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-}
-.voteRow {
-  display: flex;
-  gap: 10px;
-}
-.vote {
-  min-width: 96px;
-  min-height: 52px;
-  gap: 10px;
-  font-size: 18px;
-}
-.count {
-  font-variant-numeric: tabular-nums;
-}
-.summary {
-  font-size: 12px;
-  color: var(--text-dim);
+.pausedTag {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid var(--amber);
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: 1px;
 }
 
-.mine {
+/* Right side: pause (DJ), thumbs, volume, Skip spin. */
+.controls {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 14px;
 }
+/* Bare icon buttons: no box, just the icon (and a soft circle on hover). */
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.iconBtn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.07);
+  color: var(--text);
+}
+.iconBtn:active:not(:disabled) {
+  transform: scale(0.9);
+  transition-duration: 40ms;
+}
+.iconBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pause {
+  color: var(--text);
+}
+.votes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.vote {
+  font-size: 14px;
+  font-weight: 600;
+}
+.hype[aria-pressed='true'] {
+  color: var(--pink);
+}
+.skip[aria-pressed='true'] {
+  color: var(--cyan);
+}
+.count {
+  font-variant-numeric: tabular-nums;
+  min-width: 1ch;
+}
+
 .volumeGroup {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 .mute {
   color: var(--cyan);
 }
 .volume {
-  width: 110px;
+  width: 100px;
   accent-color: var(--cyan);
 }
 
-/* Narrow windows: track on top, votes and volume beneath. */
+/* Narrow windows: Skip spin wraps under the other controls if it must. */
 @media (max-width: 1100px) and (min-width: 721px) {
-  .panel {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .controls {
+    flex-wrap: wrap;
+    gap: 8px 12px;
   }
-  .mine {
-    grid-column: 2;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-  }
-  .votes {
-    grid-row: 1;
-    grid-column: 2;
-  }
-  .mine {
-    grid-row: 2;
-  }
-  .track {
-    grid-row: 1 / span 2;
+  .volume {
+    width: 80px;
   }
 }
 
-/* Phones: one compact strip — track, thumbs, mute. Use the phone's own volume buttons. */
+/* Phones: one compact strip — track, pause (DJ), thumbs, mute. Use the phone's own volume buttons. */
 @media (max-width: 720px) {
   .panel {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
     padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
   }
@@ -177,20 +211,16 @@
   .artist {
     font-size: 13px;
   }
+  .controls {
+    gap: 2px;
+  }
   .sub,
-  .summary,
   .volume,
   .skipSpin {
     display: none;
   }
-  .vote {
-    min-width: 0;
-    min-height: 44px;
-    padding: 6px 12px;
-    gap: 6px;
-    font-size: 15px;
-  }
-  .voteRow {
-    gap: 6px;
+  .iconBtn {
+    min-width: 40px;
+    padding: 0 6px;
   }
 }

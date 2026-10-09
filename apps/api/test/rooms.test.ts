@@ -288,6 +288,15 @@ describe('DJ queue, spins and votes', () => {
     // Two Hype of three eligible is Hype-heavy: Alice earned a point (FR-V5).
     expect((await alice.req('GET', '/v1/me')).json().points).toBe(1);
 
+    // DJ pauses and resumes their own spin, others can't.
+    const pausePath = `/v1/rooms/${room.slug}/spins/current/pause`;
+    expect((await bob.req('POST', pausePath, { paused: true })).json().code).toBe('forbidden');
+    expect((await alice.req('POST', pausePath, { paused: true })).statusCode).toBe(200);
+    const held = (await alice.req('GET', `/v1/rooms/${room.slug}`)).json();
+    expect(held.currentSpin.pausedAtServerMs).toEqual(expect.any(Number));
+    expect((await alice.req('POST', pausePath, { paused: false })).statusCode).toBe(200);
+    expect((await alice.req('GET', `/v1/rooms/${room.slug}`)).json().currentSpin.pausedAtServerMs).toBeNull();
+
     // DJ skips own spin, others can't.
     expect((await bob.req('POST', `/v1/rooms/${room.slug}/spins/current/skip`)).json().code).toBe('forbidden');
     expect((await alice.req('POST', `/v1/rooms/${room.slug}/spins/current/skip`)).statusCode).toBe(200);

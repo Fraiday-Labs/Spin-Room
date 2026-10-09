@@ -167,6 +167,14 @@ export function apply(state: RoomState, cmd: Command, env: Env): ApplyResult {
       endSpin(tx, cmd.by === 'dj' ? 'dj_skip' : 'mod_skip');
       break;
     }
+    case 'pause': {
+      const cur = s.current;
+      if (!cur) throw new SpinroomError('spin_not_current', 'Nothing is playing');
+      if (cmd.by === 'dj' && cur.djUserId !== cmd.userId) throw new SpinroomError('forbidden', 'Only the DJ can pause their own spin');
+      if (cmd.paused) pauseSpin(tx);
+      else resumeSpin(tx);
+      break;
+    }
     case 'removeFromBooth':
       removeFromBooth(tx, cmd.userId, 'removed_from_booth', 'A moderator removed you from the booth.');
       break;
@@ -188,8 +196,29 @@ export function apply(state: RoomState, cmd: Command, env: Env): ApplyResult {
   return { state: s, events: tx.events, effects: tx.effects };
 }
 
-export function spinEndsAt(spin: Pick<EngineSpin, 'startedAtServerMs' | 'durationMs'>): number {
+/** When the server ends a spin; never, while it is paused. */
+export function spinEndsAt(spin: Pick<EngineSpin, 'startedAtServerMs' | 'durationMs' | 'pausedAt'>): number {
+  if (spin.pausedAt) return Number.POSITIVE_INFINITY;
   return spin.startedAtServerMs + spin.durationMs + TIMING.endGraceMs;
+}
+
+function pauseSpin(tx: Tx) {
+  const cur = tx.s.current;
+  if (!cur || cur.pausedAt) return;
+  // Paused during a fade-in: hold at the very start.
+  cur.pausedAt = Math.max(tx.now, cur.startedAtServerMs);
+  tx.emit({ type: 'spin.playback', spinId: cur.id, startedAtServerMs: cur.startedAtServerMs, pausedAtServerMs: cur.pausedAt });
+}
+
+function resumeSpin(tx: Tx) {
+  const cur = tx.s.current;
+  if (!cur?.pausedAt) return;
+  // Pick up where it stopped: the start moves later by the time spent paused.
+  cur.startedAtServerMs += Math.max(0, tx.now - cur.pausedAt);
+  cur.pausedAt = null;
+  tx.effect({ type: 'spinShifted', spinId: cur.id, startedAtServerMs: cur.startedAtServerMs });
+  tx.effect({ type: 'schedule', at: spinEndsAt(cur), spinId: cur.id });
+  tx.emit({ type: 'spin.playback', spinId: cur.id, startedAtServerMs: cur.startedAtServerMs, pausedAtServerMs: null });
 }
 
 function ensureMember(tx: Tx, userId: string, role: MemberState['role']): MemberState {
@@ -584,6 +613,9 @@ function sweep(tx: Tx) {
       tx.queueDirty = true;
     }
   }
+
+  // A forgotten pause doesn't hold up the booth forever.
+  if (s.current?.pausedAt && now - s.current.pausedAt >= TIMING.maxPauseMs) resumeSpin(tx);
 
   // Safety net: a spin overdue past its end (missed timer) completes now.
   if (s.current && now >= spinEndsAt(s.current) + 1000) endSpin(tx, 'completed');

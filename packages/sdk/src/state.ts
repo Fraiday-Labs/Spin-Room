@@ -45,6 +45,10 @@ export function applyEvent(s: RoomSnapshot, ev: RoomEvent, myUserId: string | nu
       if (s.currentSpin?.id === ev.spinId) next.currentSpin = null;
       next.tally = { hype: ev.hype, skip: ev.skip, eligibleVoters: ev.eligibleVoters };
       break;
+    case 'spin.playback':
+      if (s.currentSpin?.id === ev.spinId)
+        next.currentSpin = { ...s.currentSpin, startedAtServerMs: ev.startedAtServerMs, pausedAtServerMs: ev.pausedAtServerMs };
+      break;
     case 'votes.changed':
       if (s.currentSpin?.id === ev.spinId) next.tally = ev.tally;
       break;

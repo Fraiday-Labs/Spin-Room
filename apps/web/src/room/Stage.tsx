@@ -1,4 +1,4 @@
-import { SLOT_COLORS, type Member, type RoomSnapshot } from '@spinroom/contracts';
+import { SLOT_COLORS, spinElapsedMs, type Member, type RoomSnapshot } from '@spinroom/contracts';
 import { formatMs } from '@spinroom/sdk';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { AvatarSprite } from './AvatarSprite';
@@ -178,17 +178,22 @@ export function Stage({ snap, myId, onSelectMember }: { snap: RoomSnapshot; myId
 
 function Marquee({ snap }: { snap: RoomSnapshot }) {
   const spin = snap.currentSpin;
-  const now = useNow(1000, !!spin);
+  const paused = !!spin?.pausedAtServerMs;
+  const now = useNow(1000, !!spin && !paused);
   const textRef = useRef<HTMLSpanElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const [scroll, setScroll] = useState<{ from: number; dist: number } | null>(null);
-  const text = spin ? `${spin.track.artists.join(', ')} – ${spin.track.title}` : snap.status === 'paused' ? 'PAUSED — START A SPEAKER' : 'BOOTH OPEN — STEP UP';
+  const text = spin
+    ? `${paused ? 'PAUSED · ' : ''}${spin.track.artists.join(', ')} – ${spin.track.title}`
+    : snap.status === 'paused'
+      ? 'PAUSED — START A SPEAKER'
+      : 'BOOTH OPEN — STEP UP';
   useLayoutEffect(() => {
     const tw = textRef.current?.scrollWidth ?? 0;
     const bw = boxRef.current?.clientWidth ?? 0;
     setScroll(tw > bw + 2 ? { from: bw, dist: -tw } : null);
   }, [text]);
-  const elapsed = spin ? Math.min(spin.durationMs, Math.max(0, now - spin.startedAtServerMs)) : 0;
+  const elapsed = spin ? Math.min(spin.durationMs, Math.max(0, spinElapsedMs(spin, now))) : 0;
   return (
     <div className={s.marquee} data-testid="marquee">
       <div ref={boxRef} className={s.marqueeLine}>

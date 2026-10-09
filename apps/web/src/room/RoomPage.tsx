@@ -272,7 +272,14 @@ export default function RoomPage({ slug }: { slug: string }) {
                 notify(errorMessage(e));
               }
             }}
-            canSkipSpin={isMod || snap.currentSpin?.djUserId === userId}
+            canControlSpin={isMod || snap.currentSpin?.djUserId === userId}
+            onPauseSpin={async (paused) => {
+              try {
+                await api.call('spins.pause', { params: { slug }, body: { paused } });
+              } catch (e) {
+                notify(errorMessage(e));
+              }
+            }}
             volume={speaker.view.volume}
             muted={speaker.view.muted}
             onVolume={(v, m) => void speaker.controller?.setVolume(v, m)}

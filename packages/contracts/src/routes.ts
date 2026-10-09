@@ -553,6 +553,15 @@ export const routes = {
     params: Slug,
     response: Ok,
   }),
+  'spins.pause': route({
+    method: 'POST',
+    path: '/v1/rooms/{slug}/spins/current/pause',
+    auth: 'user',
+    summary: 'Pause (`paused: true`) or resume the current spin (its DJ or a moderator). Paused tracks resume by themselves after 10 minutes.',
+    params: Slug,
+    body: z.object({ paused: z.boolean() }),
+    response: Ok,
+  }),
   'spins.votes': route({
     method: 'GET',
     path: '/v1/rooms/{slug}/spins/current/votes',

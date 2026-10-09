@@ -1,7 +1,7 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { SubscribeRequestSchema, UnsubscribeRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import type { Crate, RoomSnapshot } from '@spinroom/contracts';
+import { spinElapsedMs, type Crate, type RoomSnapshot } from '@spinroom/contracts';
 import { ApiError, LiveRoom, formatMs, type SpinroomClient, type WsLike } from '@spinroom/sdk';
 import { z } from 'zod';
 
@@ -57,7 +57,7 @@ export function speakerInfo(snap: RoomSnapshot, publicUrl: string) {
 export function nowPlayingData(snap: RoomSnapshot, publicUrl: string) {
   const names = new Map(snap.members.map((m) => [m.user.id, m.user.displayName]));
   const spin = snap.currentSpin;
-  const elapsed = spin ? Math.max(0, Math.min(spin.durationMs, snap.serverNow - spin.startedAtServerMs)) : 0;
+  const elapsed = spin ? Math.max(0, Math.min(spin.durationMs, spinElapsedMs(spin, snap.serverNow))) : 0;
   const up = snap.upNext[0];
   const myId = snap.me?.boothSlot !== null && snap.me?.boothSlot !== undefined ? (snap.booth.find((b) => b.slot === snap.me!.boothSlot)?.userId ?? null) : null;
   return {

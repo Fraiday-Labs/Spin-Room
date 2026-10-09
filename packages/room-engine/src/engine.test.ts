@@ -336,6 +336,40 @@ describe('voting', () => {
     expect(h.eventsOf('spin.ended').at(-1)!.reason).toBe('mod_skip');
   });
 
+  it('the DJ (or a moderator) can pause; a paused spin never ends, and resumes where it stopped', () => {
+    const h = playingRoom(2);
+    const cur = h.state.current!;
+    h.advance(30_000);
+    expect(h.fails({ type: 'pause', userId: 'l0', by: 'dj', paused: true })).toBe('forbidden');
+    h.run({ type: 'pause', userId: 'dj', by: 'dj', paused: true });
+    const pausedAt = h.now;
+    expect(h.state.current!.pausedAt).toBe(pausedAt);
+    expect(h.eventsOf('spin.playback').at(-1)).toMatchObject({ spinId: cur.id, pausedAtServerMs: pausedAt });
+    // Far past its original end: still the same spin.
+    h.advance(cur.durationMs);
+    expect(h.state.current!.id).toBe(cur.id);
+    h.run({ type: 'pause', userId: 'l0', by: 'mod', paused: false });
+    const after = h.state.current!;
+    expect(after.pausedAt).toBeNull();
+    expect(after.startedAtServerMs).toBe(cur.startedAtServerMs + (h.now - pausedAt));
+    expect(h.eventsOf('spin.playback').at(-1)).toMatchObject({ pausedAtServerMs: null, startedAtServerMs: after.startedAtServerMs });
+    expect(h.effects.some((e) => e.type === 'spinShifted' && e.spinId === cur.id)).toBe(true);
+    // The rest of the track plays out, then the next spin starts.
+    h.advance(cur.durationMs - 30_000 - 5000);
+    expect(h.state.current!.id).toBe(cur.id);
+    h.advance(10_000);
+    expect(h.state.current!.id).not.toBe(cur.id);
+  });
+
+  it('a forgotten pause resumes by itself after 10 minutes', () => {
+    const h = playingRoom(1);
+    h.run({ type: 'pause', userId: 'dj', by: 'dj', paused: true });
+    h.advance(TIMING.maxPauseMs - 20_000);
+    expect(h.state.current!.pausedAt).not.toBeNull();
+    h.advance(30_000);
+    expect(h.state.current!.pausedAt).toBeNull();
+  });
+
   it('votes reset on each new spin', () => {
     const h = playingRoom(2);
     h.run({ type: 'vote', userId: 'l0', spinId: 'current', value: 'hype', surface: 'web' });

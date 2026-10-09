@@ -1,4 +1,4 @@
-import type { RoomSnapshot } from '@spinroom/contracts';
+import { spinElapsedMs, type RoomSnapshot } from '@spinroom/contracts';
 import { formatMs } from '@spinroom/sdk';
 
 /* Block Kit types kept loose on purpose (they are plain JSON). */
@@ -18,7 +18,7 @@ export function buildCard(snap: RoomSnapshot, publicUrl: string, opts: { ephemer
   let text: string;
   if (spin) {
     const dj = names.get(spin.djUserId);
-    const elapsed = Math.max(0, Math.min(spin.durationMs, snap.serverNow - spin.startedAtServerMs));
+    const elapsed = Math.max(0, Math.min(spin.durationMs, spinElapsedMs(spin, snap.serverNow)));
     const trackUrl = `https://open.spotify.com/track/${spin.track.uri.split(':').pop()}`;
     text = `Now playing in ${snap.room.name}: ${spin.track.artists.join(', ')} – ${spin.track.title} (DJ ${dj?.displayName ?? 'DJ'})`;
     const art = abs(publicUrl, spin.track.artUrl);

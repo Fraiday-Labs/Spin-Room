@@ -46,6 +46,8 @@ export interface EngineSpin {
   startedAtServerMs: number;
   durationMs: number;
   votes: Record<string, VoteRecord>;
+  /** While paused by its DJ: when the pause began. */
+  pausedAt?: number | null;
 }
 
 export interface RoomState {
@@ -81,6 +83,7 @@ export type Command =
   | { type: 'queueLeave'; userId: string }
   | { type: 'vote'; userId: string; spinId: string; value: VoteValue | null; surface: Surface }
   | { type: 'skip'; userId: string; by: 'dj' | 'mod' }
+  | { type: 'pause'; userId: string; by: 'dj' | 'mod'; paused: boolean }
   | { type: 'removeFromBooth'; userId: string }
   | { type: 'timer'; spinId: string }
   | { type: 'setUpdated'; userId: string; preview: SetPreview }
@@ -90,6 +93,8 @@ export type Command =
 export type Effect =
   | { type: 'schedule'; at: number; spinId: string }
   | { type: 'spinStarted'; spin: EngineSpin }
+  /** A resumed spin's start moved later by the time it spent paused. */
+  | { type: 'spinShifted'; spinId: string; startedAtServerMs: number }
   | {
       type: 'spinEnded';
       spinId: string;

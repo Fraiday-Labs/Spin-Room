@@ -114,4 +114,6 @@ export const TIMING = {
   chatMaxLength: 500,
   /** Chat retention. */
   chatRetentionMs: 30 * DAY,
+  /** A paused track plays on by itself after this long, so a forgotten pause can't hold up the booth. */
+  maxPauseMs: 10 * 60_000,
 } as const;

@@ -494,3 +494,42 @@ test('the lobby opens on rooms that are playing, with the track and DJ', async (
   await card.click();
   await expect(guest).toHaveURL(new RegExp(`/r/${slug}`));
 });
+
+test('the DJ can pause and resume the track for everyone', async ({ page, browser }) => {
+  await signInViaUi(page, uid('pauser'));
+  await page.getByTestId('open-create-room').click();
+  await page.getByTestId('room-name').fill(`Pause ${run}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/pause-/);
+  const roomPath = new URL(page.url()).pathname;
+  await addTrack(page, 'Neon Tide');
+  await page.getByRole('tab', { name: 'DJ queue' }).click();
+  await page.getByTestId('queue-toggle').click();
+  await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
+
+  // A listener with a speaker on hears it.
+  const friend = await newUserPage(browser, uid('hearer'));
+  await friend.goto(roomPath);
+  await friend.getByTestId('start-speaker').click();
+  await expect(friend.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  const playerPaused = () =>
+    friend.evaluate(async () => {
+      const sp = (window as unknown as { __speaker: { player: { getState(): Promise<{ paused: boolean } | null> } } }).__speaker;
+      return (await sp.player.getState())?.paused ?? null;
+    });
+  await expect.poll(playerPaused).toBe(false);
+  // Only the DJ (or a moderator) gets the button.
+  await expect(friend.getByTestId('pause-spin')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Pause the track for everyone' }).click();
+  await expect(friend.getByTestId('np-paused')).toBeVisible();
+  await expect(friend.getByTestId('marquee')).toContainText('PAUSED');
+  await expect.poll(playerPaused).toBe(true);
+  const heldAt = await friend.getByRole('progressbar', { name: 'Track progress' }).getAttribute('aria-valuenow');
+  await friend.waitForTimeout(2500);
+  expect(await friend.getByRole('progressbar', { name: 'Track progress' }).getAttribute('aria-valuenow')).toBe(heldAt);
+
+  await page.getByRole('button', { name: 'Resume the track for everyone' }).click();
+  await expect(friend.getByTestId('np-paused')).toHaveCount(0);
+  await expect.poll(playerPaused).toBe(false);
+});

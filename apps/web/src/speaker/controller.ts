@@ -1,4 +1,4 @@
-import { TIMING, type Spin, type SpeakerStatus } from '@spinroom/contracts';
+import { TIMING, spinElapsedMs, type Spin, type SpeakerStatus } from '@spinroom/contracts';
 import { DriftController, type ServerClock } from '@spinroom/sdk';
 import type { PlayerAdapter, SpeakerView } from './types';
 
@@ -132,9 +132,17 @@ export class SpeakerController {
 
   /** The room's current spin changed (snapshot or spin.started). */
   async setSpin(spin: Spin | null) {
-    const changed = spin?.id !== this.spin?.id;
+    const prev = this.spin;
+    const changed = spin?.id !== prev?.id;
     this.spin = spin;
-    if (!changed) return;
+    if (!changed) {
+      // Same spin: follow the DJ pausing or resuming it.
+      if (!spin || !prev || !!spin.pausedAtServerMs === !!prev.pausedAtServerMs || this.view.status !== 'live') return;
+      this.drift.reset();
+      if (spin.pausedAtServerMs) await this.holdPaused();
+      else await this.playCurrent();
+      return;
+    }
     this.drift.reset();
     if (this.view.status !== 'live') return;
     if (!spin) {
@@ -178,16 +186,28 @@ export class SpeakerController {
     if (!this.fadeTimer) await this.player.setVolume(this.effectiveVolume()).catch(() => {});
   }
 
+  /** The DJ paused the track: stop playing and wait for the resume. */
+  private async holdPaused() {
+    if (this.pending) this.t.clearTimeout(this.pending);
+    this.pending = null;
+    if (this.fadeTimer) {
+      this.t.clearInterval(this.fadeTimer);
+      this.fadeTimer = null;
+    }
+    await this.player.pause().catch(() => {});
+  }
+
   /** Start the current spin at the expected position (late joiners use the same formula). */
   private async playCurrent() {
     const spin = this.spin;
     if (!spin) return;
+    if (spin.pausedAtServerMs) return this.holdPaused();
     if (this.pending) this.t.clearTimeout(this.pending);
     if (this.fadeTimer) {
       this.t.clearInterval(this.fadeTimer);
       this.fadeTimer = null;
     }
-    const pos = this.serverNow() - spin.startedAtServerMs;
+    const pos = spinElapsedMs(spin, this.serverNow());
     if (pos >= spin.durationMs) return;
     if (pos < 0) {
       // The spin starts after a fade; wait for it.
@@ -212,12 +232,12 @@ export class SpeakerController {
 
   /** Drift correction (every 5 s). Every correction is audible, so act only on lasting problems. */
   async correct() {
-    if (this.busy || this.view.status !== 'live' || !this.spin) return;
+    if (this.busy || this.view.status !== 'live' || !this.spin || this.spin.pausedAtServerMs) return;
     if (this.localNow() < this.settleUntil) return;
     this.busy = true;
     try {
       const spin = this.spin;
-      const expected = this.serverNow() - spin.startedAtServerMs;
+      const expected = spinElapsedMs(spin, this.serverNow());
       if (expected < 0 || expected >= spin.durationMs) return;
       const st = await this.player.getState();
       if (!st || st.uri !== spin.track.uri || st.paused) {

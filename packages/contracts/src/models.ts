@@ -219,8 +219,15 @@ export const SpinSchema = z.object({
   durationMs: z.number().int().positive(),
   endedAt: TimestampSchema.nullable(),
   endReason: EndReasonSchema.nullable(),
+  /** Set while the DJ has paused the track: playback holds at `pausedAtServerMs − startedAtServerMs`. */
+  pausedAtServerMs: TimestampSchema.nullable().optional(),
 });
 export type Spin = z.infer<typeof SpinSchema>;
+
+/** How far into its track a spin is at server time `serverNowMs` (frozen while paused; may be negative during a fade-in). */
+export function spinElapsedMs(spin: Pick<Spin, 'startedAtServerMs' | 'pausedAtServerMs'>, serverNowMs: number): number {
+  return (spin.pausedAtServerMs ?? serverNowMs) - spin.startedAtServerMs;
+}
 
 export const HistorySpinSchema = SpinSchema.extend({
   djName: z.string(),

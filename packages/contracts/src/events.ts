@@ -46,6 +46,14 @@ export const RoomEventSchema = z.discriminatedUnion('type', [
     /** Speakers fade over this many ms. */
     fadeMs: z.number().int(),
   }),
+  /** The DJ paused or resumed the current spin. On resume the start moves later by the time spent paused. */
+  z.object({
+    ...base,
+    type: z.literal('spin.playback'),
+    spinId: IdSchema,
+    startedAtServerMs: TimestampSchema,
+    pausedAtServerMs: TimestampSchema.nullable(),
+  }),
   z.object({ ...base, type: z.literal('votes.changed'), spinId: IdSchema, tally: TallySchema }),
   z.object({ ...base, type: z.literal('dj.bounced'), userId: IdSchema, cooldownUntil: TimestampSchema }),
   z.object({ ...base, type: z.literal('chat.message'), message: ChatMessageSchema }),

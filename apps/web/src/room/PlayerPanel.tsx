@@ -1,4 +1,4 @@
-import type { RoomSnapshot, VoteValue } from '@spinroom/contracts';
+import { spinElapsedMs, type RoomSnapshot, type VoteValue } from '@spinroom/contracts';
 import { formatMs } from '@spinroom/sdk';
 import { PixelIcon } from '../components/PixelIcon';
 import { useNow } from './store';
@@ -33,16 +33,18 @@ function voteSummary(snap: RoomSnapshot): string {
 }
 
 /**
- * Now playing, in three zones: the track (art, title, progress), the votes (the main thing a
- * listener does, so the biggest controls), and your own listening (volume; Skip spin for the DJ).
- * On phones it's a compact strip docked at the bottom of the room.
+ * Now playing: the track (art, title, progress) on the left; on the right, the DJ's pause, the
+ * thumbs, your volume, and Skip spin for the DJ. On phones it's a compact strip docked at the
+ * bottom of the room.
  */
 export function PlayerPanel(props: {
   snap: RoomSnapshot;
   djName: string | null;
   onVote: (v: VoteValue | null) => void;
   onSkipSpin: () => void;
-  canSkipSpin: boolean;
+  /** The DJ or a moderator: may pause and skip. */
+  canControlSpin: boolean;
+  onPauseSpin: (paused: boolean) => void;
   volume: number;
   muted: boolean;
   onVolume: (v: number, muted: boolean) => void;
@@ -50,11 +52,13 @@ export function PlayerPanel(props: {
 }) {
   const { snap } = props;
   const spin = snap.currentSpin;
-  const now = useNow(1000, !!spin);
-  const elapsed = spin ? Math.min(spin.durationMs, Math.max(0, now - spin.startedAtServerMs)) : 0;
+  const paused = !!spin?.pausedAtServerMs;
+  const now = useNow(1000, !!spin && !paused);
+  const elapsed = spin ? Math.min(spin.durationMs, Math.max(0, spinElapsedMs(spin, now))) : 0;
   const myVote = snap.me?.vote ?? null;
   const trackId = spin?.track.uri.split(':').pop();
   const voteOff = !spin || !!props.voteDisabledReason;
+  const voteHint = props.voteDisabledReason ?? (spin ? voteSummary(snap) : null);
   return (
     <section className={s.panel} aria-label="Now playing">
       {spin && (
@@ -65,7 +69,7 @@ export function PlayerPanel(props: {
           aria-valuemin={0}
           aria-valuemax={spin.durationMs}
           aria-valuenow={elapsed}
-          aria-valuetext={`${formatMs(elapsed)} of ${formatMs(spin.durationMs)}`}
+          aria-valuetext={`${formatMs(elapsed)} of ${formatMs(spin.durationMs)}${paused ? ', paused' : ''}`}
         >
           <span style={{ transform: `scaleX(${elapsed / spin.durationMs})` }} />
         </div>
@@ -80,7 +84,14 @@ export function PlayerPanel(props: {
               <div className={s.title} data-testid="np-title">
                 {spin.track.title}
               </div>
-              <div className={s.artist}>{spin.track.artists.join(', ')}</div>
+              <div className={s.artist}>
+                {paused && (
+                  <span className={s.pausedTag} data-testid="np-paused">
+                    Paused
+                  </span>
+                )}
+                {spin.track.artists.join(', ')}
+              </div>
               <div className={s.sub}>
                 {props.djName && <span>DJ {props.djName}</span>}
                 <span className={s.times}>
@@ -100,10 +111,21 @@ export function PlayerPanel(props: {
         </div>
       </div>
 
-      <div className={s.votes}>
-        <div className={s.voteRow}>
+      <div className={s.controls}>
+        {props.canControlSpin && spin && (
           <button
-            className={`btn btn-hype ${s.vote}`}
+            className={`${s.iconBtn} ${s.pause}`}
+            onClick={() => props.onPauseSpin(!paused)}
+            aria-label={paused ? 'Resume the track for everyone' : 'Pause the track for everyone'}
+            title={paused ? 'Resume for everyone' : 'Pause for everyone'}
+            data-testid="pause-spin"
+          >
+            <PixelIcon name={paused ? 'play' : 'pause'} size={20} />
+          </button>
+        )}
+        <div className={s.votes} role="group" aria-label="Vote" title={voteHint ?? undefined}>
+          <button
+            className={`${s.iconBtn} ${s.vote} ${s.hype}`}
             aria-pressed={myVote === 'hype'}
             aria-label={`Hype (thumbs up), ${snap.tally.hype}`}
             disabled={voteOff}
@@ -111,11 +133,11 @@ export function PlayerPanel(props: {
             onClick={() => props.onVote(myVote === 'hype' ? null : 'hype')}
             data-testid="vote-hype"
           >
-            <PixelIcon name="thumbUp" size={26} />
+            <PixelIcon name="thumbUp" size={20} />
             <span className={s.count}>{snap.tally.hype}</span>
           </button>
           <button
-            className={`btn btn-skip ${s.vote}`}
+            className={`${s.iconBtn} ${s.vote} ${s.skip}`}
             aria-pressed={myVote === 'skip'}
             aria-label={`Skip (thumbs down), ${snap.tally.skip}`}
             disabled={voteOff}
@@ -123,27 +145,20 @@ export function PlayerPanel(props: {
             onClick={() => props.onVote(myVote === 'skip' ? null : 'skip')}
             data-testid="vote-skip"
           >
-            <PixelIcon name="thumbDown" size={26} />
+            <PixelIcon name="thumbDown" size={20} />
             <span className={s.count}>{snap.tally.skip}</span>
           </button>
+          {voteHint && <span className="sr-only">{voteHint}</span>}
         </div>
-        {spin && (
-          <span className={s.summary} title="Members with a live speaker or who listened recently">
-            {props.voteDisabledReason ?? voteSummary(snap)}
-          </span>
-        )}
-      </div>
-
-      <div className={s.mine}>
         <div className={s.volumeGroup}>
           <button
-            className={`btn btn-ghost btn-icon ${s.mute}`}
+            className={`${s.iconBtn} ${s.mute}`}
             aria-pressed={props.muted}
             onClick={() => props.onVolume(props.volume, !props.muted)}
             aria-label={props.muted ? 'Unmute' : 'Mute'}
             title={props.muted ? 'Unmute' : 'Mute'}
           >
-            <PixelIcon name={props.muted || props.volume === 0 ? 'speakerMuted' : 'speaker'} size={24} />
+            <PixelIcon name={props.muted || props.volume === 0 ? 'speakerMuted' : 'speaker'} size={22} />
           </button>
           <input
             type="range"
@@ -156,7 +171,7 @@ export function PlayerPanel(props: {
             className={s.volume}
           />
         </div>
-        {props.canSkipSpin && spin && (
+        {props.canControlSpin && spin && (
           <button className={`btn btn-ghost btn-sm ${s.skipSpin}`} onClick={props.onSkipSpin} data-testid="skip-spin">
             Skip spin
           </button>

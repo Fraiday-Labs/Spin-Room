@@ -151,6 +151,21 @@ export const playHandlers: Handlers = {
     await touchRemote(c.ctx, auth, room);
     return { ok: true as const };
   },
+  'spins.pause': async (c) => {
+    const auth = requireUser(c);
+    const room = await roomBySlug(c.ctx, c.params.slug);
+    const state = await c.ctx.services.rooms.load(room.id);
+    if (!state.current) throw new SpinroomError('spin_not_current', 'Nothing is playing');
+    let by: 'dj' | 'mod' = 'dj';
+    if (state.current.djUserId !== auth.userId) {
+      const m = await memberRow(c.ctx, room.id, auth.userId);
+      if (!isMod(m?.role)) throw new SpinroomError('forbidden', 'Only the DJ or a moderator can pause this spin');
+      by = 'mod';
+    }
+    await c.ctx.services.rooms.exec(room.id, { type: 'pause', userId: auth.userId, by, paused: c.body.paused });
+    await touchRemote(c.ctx, auth, room);
+    return { ok: true as const };
+  },
   'spins.votes': async (c) => {
     const { userId } = requireUser(c);
     const room = await roomBySlug(c.ctx, c.params.slug);

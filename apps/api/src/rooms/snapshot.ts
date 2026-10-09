@@ -97,6 +97,7 @@ export async function buildSnapshot(ctx: AppContext, room: RoomRow, state: RoomS
           durationMs: cur.durationMs,
           endedAt: null,
           endReason: null,
+          pausedAtServerMs: cur.pausedAt ?? null,
         }
       : null,
     tally: { hype: t.hype, skip: t.skip, eligibleVoters: t.eligibleVoters },
