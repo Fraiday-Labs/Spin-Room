@@ -1,11 +1,12 @@
 import type { Me } from '@spinroom/contracts';
 import { useRef, useState } from 'react';
 import { api, errorMessage, queryClient } from '../lib/api';
+import s from './SettingsList.module.css';
 import { UserBadge } from './UserBadge';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-/** Profile page: upload, replace or remove the photo shown in the account menu. */
+/** Profile settings row: upload, replace or remove the photo shown in the account menu. */
 export function ProfilePhoto({ me }: { me: Me }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -33,50 +34,52 @@ export function ProfilePhoto({ me }: { me: Me }) {
   };
 
   return (
-    <section className="card stack">
-      <h2>Profile picture</h2>
-      <div className="row" style={{ gap: 16 }}>
-        <UserBadge me={me} size={88} />
-        <div className="stack" style={{ gap: 8 }}>
-          <div className="row" style={{ gap: 8 }}>
-            {/* A real button (keyboard-reachable) that opens the hidden file picker. */}
-            <button className="btn btn-primary" disabled={busy} onClick={() => input.current?.click()}>
-              {busy ? 'Uploading…' : me.photoUrl ? 'Change photo' : 'Upload a photo'}
-            </button>
-            <input
-              ref={input}
-              type="file"
-              accept="image/*"
-              hidden
-              data-testid="photo-file"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void upload(f);
-              }}
-            />
-            {me.photoUrl && (
-              <button
-                className="btn btn-ghost"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  try {
-                    done(await api.call('me.deletePhoto'), 'Photo removed.');
-                  } catch (e) {
-                    setMsg(errorMessage(e));
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                Remove photo
-              </button>
-            )}
-          </div>
-          <span className="muted">Shown in the top-right menu. Without a photo, you get a circle with your first initial.</span>
-        </div>
+    <div className={s.item}>
+      <UserBadge me={me} size={56} />
+      <div className={s.itemText}>
+        <span className={s.label}>Profile picture</span>
+        <span className={s.hint}>Shown in the top-right menu. Without one, you get your first initial.</span>
+        {msg && (
+          <span role="status" className={s.hint}>
+            {msg}
+          </span>
+        )}
       </div>
-      {msg && <p role="status">{msg}</p>}
-    </section>
+      <div className={s.actions}>
+        {me.photoUrl && (
+          <button
+            className="btn btn-ghost btn-sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                done(await api.call('me.deletePhoto'), 'Photo removed.');
+              } catch (e) {
+                setMsg(errorMessage(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Remove photo
+          </button>
+        )}
+        {/* A real button (keyboard-reachable) that opens the hidden file picker. */}
+        <button className="btn btn-sm" disabled={busy} onClick={() => input.current?.click()}>
+          {busy ? 'Uploading…' : me.photoUrl ? 'Change photo' : 'Upload a photo'}
+        </button>
+        <input
+          ref={input}
+          type="file"
+          accept="image/*"
+          hidden
+          data-testid="photo-file"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void upload(f);
+          }}
+        />
+      </div>
+    </div>
   );
 }

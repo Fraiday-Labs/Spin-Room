@@ -171,7 +171,7 @@ export const RoomSummarySchema = RoomSchema.pick({
   listeners: z.number().int().nonnegative(),
   liveSpeakers: z.number().int().nonnegative(),
   status: RoomStatusSchema,
-  nowPlaying: z.object({ title: z.string(), artists: z.array(z.string()), djName: z.string() }).nullable(),
+  nowPlaying: z.object({ title: z.string(), artists: z.array(z.string()), djName: z.string(), artUrl: z.string().nullable().optional() }).nullable(),
   myRole: RoleSchema.nullable(),
 });
 export type RoomSummary = z.infer<typeof RoomSummarySchema>;

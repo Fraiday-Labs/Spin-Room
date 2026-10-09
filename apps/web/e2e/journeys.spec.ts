@@ -142,7 +142,7 @@ test('owners close, reopen and delete rooms, and listeners are told', async ({ p
   // The owner sees it as closed in their rooms, and can reopen it.
   await expect(page.getByText('Closed', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Reopen room' }).click();
-  // Back as a normal room (in My rooms, and in the public directory again).
+  // Back as a normal room in your rooms.
   await expect(page.getByRole('link', { name: new RegExp(name) }).first()).toBeVisible();
 
   // Deleting needs the room's name typed in.
@@ -273,7 +273,7 @@ test('search results show when a track is added, and offer Add again once it is 
   await expect(results.getByRole('button', { name: 'Add Neon Tide' })).toBeVisible();
 });
 
-test('owners can close or delete a room right from My rooms in the lobby', async ({ page }) => {
+test('owners can close or delete a room from its card menu in the lobby', async ({ page }) => {
   const host = uid('lobbyowner');
   await signInViaUi(page, host);
   await expect(page).toHaveURL(/\/lobby/);
@@ -287,8 +287,16 @@ test('owners can close or delete a room right from My rooms in the lobby', async
   await expect(page).toHaveURL(/\/lobby/);
 
   const card = page.getByTestId(`room-card-${slug}`);
-  await expect(card.getByRole('button', { name: 'Close room' })).toBeVisible();
-  await card.getByRole('button', { name: 'Delete room' }).click();
+  // Your room shows once: in Your rooms, not again under public rooms.
+  await expect(page.getByRole('link', { name: new RegExp(name) })).toHaveCount(1);
+  // Close / Delete wait in the card's "⋯" menu, which Escape closes.
+  await expect(card.getByRole('button', { name: 'Close room' })).toHaveCount(0);
+  await card.getByRole('button', { name: `Options for ${name}` }).click();
+  await expect(card.getByRole('menuitem', { name: 'Close room' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(card.getByRole('menu')).toHaveCount(0);
+  await card.getByRole('button', { name: `Options for ${name}` }).click();
+  await card.getByRole('menuitem', { name: 'Delete room' }).click();
   await card.getByLabel('Type the room name to confirm').fill(name);
   await card.getByRole('button', { name: 'Delete forever' }).click();
   await expect(card).toHaveCount(0);
@@ -316,7 +324,8 @@ test('a site admin can open settings in, and delete, a room someone else owns', 
   await expect(page.getByRole('heading', { name: 'Room settings' })).toBeVisible();
   await page.goto('/lobby');
   const card = page.getByTestId(`room-card-${slug}`);
-  await card.getByRole('button', { name: 'Delete room' }).click();
+  await card.getByRole('button', { name: `Options for ${name}` }).click();
+  await card.getByRole('menuitem', { name: 'Delete room' }).click();
   await card.getByLabel('Type the room name to confirm').fill(name);
   await card.getByRole('button', { name: 'Delete forever' }).click();
   await expect(card).toHaveCount(0);
@@ -325,7 +334,9 @@ test('a site admin can open settings in, and delete, a room someone else owns', 
 test('avatar choice lives only in the avatar studio, above the ChatGPT pet section', async ({ browser }) => {
   const page = await newUserPage(browser, uid('avatarfan'));
   await page.goto('/profile');
-  await expect(page.getByRole('heading', { name: 'Display' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'You', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Connections' })).toBeVisible();
+  await expect(page.getByText(/^Signed in as /)).toBeVisible();
   await expect(page.getByRole('heading', { name: /your avatar/i })).toHaveCount(0);
   await expect(page.getByRole('radiogroup', { name: 'Avatar' })).toHaveCount(0);
   await page.getByRole('link', { name: 'Avatar studio' }).click();
@@ -338,7 +349,7 @@ test('avatar choice lives only in the avatar studio, above the ChatGPT pet secti
 test('rooms are created from the "Create +" modal', async ({ browser }) => {
   const page = await newUserPage(browser, uid('creator'));
   await page.goto('/lobby');
-  await expect(page.getByRole('heading', { name: 'My rooms' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your rooms' })).toBeVisible();
   await expect(page.getByText('Premium · can listen & DJ')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Open a room' })).toHaveCount(0);
   await expect(page.getByTestId('room-name')).toHaveCount(0);
@@ -438,4 +449,32 @@ test('on a phone, the thumbs are on screen without scrolling and the header is o
   await expect(page.getByTestId('vote-skip')).toBeInViewport();
   const header = await page.locator('header').first().boundingBox();
   expect(header!.height).toBeLessThan(64);
+});
+
+test('the lobby opens on rooms that are playing, with the track and DJ', async ({ browser }) => {
+  const dj = await newUserPage(browser, uid('livedj'));
+  await dj.goto('/lobby');
+  const name = `Live ${run}`;
+  await dj.getByTestId('open-create-room').click();
+  await dj.getByTestId('room-name').fill(name);
+  await dj.getByTestId('create-room').click();
+  await expect(dj).toHaveURL(/\/r\/live-/);
+  const slug = new URL(dj.url()).pathname.split('/')[2]!;
+  await addTrack(dj, 'Neon Tide');
+  await dj.getByRole('tab', { name: 'DJ queue' }).click();
+  await dj.getByTestId('queue-toggle').click();
+  await expect(dj.getByTestId('np-title')).toHaveText('Neon Tide');
+
+  // Someone else browsing the lobby sees it first, under Live now.
+  const guest = await newUserPage(browser, uid('browser'));
+  await guest.goto('/lobby');
+  const live = guest.getByRole('region', { name: 'Live now' });
+  const card = live.getByTestId(`room-card-${slug}`);
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('Neon Tide');
+  await expect(card).toContainText('DJ ');
+  // …and only there.
+  await expect(guest.getByTestId(`room-card-${slug}`)).toHaveCount(1);
+  await card.click();
+  await expect(guest).toHaveURL(new RegExp(`/r/${slug}`));
 });

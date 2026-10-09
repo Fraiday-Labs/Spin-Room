@@ -6,15 +6,24 @@ interface Props {
   room: { slug: string; name: string; closedAt: number | null };
   /** Called after a successful close, reopen or delete. */
   onDone?: (action: 'closed' | 'reopened' | 'deleted') => void;
+  /** Open straight on a confirmation (from a menu); Cancel then calls `onCancel` instead of showing the buttons. */
+  initial?: 'close' | 'delete';
+  onCancel?: () => void;
 }
 
 /** Owner controls to close, reopen or delete a room. Deleting asks for the room's name. */
-export function RoomLifecycle({ room, onDone }: Props) {
+export function RoomLifecycle({ room, onDone, initial, onCancel }: Props) {
   const qc = useQueryClient();
-  const [step, setStep] = useState<'idle' | 'close' | 'delete'>('idle');
+  const [step, setStep] = useState<'idle' | 'close' | 'delete'>(initial ?? 'idle');
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const cancel = () => {
+    setTyped('');
+    if (onCancel) onCancel();
+    else setStep('idle');
+  };
 
   const run = async (action: 'closed' | 'reopened' | 'deleted') => {
     setBusy(true);
@@ -64,7 +73,7 @@ export function RoomLifecycle({ room, onDone }: Props) {
             <button className="btn btn-primary" disabled={busy} onClick={() => void run('closed')}>
               {busy ? 'Closing…' : 'Close room'}
             </button>
-            <button className="btn btn-ghost" disabled={busy} onClick={() => setStep('idle')}>
+            <button className="btn btn-ghost" disabled={busy} onClick={cancel}>
               Cancel
             </button>
           </div>
@@ -85,14 +94,7 @@ export function RoomLifecycle({ room, onDone }: Props) {
             <button className="btn btn-danger" disabled={busy || typed.trim() !== room.name} onClick={() => void run('deleted')}>
               {busy ? 'Deleting…' : 'Delete forever'}
             </button>
-            <button
-              className="btn btn-ghost"
-              disabled={busy}
-              onClick={() => {
-                setStep('idle');
-                setTyped('');
-              }}
-            >
+            <button className="btn btn-ghost" disabled={busy} onClick={cancel}>
               Cancel
             </button>
           </div>

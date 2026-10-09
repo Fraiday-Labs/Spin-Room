@@ -119,6 +119,8 @@ export function summarize(state: RoomState, now: number, djName: string | null):
     listeners: ms.filter((m) => presenceOf(m, now) !== 'away').length,
     liveSpeakers: ms.filter((m) => presenceOf(m, now) === 'speaker').length,
     status: state.status,
-    nowPlaying: state.current ? { title: state.current.track.title, artists: state.current.track.artists, djName: djName ?? 'DJ' } : null,
+    nowPlaying: state.current
+      ? { title: state.current.track.title, artists: state.current.track.artists, djName: djName ?? 'DJ', artUrl: state.current.track.artUrl }
+      : null,
   };
 }

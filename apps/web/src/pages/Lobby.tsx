@@ -1,16 +1,24 @@
+import type { RoomSummary } from '@spinroom/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { CreateRoomDialog } from '../components/CreateRoomDialog';
+import { PageSkeleton } from '../components/PageSkeleton';
 import { RoomCard } from '../components/RoomCard';
 import { api, signInUrl, useMe } from '../lib/api';
-import { PageSkeleton } from '../components/PageSkeleton';
+import s from './Lobby.module.css';
+
+/** Past this many quiet public rooms, the rest (the emptiest) wait behind "Show more rooms". */
+const QUIET_SHOWN = 8;
+
+const busiest = (a: RoomSummary, b: RoomSummary) => b.listeners - a.listeners || a.name.localeCompare(b.name);
 
 export default function Lobby() {
   const me = useMe();
   const [q, setQ] = useState('');
   const [debounced, setDebounced] = useState('');
+  const [showQuiet, setShowQuiet] = useState(false);
   useEffect(() => {
-    const h = setTimeout(() => setDebounced(q), 250);
+    const h = setTimeout(() => setDebounced(q.trim()), 250);
     return () => clearTimeout(h);
   }, [q]);
   const mine = useQuery({ queryKey: ['rooms', 'mine'], queryFn: () => api.call('rooms.list', { query: { filter: 'mine', limit: 50 } }), enabled: !!me.data });
@@ -31,45 +39,94 @@ export default function Lobby() {
       </div>
     );
   }
+  const isAdmin = me.data.isAdmin;
+  const needle = debounced.toLowerCase();
+  const myRooms = (mine.data?.rooms ?? []).filter((r) => !needle || `${r.name} ${r.description}`.toLowerCase().includes(needle));
+  const myIds = new Set(mine.data?.rooms.map((r) => r.id));
+  const others = (pub.data?.rooms ?? []).filter((r) => !myIds.has(r.id));
+  const isLive = (r: RoomSummary) => !r.closedAt && !!r.nowPlaying;
+  const live = [...myRooms, ...others].filter(isLive).sort(busiest);
+  const myRest = myRooms.filter((r) => !isLive(r));
+  const quiet = others.filter((r) => !isLive(r)).sort(busiest);
+  // With lots of quiet rooms, the busiest show (always every one with people in it) until asked.
+  const folding = !needle && !showQuiet && quiet.length > QUIET_SHOWN;
+  const quietShown = folding ? quiet.slice(0, Math.max(QUIET_SHOWN, quiet.filter((r) => r.listeners > 0).length)) : quiet;
+  const folded = quiet.length - quietShown.length;
+  const loaded = !mine.isLoading && !pub.isLoading;
+  const manage = (r: RoomSummary) => myIds.has(r.id) && (r.myRole === 'owner' || isAdmin);
+
   return (
-    <div className="page stack">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h1 style={{ margin: 0 }}>Hey {me.data.displayName}</h1>
-        <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+    <div className={`page stack ${s.page}`}>
+      <header className={s.hdr}>
+        <h1 className={s.hi}>Hey {me.data.displayName}</h1>
+        <div className={s.tools}>
           <input
-            className="input"
-            style={{ width: 240, maxWidth: '45vw' }}
+            className={`input ${s.search}`}
             type="search"
             placeholder="Search rooms"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            aria-label="Search public rooms"
+            aria-label="Search rooms"
           />
           <button className="btn btn-primary" style={{ flex: 'none' }} onClick={() => setCreating(true)} data-testid="open-create-room">
             Create +
           </button>
         </div>
-      </div>
+      </header>
 
-      <section className="stack">
-        <h2>My rooms</h2>
-        {mine.data?.rooms.length === 0 && <p className="muted">You haven’t joined any rooms yet.</p>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-          {mine.data?.rooms.map((r) => (
-            <RoomCard key={r.id} room={r} manage={r.myRole === 'owner' || !!me.data?.isAdmin} />
-          ))}
-        </div>
-      </section>
+      {live.length > 0 && (
+        <section className="stack" aria-labelledby="live-now">
+          <h2 id="live-now" className={s.h2}>
+            Live now
+          </h2>
+          <div className={s.liveGrid}>
+            {live.map((r) => (
+              <RoomCard key={r.id} room={r} variant="live" manage={manage(r)} />
+            ))}
+          </div>
+        </section>
+      )}
 
-      <section className="stack">
-        <h2 style={{ margin: 0 }}>Public rooms</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
-          {pub.data?.rooms.map((r) => (
-            <RoomCard key={r.id} room={r} />
-          ))}
-        </div>
-        {pub.data?.rooms.length === 0 && <p className="muted">No public rooms match.</p>}
-      </section>
+      {(myRest.length > 0 || (!needle && mine.data && myRooms.length === 0)) && (
+        <section className="stack" aria-labelledby="your-rooms">
+          <h2 id="your-rooms" className={s.h2}>
+            Your rooms
+          </h2>
+          {myRooms.length === 0 ? (
+            <p className="muted">You haven’t joined any rooms yet. Create one, or hop into a room below.</p>
+          ) : (
+            <div className={s.grid}>
+              {myRest.map((r) => (
+                <RoomCard key={r.id} room={r} manage={manage(r)} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {quiet.length > 0 && (
+        <section className="stack" aria-labelledby="public-rooms">
+          <h2 id="public-rooms" className={s.h2}>
+            {live.length ? 'More public rooms' : 'Public rooms'}
+          </h2>
+          {quietShown.length > 0 && (
+            <div className={s.list}>
+              {quietShown.map((r) => (
+                <RoomCard key={r.id} room={r} variant="quiet" />
+              ))}
+            </div>
+          )}
+          {folded > 0 && (
+            <button className="btn btn-ghost btn-sm" style={{ justifySelf: 'start' }} onClick={() => setShowQuiet(true)}>
+              Show {folded} more {folded === 1 ? 'room' : 'rooms'}
+            </button>
+          )}
+        </section>
+      )}
+
+      {loaded && live.length + myRest.length + quiet.length === 0 && (needle || myRooms.length > 0) && (
+        <p className="muted">{needle ? `No rooms match “${debounced}”.` : 'No public rooms yet — create the first one.'}</p>
+      )}
       {creating && <CreateRoomDialog onClose={() => setCreating(false)} />}
     </div>
   );

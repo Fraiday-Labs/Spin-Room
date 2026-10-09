@@ -5,6 +5,9 @@ const PATHS = {
   // Sliders.
   settings: 'M4 7h10M18 7h2M4 17h4M12 17h8M16 4v6M10 14v6',
   back: 'M15 5l-7 7 7 7',
+  // Three dots: more actions.
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  forward: 'M9 5l7 7-7 7',
 } as const;
 
 export function LineIcon({ name, size = 18 }: { name: keyof typeof PATHS; size?: number }) {
@@ -15,7 +18,7 @@ export function LineIcon({ name, size = 18 }: { name: keyof typeof PATHS; size?:
       height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={name === 'more' ? 3.5 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
