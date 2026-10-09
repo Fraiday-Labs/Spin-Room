@@ -8,6 +8,7 @@ import { LineIcon } from '../components/LineIcon';
 import { Logo } from '../components/Logo';
 import { NowListening } from '../components/NowListening';
 import { OverflowMenu, type MenuItem } from '../components/OverflowMenu';
+import { UserMenu } from '../components/UserMenu';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { useSpeaker } from '../speaker/useSpeaker';
 import { MemberCard } from './MemberCard';
@@ -249,6 +250,8 @@ export default function RoomPage({ slug }: { slug: string }) {
             Sign in to join
           </a>
         )}
+        {/* Your profile picture, far right as on every page. */}
+        {me.data && <UserMenu me={me.data} />}
       </header>
       <div className={s.main}>
         <div className={s.center}>

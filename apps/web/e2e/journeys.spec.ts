@@ -473,6 +473,11 @@ test('on a phone, the thumbs are on screen without scrolling and the header is o
   await expect(page.getByTestId('vote-hype')).toBeInViewport();
   await expect(page.getByTestId('vote-skip')).toBeInViewport();
   await expect(page.locator('header').first().getByRole('link', { name: 'Spinroom home' })).toBeVisible();
+  // Your profile picture stays far right, after the ⋮ menu.
+  const avatar = (await page.getByTestId('user-menu').boundingBox())!;
+  const menu = (await page.getByTestId('room-menu').boundingBox())!;
+  expect(avatar.x).toBeGreaterThan(menu.x);
+  await expect(page.getByTestId('user-menu')).toBeInViewport();
   const header = await page.locator('header').first().boundingBox();
   expect(header!.height).toBeLessThan(64);
 });
