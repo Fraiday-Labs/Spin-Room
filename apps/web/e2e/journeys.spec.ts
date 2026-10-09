@@ -583,24 +583,24 @@ test('the speaker stops and starts again cleanly, and a second tab takes it over
   const roomPath = new URL(page.url()).pathname;
   const banner = page.getByTestId('speaker-banner');
 
-  await page.getByRole('button', { name: 'Listen' }).click();
+  await page.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(banner).toHaveAttribute('data-status', 'live');
   await page.getByRole('button', { name: 'Listening — stop' }).click();
   await expect(banner).toHaveAttribute('data-status', 'off');
-  await page.getByRole('button', { name: 'Listen' }).click();
+  await page.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(banner).toHaveAttribute('data-status', 'live');
 
   // The same person opens the room in another tab: Listen there just works, and this tab steps back.
   const other = await page.context().newPage();
   await other.goto(roomPath);
-  await other.getByRole('button', { name: 'Listen' }).click();
+  await other.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(other.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
   await expect(banner).toHaveAttribute('data-status', 'off');
   await expect(banner).toContainText('Your speaker moved to another tab.');
 
   // Reloading frees the speaker at once: starting again needs no takeover.
   await other.reload();
-  await other.getByRole('button', { name: 'Listen' }).click();
+  await other.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(other.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
 });
 
@@ -616,7 +616,7 @@ test('music keeps playing on other pages, with Listening in the top bar', async 
   await page.getByRole('tab', { name: 'DJ queue' }).click();
   await page.getByTestId('queue-toggle').click();
   await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
-  await page.getByRole('button', { name: 'Listen' }).click();
+  await page.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(page.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
   const playing = () =>
     page.evaluate(async () => {
