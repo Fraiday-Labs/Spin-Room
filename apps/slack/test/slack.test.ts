@@ -6,7 +6,7 @@ import type { AddressInfo } from 'node:net';
 import { Redis } from 'ioredis';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestApp, login, type TestApp, type TestUser } from '../../api/test/helpers.js';
-import { createSlackApp } from '../src/app.js';
+import { createSlackApp, roomArg, withoutImages } from '../src/app.js';
 import { CardScheduler } from '../src/cardSync.js';
 import { slackConfig } from '../src/config.js';
 import { createInstallationStore } from '../src/store.js';
@@ -29,6 +29,8 @@ interface Call {
 /** A fake Slack Web API + response_url sink that records every call. */
 async function fakeSlack() {
   const calls: Call[] = [];
+  /** Make the next `times` calls to `method` fail with Slack error `error`. */
+  const failures: { method: string; error: string; times: number }[] = [];
   let ts = 1700000000;
   const server: Server = createServer((req, res) => {
     let raw = '';
@@ -40,13 +42,18 @@ async function fakeSlack() {
       const method = req.url!.replace(/^\/api\//, '').replace(/^\//, '');
       calls.push({ method, body });
       res.writeHead(200, { 'content-type': 'application/json' });
+      const f = failures.find((x) => x.method === method && x.times > 0);
+      if (f) {
+        f.times--;
+        return void res.end(JSON.stringify({ ok: false, error: f.error }));
+      }
       res.end(JSON.stringify({ ok: true, ts: `${++ts}.000100`, channel: { id: 'D-DM' } }));
     });
   });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
   closers.push(() => new Promise((r) => server.close(r)));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  return { calls, base, apiUrl: `${base}/api/` };
+  return { calls, base, apiUrl: `${base}/api/`, fail: (method: string, error: string, times = 1) => failures.push({ method, error, times }) };
 }
 
 function sign(body: string) {
@@ -306,6 +313,29 @@ describe('Slack app (Journey 4)', () => {
   });
 });
 
+describe('linking a channel', () => {
+  it('explains a private channel the bot isn’t in, and retries a card Slack rejects for its images', async () => {
+    const s = await setup();
+    const alice = await login(t, 'alice', { displayName: 'Alice' });
+    await connect(s, 'U-ALICE', alice);
+    const room = await playingRoom(alice);
+
+    // Typed with angle brackets (as in the help text): still the room.
+    s.slack.fail('chat.postMessage', 'not_in_channel');
+    const r = await s.command('U-ALICE', `link <${room.slug}>`, 'C-PRIVATE');
+    expect(r.text).toContain('Linked to *Team Radio*');
+    expect(r.text).toContain('/invite @Spinroom');
+
+    // Slack can't fetch an image: the card goes out again without pictures.
+    s.slack.fail('chat.postMessage', 'invalid_blocks');
+    const ok = await s.command('U-ALICE', `link ${room.slug}`, 'C2');
+    expect(ok.text).toContain('Linked this channel to *Team Radio*');
+    const posts = s.slack.calls.filter((c) => c.method === 'chat.postMessage' && c.body.channel === 'C2');
+    expect(posts).toHaveLength(2);
+    expect(JSON.stringify(posts[1]!.body.blocks)).not.toContain('"type":"image"');
+  });
+});
+
 describe('Slack moments and the weekly recap', () => {
   it('posts a new DJ in the card’s thread, and the week’s recap on demand and on Friday afternoon', async () => {
     const s = await setup();
@@ -345,6 +375,24 @@ describe('Slack moments and the weekly recap', () => {
     // Owners can switch either off.
     expect((await s.command('U-ALICE', 'moments off')).text).toBe('Thread updates under the card turned off.');
     expect((await s.command('U-ALICE', 'recap off')).text).toBe('The Friday recap turned off.');
+  });
+});
+
+describe('helpers', () => {
+  it('reads a room from what people type after /spinroom link', () => {
+    expect(roomArg('stackadapt')).toBe('stackadapt');
+    expect(roomArg('&lt;stackadapt&gt;')).toBe('stackadapt');
+    expect(roomArg('<StackAdapt>')).toBe('stackadapt');
+    expect(roomArg('Friday Night Spins')).toBe('friday-night-spins');
+    expect(roomArg('https://spin-room-web.vercel.app/r/friday-x?speaker=1')).toBe('friday-x');
+  });
+  it('drops images from a card', () => {
+    const b = withoutImages([
+      { type: 'section', text: { type: 'mrkdwn', text: 'x' }, accessory: { type: 'image', image_url: 'https://a' } },
+      { type: 'context', elements: [{ type: 'image', image_url: 'https://b' }, { type: 'mrkdwn', text: 'DJ' }] },
+    ]);
+    expect(JSON.stringify(b)).not.toContain('image');
+    expect(JSON.stringify(b)).toContain('DJ');
   });
 });
 

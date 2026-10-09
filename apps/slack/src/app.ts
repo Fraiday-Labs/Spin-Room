@@ -8,6 +8,34 @@ import { buildCard, connectBlocks, esc, joinButtonMessage, type Block } from './
 
 type WebClient = webApi.WebClient;
 const kb = (b: Block[]) => b as unknown as types.KnownBlock[];
+
+/** The error code Slack's Web API sent back (e.g. `not_in_channel`), if this was one. */
+export function slackErrorCode(e: unknown): string | null {
+  const x = e as { data?: { error?: unknown }; code?: unknown };
+  return typeof x?.data?.error === 'string' ? x.data.error : null;
+}
+
+/** The card without pictures, for when Slack can't fetch one (it rejects the whole message). */
+export function withoutImages(blocks: Block[]): Block[] {
+  return blocks.map((b) => {
+    const { accessory, ...rest } = b as Block & { accessory?: { type?: string } };
+    const out: Block = accessory?.type === 'image' ? rest : b;
+    const els = (out as { elements?: { type?: string }[] }).elements;
+    return els ? { ...out, elements: els.filter((e) => e.type !== 'image') } : out;
+  });
+}
+
+/** What someone typed after `/spinroom link`: a room's address, its name, `<name>`, or a link to it. */
+export function roomArg(arg: string): string {
+  return arg
+    .trim()
+    .replace(/^(&lt;|<)|(&gt;|>)$/g, '')
+    .toLowerCase()
+    .replace(/^.*\/r\//, '')
+    .split(/[?#]/)[0]!
+    .trim()
+    .replace(/\s+/g, '-');
+}
 import { CardScheduler, isCardEvent, subscribeRoomEvents } from './cardSync.js';
 import { BASE, BOT_SCOPES, type SlackConfig } from './config.js';
 import { RECAP_WINDOW_MS, buildRecap, djMoment, endMoment, isRecapTime } from './moments.js';
@@ -86,11 +114,7 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
   }
 
   async function roomFor(teamId: string, channelId: string, arg: string | undefined): Promise<string | null> {
-    if (arg)
-      return arg
-        .toLowerCase()
-        .replace(/^.*\/r\//, '')
-        .split(/[?#]/)[0]!;
+    if (arg) return roomArg(arg);
     const l = await links.forChannel(teamId, channelId);
     if (!l) return null;
     return (await slugOf(l.roomId)) ?? null;
@@ -127,11 +151,21 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     const snap = await a.client.call('rooms.get', { params: { slug } });
     const card = buildCard(snap, cfg.publicUrl, { joinUrl: channelJoinUrl(slug, link.roomId, teamId, channelId) });
     const client = await clientFor(teamId);
+    // Slack rejects a whole message when it can't fetch one of its images: send it again without them.
+    const send = async <T>(fn: (blocks: Block[]) => Promise<T>) => {
+      try {
+        return await fn(card.blocks);
+      } catch (e) {
+        if (!/^invalid_blocks/.test(slackErrorCode(e) ?? '')) throw e;
+        app.logger.warn(`card images rejected by Slack (${slackErrorCode(e)}); sending without them`);
+        return fn(withoutImages(card.blocks));
+      }
+    };
     if (link.cardMessageTs && !opts.repost && link.messagesSinceCard < snap.room.settings.slackRepostAfter) {
-      await client.chat.update({ channel: channelId, ts: link.cardMessageTs, text: card.text, blocks: kb(card.blocks) });
+      await send((blocks) => client.chat.update({ channel: channelId, ts: link.cardMessageTs!, text: card.text, blocks: kb(blocks) }));
       return;
     }
-    const posted = await client.chat.postMessage({ channel: channelId, text: card.text, blocks: kb(card.blocks), unfurl_links: false });
+    const posted = await send((blocks) => client.chat.postMessage({ channel: channelId, text: card.text, blocks: kb(blocks), unfurl_links: false }));
     if (posted.ts) await links.setCard(teamId, channelId, posted.ts);
   }
   const cards = new CardScheduler(cfg.cardIntervalMs, async (key) => {
@@ -259,7 +293,19 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
           timeZone: tz,
         });
         slugCache.set(snap.room.id, snap.room.slug);
-        await renderCard(team, channel, { repost: true });
+        try {
+          await renderCard(team, channel, { repost: true });
+        } catch (e) {
+          const code = slackErrorCode(e);
+          app.logger.error(`posting the card after /spinroom link failed: ${code ?? String(e)}`);
+          return void (await respond({
+            response_type: 'ephemeral',
+            text:
+              code === 'not_in_channel' || code === 'channel_not_found'
+                ? `Linked to *${esc(snap.room.name)}*, but Spinroom can’t post in this channel yet. If it’s private, add the app first: type \`/invite @Spinroom\`, then run \`/spinroom link ${snap.room.slug}\` again.`
+                : `Linked to *${esc(snap.room.name)}*, but Slack wouldn’t take the now-playing card${code ? ` (Slack said: ${code})` : ''}. Try \`/spinroom link ${snap.room.slug}\` again in a minute.`,
+          }));
+        }
         return void (await respond({
           response_type: 'ephemeral',
           text: `Linked this channel to *${esc(snap.room.name)}*. The card updates as the room plays; new DJs, big hypes and crowd skips get a line in its thread, and a recap posts here on Fridays at 4 pm.`,
@@ -383,7 +429,10 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
           return void (await respond({ response_type: 'ephemeral', text: HELP }));
       }
     } catch (e) {
-      await respond({ response_type: 'ephemeral', text: errText(e) });
+      // Keep the real reason in the server log; tell the person what Slack said when it was Slack.
+      const code = slackErrorCode(e);
+      app.logger.error(`/spinroom ${sub} failed: ${code ?? (e instanceof Error ? e.stack : String(e))}`);
+      await respond({ response_type: 'ephemeral', text: code ? `Slack wouldn’t do that (it said: ${code}). Try again in a minute.` : errText(e) });
     }
   });
 
