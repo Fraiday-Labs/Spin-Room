@@ -151,6 +151,8 @@ const SLACK_COMMANDS: [string, string][] = [
   ['/spinroom invite @someone', 'DM a teammate an invite link'],
   ['/spinroom button [room]', 'Post a “Join room” button for the channel: one click takes people into the room'],
   ['/spinroom speaker', 'DM yourself the speaker link (listening happens in a browser tab)'],
+  ['/spinroom recap', 'Post this week’s recap now: DJ of the week and the most-hyped songs (it also posts itself on Fridays at 4 pm)'],
+  ['/spinroom moments on|off · recap on|off', 'Thread updates under the card (new DJ, big hype, crowd skip) and the Friday recap — owners and moderators'],
 ];
 
 /** Slack: what it does, workspace install, and this account's link status. */

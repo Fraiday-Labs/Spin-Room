@@ -154,7 +154,9 @@ Tools: `list_rooms`, `join_room`, `leave_room`, `now_playing`, `vote`, `search_t
 3. In a channel, an owner or moderator runs `/spinroom link <room>`. A now-playing card appears and is edited in place, at most once every 3 s per channel. It is reposted after 50 newer messages.
 4. Card buttons: **🎧 Join room**, **Hype**, **Skip**, **Join DJ queue**, **Add to my set** (opens a Spotify search modal). **Join room** carries a link signed for that channel, so anyone in it gets into the room in one click, invite-only rooms included, for as long as the channel stays linked.
 5. Slash commands: `now`, `hype`, `skip`, `add <search>`, `dj`, `undj`, `invite @user`, `button [room]` (posts a standalone **Join room** button), `speaker`, `unlink`, `help`.
-6. Each Slack user connects once with the **Connect Spinroom** button. It is a signed link that's valid for 15 minutes.
+6. **Moments:** short replies in the card's thread when a new DJ steps up, the crowd skips a song, or a song gets 3+ hypes (and at least twice its skips). `/spinroom moments off|on` (owners and moderators).
+7. **Weekly recap:** Fridays from 4 pm in the time zone of whoever linked the channel, the week's songs and DJs, DJ of the week (most hypes) and the three most-hyped songs, with a **Join room** button. `/spinroom recap` posts it now; `/spinroom recap off|on` turns the Friday post off or on.
+8. Each Slack user connects once with the **Connect Spinroom** button. It is a signed link that's valid for 15 minutes.
 
 The manifest adds `channels:history` and `groups:history` to the PRD's scopes. Spinroom only uses them to count newer messages so it can repost the card. Before promoting a workplace "office radio", check Spotify's personal, non-commercial use terms.
 

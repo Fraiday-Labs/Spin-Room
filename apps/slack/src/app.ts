@@ -1,7 +1,7 @@
 import { App, HTTPReceiver, LogLevel, webApi, type types, type RespondFn } from '@slack/bolt';
 import type { RoomEvent } from '@spinroom/contracts';
 import { createAesSealer, slackJoinSignature, tables, type Db } from '@spinroom/db';
-import { eq } from 'drizzle-orm';
+import { and, eq, gte, isNotNull } from 'drizzle-orm';
 import { ApiError, formatMs, type SpinroomClient } from '@spinroom/sdk';
 import type { Redis } from 'ioredis';
 import { buildCard, connectBlocks, esc, joinButtonMessage, type Block } from './card.js';
@@ -10,8 +10,9 @@ type WebClient = webApi.WebClient;
 const kb = (b: Block[]) => b as unknown as types.KnownBlock[];
 import { CardScheduler, isCardEvent, subscribeRoomEvents } from './cardSync.js';
 import { BASE, BOT_SCOPES, type SlackConfig } from './config.js';
+import { RECAP_WINDOW_MS, buildRecap, djMoment, endMoment, isRecapTime } from './moments.js';
 import { createSpinroomAccess } from './spinroom.js';
-import { botToken, createInstallationStore, createLinkStore } from './store.js';
+import { botToken, createInstallationStore, createLinkStore, type SlackLink } from './store.js';
 
 const HELP = [
   '*Spinroom* — shared music rooms on Spotify',
@@ -23,6 +24,8 @@ const HELP = [
   '`/spinroom invite @user` — DM someone an invite link',
   '`/spinroom button [room]` — post a “Join room” button anyone in this channel can click',
   '`/spinroom speaker` — DM yourself the speaker link (listening happens in a browser tab)',
+  '`/spinroom recap` — post this week’s recap now (it also posts itself on Fridays at 4 pm)',
+  '`/spinroom moments on|off` · `/spinroom recap on|off` — thread updates under the card / the Friday recap (owners and moderators)',
 ].join('\n');
 
 export interface SlackDeps {
@@ -136,10 +139,80 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     await renderCard(teamId, channelId).catch((e) => app.logger.warn('card update failed', e));
   });
 
+  // ---------------------------------------------------------------- moments & recap
+  async function userName(id: string) {
+    const u = await deps.db.query.users.findFirst({ where: eq(tables.users.id, id) });
+    return u?.displayName ?? 'Someone';
+  }
+
+  /** A short reply in the card's thread, once per event and channel (also with several Slack instances). */
+  async function postMoment(l: SlackLink, seq: number, text: string) {
+    if (!l.momentsEnabled || !l.cardMessageTs) return;
+    const once = await deps.redis.set(`slack:moment:${l.teamId}:${l.channelId}:${l.roomId}:${seq}`, '1', 'PX', 600_000, 'NX');
+    if (!once) return;
+    const client = await clientFor(l.teamId);
+    await client.chat.postMessage({ channel: l.channelId, thread_ts: l.cardMessageTs, text, unfurl_links: false });
+  }
+
+  async function onMoment(roomId: string, ev: RoomEvent) {
+    if (ev.type === 'spin.started') {
+      // Only a change of DJ is news; remembered in Redis so restarts and other instances agree.
+      const prev = await deps.redis.getset(`slack:lastdj:${roomId}`, ev.spin.djUserId);
+      if (prev === ev.spin.djUserId) return;
+      const ls = await links.forRoom(roomId);
+      if (!ls.length) return;
+      const text = djMoment(await userName(ev.spin.djUserId), ev.spin.track);
+      for (const l of ls) await postMoment(l, ev.seq, text).catch((e) => app.logger.warn('moment failed', e));
+    } else if (ev.type === 'spin.ended') {
+      const ls = await links.forRoom(roomId);
+      if (!ls.some((l) => l.momentsEnabled)) return;
+      const row = await deps.db.query.spins.findFirst({ where: eq(tables.spins.id, ev.spinId) });
+      if (!row) return;
+      const text = endMoment(
+        ev.reason,
+        { djUserId: row.djUserId, title: row.title, artists: row.artists, hype: ev.hype, skip: ev.skip },
+        await userName(row.djUserId),
+      );
+      if (!text) return;
+      for (const l of ls) await postMoment(l, ev.seq, text).catch((e) => app.logger.warn('moment failed', e));
+    }
+  }
+
+  /** Post the past week's recap for a linked channel. False when nothing played. */
+  async function postRecap(l: SlackLink, now: number): Promise<boolean> {
+    const slug = await slugOf(l.roomId);
+    const room = await deps.db.query.rooms.findFirst({ where: eq(tables.rooms.id, l.roomId) });
+    if (!slug || !room) return false;
+    const rows = await deps.db
+      .select()
+      .from(tables.spins)
+      .where(and(eq(tables.spins.roomId, l.roomId), gte(tables.spins.startedAt, now - RECAP_WINDOW_MS), isNotNull(tables.spins.endedAt)));
+    const spins = rows.map((r) => ({ djUserId: r.djUserId, title: r.title, artists: r.artists, hype: r.hypeCount ?? 0, skip: r.skipCount ?? 0 }));
+    const names = new Map<string, string>();
+    for (const id of new Set(spins.map((x) => x.djUserId))) names.set(id, await userName(id));
+    const recap = buildRecap(room.name, spins, names, channelJoinUrl(slug, l.roomId, l.teamId, l.channelId));
+    if (!recap) return false;
+    const client = await clientFor(l.teamId);
+    await client.chat.postMessage({ channel: l.channelId, text: recap.text, blocks: kb(recap.blocks), unfurl_links: false });
+    return true;
+  }
+
+  /** Every few minutes: post the Friday recap where it's due (once, even with several instances). */
+  async function runRecaps(now = Date.now()) {
+    for (const l of await links.all()) {
+      if (!l.recapEnabled || !isRecapTime(now, l.timeZone, l.lastRecapAt)) continue;
+      if (!(await deps.redis.set(`slack:recap:${l.teamId}:${l.channelId}`, '1', 'PX', 3_600_000, 'NX'))) continue;
+      await links.set(l.teamId, l.channelId, { lastRecapAt: now });
+      await postRecap(l, now).catch((e) => app.logger.warn('recap failed', e));
+    }
+  }
+  let recapTimer: ReturnType<typeof setInterval> | null = null;
+
   async function onRoomEvent(roomId: string, ev: RoomEvent) {
     if (isCardEvent(ev)) {
       for (const l of await links.forRoom(roomId)) cards.request(`${l.teamId}:${l.channelId}`);
     }
+    await onMoment(roomId, ev).catch((e) => app.logger.warn('moment handling failed', e));
     // FR-L4: "up next" notice by DM for members who use Spinroom from Slack.
     if (ev.type === 'user.notice' && (ev.kind === 'up_next' || ev.kind === 'bounced' || ev.kind === 'crate_ran_out')) {
       for (const idn of await links.slackIdentities(ev.userId)) {
@@ -172,12 +245,24 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
         if (snap.me?.role !== 'owner' && snap.me?.role !== 'moderator') {
           return void (await respond({ response_type: 'ephemeral', text: 'Only the room’s owner or moderators can link a channel.' }));
         }
-        await links.link({ teamId: team, channelId: channel, roomId: snap.room.id, linkedByUserId: a.userId, linkedBySlackUser: command.user_id });
+        // Their time zone sets when "Friday 4 pm" is for the weekly recap.
+        const tz = await client.users
+          .info({ user: command.user_id })
+          .then((r) => (r.user as { tz?: string } | undefined)?.tz ?? null)
+          .catch(() => null);
+        await links.link({
+          teamId: team,
+          channelId: channel,
+          roomId: snap.room.id,
+          linkedByUserId: a.userId,
+          linkedBySlackUser: command.user_id,
+          timeZone: tz,
+        });
         slugCache.set(snap.room.id, snap.room.slug);
         await renderCard(team, channel, { repost: true });
         return void (await respond({
           response_type: 'ephemeral',
-          text: `Linked this channel to *${esc(snap.room.name)}*. The card updates as the room plays.`,
+          text: `Linked this channel to *${esc(snap.room.name)}*. The card updates as the room plays; new DJs, big hypes and crowd skips get a line in its thread, and a recap posts here on Fridays at 4 pm.`,
         }));
       }
       if (sub === 'unlink') {
@@ -188,6 +273,29 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
           return void (await respond({ response_type: 'ephemeral', text: 'Only owners and moderators can unlink.' }));
         await links.unlink(team, channel);
         return void (await respond({ response_type: 'ephemeral', text: 'Unlinked.' }));
+      }
+
+      if (sub === 'moments' || (sub === 'recap' && (arg === 'on' || arg === 'off'))) {
+        const l = await links.forChannel(team, channel);
+        if (!l) return void (await respond({ response_type: 'ephemeral', text: 'This channel isn’t linked to a room.' }));
+        const snap = await sr.call('rooms.get', { params: { slug: (await slugOf(l.roomId))! } });
+        if (snap.me?.role !== 'owner' && snap.me?.role !== 'moderator')
+          return void (await respond({ response_type: 'ephemeral', text: 'Only owners and moderators can change this.' }));
+        if (arg !== 'on' && arg !== 'off')
+          return void (await respond({ response_type: 'ephemeral', text: 'Usage: `/spinroom moments on` or `/spinroom moments off`' }));
+        const on = arg === 'on';
+        await links.set(team, channel, sub === 'moments' ? { momentsEnabled: on } : { recapEnabled: on });
+        const what = sub === 'moments' ? 'Thread updates under the card' : 'The Friday recap';
+        return void (await respond({ response_type: 'ephemeral', text: `${what} ${on ? 'turned on' : 'turned off'}.` }));
+      }
+      if (sub === 'recap') {
+        const l = await links.forChannel(team, channel);
+        if (!l) return void (await respond({ response_type: 'ephemeral', text: 'This channel isn’t linked to a room.' }));
+        const posted = await postRecap(l, Date.now());
+        return void (await respond({
+          response_type: 'ephemeral',
+          text: posted ? 'Posted this week’s recap.' : 'Nothing has played in the room this week yet.',
+        }));
       }
 
       const slug = await roomFor(team, channel, sub === 'add' || sub === 'invite' ? undefined : arg);
@@ -417,7 +525,10 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     /** Node request listener for the Slack routes, for embedding in another HTTP server. */
     requestListener: receiver.requestListener,
     /** Follow room events without opening a port (embedded mode). */
+    runRecaps,
     async attach() {
+      recapTimer ??= setInterval(() => void runRecaps().catch((e) => app.logger.warn('recaps failed', e)), 10 * 60_000);
+      recapTimer.unref?.();
       await subscribeRoomEvents(deps.sub, (roomId, ev) => void onRoomEvent(roomId, ev).catch((e) => app.logger.warn('event handling failed', e)));
     },
     async start(port = cfg.port) {
@@ -426,6 +537,8 @@ export function createSlackApp(cfg: SlackConfig, deps: SlackDeps) {
     },
     async stop() {
       cards.stop();
+      if (recapTimer) clearInterval(recapTimer);
+      recapTimer = null;
       await app.stop().catch(() => {});
     },
   };

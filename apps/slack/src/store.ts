@@ -46,7 +46,7 @@ export function createLinkStore(db: Db) {
     async forRoom(roomId: string) {
       return db.select().from(slackLinks).where(eq(slackLinks.roomId, roomId));
     },
-    async link(p: { teamId: string; channelId: string; roomId: string; linkedByUserId: string; linkedBySlackUser: string }) {
+    async link(p: { teamId: string; channelId: string; roomId: string; linkedByUserId: string; linkedBySlackUser: string; timeZone: string | null }) {
       const row = { ...p, cardMessageTs: null, messagesSinceCard: 0, createdAt: Date.now() };
       await db
         .insert(slackLinks)
@@ -55,6 +55,15 @@ export function createLinkStore(db: Db) {
     },
     async unlink(teamId: string, channelId: string) {
       await db.delete(slackLinks).where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
+    },
+    async all() {
+      return db.select().from(slackLinks);
+    },
+    async set(teamId: string, channelId: string, patch: Partial<Pick<SlackLink, 'momentsEnabled' | 'recapEnabled' | 'lastRecapAt'>>) {
+      await db
+        .update(slackLinks)
+        .set(patch)
+        .where(and(eq(slackLinks.teamId, teamId), eq(slackLinks.channelId, channelId)));
     },
     async setCard(teamId: string, channelId: string, ts: string) {
       await db

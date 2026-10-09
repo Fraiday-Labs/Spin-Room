@@ -246,6 +246,13 @@ export const slackLinks = pgTable(
     linkedByUserId: text('linked_by_user_id'),
     linkedBySlackUser: text('linked_by_slack_user'),
     createdAt: ms('created_at').notNull(),
+    /** Short thread replies under the card: a new DJ, a crowd skip, a big hype. */
+    momentsEnabled: boolean('moments_enabled').notNull().default(true),
+    /** The Friday afternoon recap post. */
+    recapEnabled: boolean('recap_enabled').notNull().default(true),
+    /** IANA time zone of whoever linked the channel (when "Friday 4 pm" is). */
+    timeZone: text('time_zone'),
+    lastRecapAt: ms('last_recap_at'),
   },
   (t) => [primaryKey({ columns: [t.teamId, t.channelId] }), index('slack_links_room_idx').on(t.roomId)],
 );

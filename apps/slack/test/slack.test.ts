@@ -141,7 +141,7 @@ async function setup() {
     }
     throw new Error('no action response');
   };
-  return { slack, slackUrl, apiBase, post, command, action };
+  return { slack, slackUrl, apiBase, post, command, action, app };
 }
 
 async function connect(s: Awaited<ReturnType<typeof setup>>, slackUser: string, u: TestUser) {
@@ -303,6 +303,48 @@ describe('Slack app (Journey 4)', () => {
     const json = (await res.json()) as { options: { text: { text: string }; value: string }[] };
     expect(json.options[0]!.text.text).toContain('Neon Tide');
     expect(json.options[0]!.value).toMatch(/^spotify:track:/);
+  });
+});
+
+describe('Slack moments and the weekly recap', () => {
+  it('posts a new DJ in the card’s thread, and the week’s recap on demand and on Friday afternoon', async () => {
+    const s = await setup();
+    const alice = await login(t, 'alice', { displayName: 'Alice' });
+    const bob = await login(t, 'bob', { displayName: 'Bob' });
+    await connect(s, 'U-ALICE', alice);
+    const room = await playingRoom(alice);
+    await s.command('U-ALICE', `link ${room.slug}`);
+    const card = s.slack.calls.find((c) => c.method === 'chat.postMessage' && c.body.channel === 'C1')!;
+    expect(card).toBeTruthy();
+
+    // Bob joins the DJ queue; Alice skips, so Bob's song starts: a new DJ, posted in the card's thread.
+    await bob.req('POST', `/v1/rooms/${room.slug}/join`, {});
+    const sp = (await bob.req('POST', '/v1/speakers', { roomSlug: room.slug, kind: 'fake' })).json();
+    await bob.req('POST', `/v1/speakers/${sp.id}/heartbeat`, { status: 'live', audible: true });
+    await bob.req('POST', `/v1/rooms/${room.slug}/crate`, { query: 'Pixel Rain' });
+    await bob.req('POST', `/v1/rooms/${room.slug}/dj-queue`);
+    await alice.req('POST', `/v1/rooms/${room.slug}/spins/current/skip`);
+    await vi.waitFor(
+      () => expect(s.slack.calls.find((c) => c.method === 'chat.postMessage' && String(c.body.text).includes('*Bob* stepped up'))?.body.thread_ts).toBeTruthy(),
+      { timeout: 3000 },
+    );
+
+    // The recap, on demand.
+    expect((await s.command('U-ALICE', 'recap')).text).toBe('Posted this week’s recap.');
+    const recaps = () => s.slack.calls.filter((c) => c.method === 'chat.postMessage' && String(c.body.text).startsWith('📊 This week in Team Radio'));
+    expect(recaps()).toHaveLength(1);
+    expect(JSON.stringify(recaps()[0]!.body.blocks)).toContain('DJ of the week: *Alice*');
+
+    // And by itself on Friday from 4 pm (UTC here: Slack gave no time zone), only once.
+    const d = new Date();
+    const friday = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + ((5 - d.getUTCDay() + 7) % 7), 16, 30);
+    await s.app.runRecaps(friday);
+    await s.app.runRecaps(friday + 60_000);
+    expect(recaps()).toHaveLength(2);
+
+    // Owners can switch either off.
+    expect((await s.command('U-ALICE', 'moments off')).text).toBe('Thread updates under the card turned off.');
+    expect((await s.command('U-ALICE', 'recap off')).text).toBe('The Friday recap turned off.');
   });
 });
 
