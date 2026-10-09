@@ -425,3 +425,17 @@ test('your chosen avatar is the one in the crowd after you step down from the bo
   await expect(inCrowd).toHaveCount(1);
   expect(await inCrowd.evaluate((el) => (el as HTMLElement).style.backgroundImage)).toBe(sheet);
 });
+
+test('on a phone, the thumbs are on screen without scrolling and the header is one line', async ({ browser }) => {
+  const page = await newUserPage(browser, uid('phoneuser'));
+  await page.goto('/lobby');
+  await page.getByTestId('open-create-room').click();
+  await page.getByTestId('room-name').fill(`Pocket ${uid('')}`);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\//);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByTestId('vote-hype')).toBeInViewport();
+  await expect(page.getByTestId('vote-skip')).toBeInViewport();
+  const header = await page.locator('header').first().boundingBox();
+  expect(header!.height).toBeLessThan(64);
+});

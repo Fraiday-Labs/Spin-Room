@@ -147,16 +147,22 @@ textarea {
   padding: 8px;
 }
 .btn-hype {
-  background: #3b1036;
-  border-color: var(--pink);
+  background: rgba(255, 79, 163, 0.14);
+  color: #ffc2de;
+}
+.btn-hype:hover {
+  background: rgba(255, 79, 163, 0.24);
 }
 .btn-hype[aria-pressed='true'] {
   background: var(--pink);
   color: #1b0716;
 }
 .btn-skip {
-  background: #10283a;
-  border-color: var(--cyan);
+  background: rgba(61, 226, 255, 0.12);
+  color: #bff4ff;
+}
+.btn-skip:hover {
+  background: rgba(61, 226, 255, 0.22);
 }
 .btn-skip[aria-pressed='true'] {
   background: var(--cyan);

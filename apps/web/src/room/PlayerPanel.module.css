@@ -1,42 +1,56 @@
+/* Now playing: track | votes | yours. */
 .panel {
+  position: relative;
   display: grid;
-  grid-template-columns: 96px 1fr auto;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 20px;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 20px;
   background: var(--indigo);
-  border-top: 2px solid var(--border);
+  border-top: 1px solid var(--border);
 }
-@media (max-width: 720px) {
-  .panel {
-    grid-template-columns: 64px 1fr;
-  }
-  .controls {
-    grid-column: 1 / -1;
-  }
-  .art img,
-  .noArt {
-    width: 64px !important;
-    height: 64px !important;
-  }
+/* A thin progress line along the top edge of the bar. */
+.progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 3px;
+  background: transparent;
 }
-.art img {
+.progress span {
   display: block;
-  border-radius: 4px;
+  height: 100%;
+  background: var(--cyan);
+  transform-origin: 0 50%;
+  transition: transform 1s linear;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.art img,
+.noArt {
+  display: block;
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
   object-fit: cover;
+  flex: none;
 }
 .noArt {
-  width: 96px;
-  height: 96px;
-  border-radius: 4px;
   background: var(--charcoal);
 }
 .meta {
   min-width: 0;
 }
 .title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -49,10 +63,11 @@
 }
 .sub {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: 12px;
+  color: var(--text-dim);
   margin-top: 4px;
 }
 .spotify {
@@ -60,94 +75,122 @@
   align-items: center;
   gap: 4px;
   font-weight: 700;
+  color: var(--text);
 }
-.progress {
-  height: 4px;
-  background: var(--charcoal);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-top: 8px;
+.open {
+  color: var(--text-dim);
 }
-.progress span {
-  display: block;
-  height: 100%;
-  background: var(--text);
-  transform-origin: 0 50%;
+.open:hover {
+  color: var(--cyan);
 }
 .times {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
 .idleText {
   color: var(--text-dim);
 }
-.controls {
+
+.votes {
   display: grid;
-  gap: 8px;
-  justify-items: end;
+  justify-items: center;
+  gap: 6px;
 }
-.controlRow {
+.voteRow {
   display: flex;
-  align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 .vote {
-  min-width: 84px;
-  min-height: 48px;
+  min-width: 96px;
+  min-height: 52px;
   gap: 10px;
   font-size: 18px;
-  display: inline-flex;
+}
+.count {
+  font-variant-numeric: tabular-nums;
+}
+.summary {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.mine {
+  display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  gap: 12px;
 }
 .volumeGroup {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-left: 14px;
-  padding-left: 18px;
-  border-left: 2px solid var(--border);
+  gap: 8px;
 }
 .mute {
-  min-width: 48px;
-  min-height: 48px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
   color: var(--cyan);
 }
-.count {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
-}
-.row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
 .volume {
-  width: 120px;
+  width: 110px;
   accent-color: var(--cyan);
 }
-@media (max-width: 720px) {
-  .controlRow {
-    flex-wrap: nowrap;
-    gap: 8px;
+
+/* Narrow windows: track on top, votes and volume beneath. */
+@media (max-width: 1100px) and (min-width: 721px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
-  .volumeGroup {
-    margin-left: 2px;
-    padding-left: 10px;
-    gap: 8px;
+  .mine {
+    grid-column: 2;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .votes {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .mine {
+    grid-row: 2;
+  }
+  .track {
+    grid-row: 1 / span 2;
+  }
+}
+
+/* Phones: one compact strip — track, thumbs, mute. Use the phone's own volume buttons. */
+@media (max-width: 720px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 10px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  }
+  .art img,
+  .noArt {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+  }
+  .track {
+    gap: 10px;
+  }
+  .title {
+    font-size: 15px;
+  }
+  .artist {
+    font-size: 13px;
+  }
+  .sub,
+  .summary,
+  .volume,
+  .skipSpin {
+    display: none;
   }
   .vote {
-    min-width: 72px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 6px 12px;
+    gap: 6px;
+    font-size: 15px;
   }
-  .volume {
-    width: 84px;
+  .voteRow {
+    gap: 6px;
   }
 }

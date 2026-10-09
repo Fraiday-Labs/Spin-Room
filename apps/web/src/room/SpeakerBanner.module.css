@@ -7,7 +7,19 @@
   background: var(--charcoal);
   border: 1px solid var(--border);
   font-size: 14px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex: none;
+  white-space: nowrap;
+}
+/* Phones: the dot and the button say enough. */
+@media (max-width: 720px) {
+  .banner {
+    padding: 4px 6px 4px 10px;
+    gap: 8px;
+  }
+  .label {
+    display: none;
+  }
 }
 .dot {
   width: 10px;

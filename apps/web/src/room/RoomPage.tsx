@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
+import { LineIcon } from '../components/LineIcon';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { useSpeaker } from '../speaker/useSpeaker';
 import { MemberCard } from './MemberCard';
@@ -115,14 +116,16 @@ export default function RoomPage({ slug }: { slug: string }) {
   const vote = useCallback(
     async (value: VoteValue | null) => {
       if (!snap?.currentSpin) return;
+      const spinId = snap.currentSpin.id;
+      const before = snap.me?.vote ?? null;
+      const setMine = (v: VoteValue | null) => live.patch((cur) => (cur.currentSpin?.id === spinId && cur.me ? { ...cur, me: { ...cur.me, vote: v } } : cur));
+      // Show the vote the instant it's tapped; the server's answer confirms (or undoes) it.
+      setMine(value);
       try {
-        const res = await api.call(
-          'spins.vote',
-          { params: { slug, spinId: snap.currentSpin.id }, body: { value } },
-          { idempotencyKey: `${snap.currentSpin.id}:${value}:${Date.now() >> 10}` },
-        );
-        live.patch((cur) => (cur.currentSpin?.id === res.spinId && cur.me ? { ...cur, me: { ...cur.me, vote: res.myVote } } : cur));
+        const res = await api.call('spins.vote', { params: { slug, spinId }, body: { value } }, { idempotencyKey: `${spinId}:${value}:${Date.now() >> 10}` });
+        setMine(res.myVote);
       } catch (e) {
+        setMine(before);
         notify(errorMessage(e));
       }
     },
@@ -218,8 +221,8 @@ export default function RoomPage({ slug }: { slug: string }) {
   return (
     <div className={s.page}>
       <header className={s.header}>
-        <Link href="/lobby" className={s.back} aria-label="Back to rooms">
-          ←
+        <Link href="/lobby" className={`btn btn-ghost btn-icon ${s.back}`} aria-label="Back to rooms">
+          <LineIcon name="back" size={20} />
         </Link>
         <h1 className={s.name}>{snap.room.name}</h1>
         {live.status !== 'open' && <span className="badge badge-warn">{live.status === 'reconnecting' ? 'Reconnecting…' : 'Connecting…'}</span>}
@@ -234,13 +237,15 @@ export default function RoomPage({ slug }: { slug: string }) {
           autoFocus={params.get('speaker') === '1'}
         />
         {me.data && (
-          <button className="btn" onClick={() => setSharing(true)} data-testid="share-room">
-            Share
+          <button className={`btn ${s.hdrBtn}`} onClick={() => setSharing(true)} data-testid="share-room" aria-label="Share">
+            <LineIcon name="share" />
+            <span className={s.wide}>Share</span>
           </button>
         )}
         {isMod && (
-          <Link href={`/r/${slug}/settings`} className="btn btn-ghost">
-            Settings
+          <Link href={`/r/${slug}/settings`} className={`btn btn-ghost ${s.hdrBtn}`} aria-label="Settings">
+            <LineIcon name="settings" />
+            <span className={s.wide}>Settings</span>
           </Link>
         )}
         {!me.data && (

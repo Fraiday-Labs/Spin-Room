@@ -8,21 +8,42 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 12px;
   background: var(--indigo);
-  border-bottom: 2px solid var(--border);
-  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 .back {
-  color: var(--text);
-  text-decoration: none;
-  font-size: 22px;
-  padding: 0 6px;
+  flex: none;
 }
 .name {
   font-size: 20px;
   margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hdrBtn {
+  flex: none;
+}
+@media (max-width: 720px) {
+  .header {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .name {
+    font-size: 17px;
+  }
+  .wide {
+    display: none;
+  }
+  .hdrBtn {
+    min-width: 40px;
+    padding: 8px;
+  }
 }
 .spacer {
   flex: 1;
@@ -47,25 +68,29 @@
   min-width: 0;
   overflow: hidden;
 }
+/* Phones and narrow windows: the room fills the screen — header, stage, the tabs (which scroll on
+   their own), and the now-playing strip docked at the bottom, so the thumbs are always in reach. */
 @media (max-width: 960px) {
-  .page {
-    height: auto;
-    min-height: 100vh;
-    overflow: visible;
-  }
   .main {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+  }
+  .center {
+    display: contents;
   }
   .stage {
-    height: 56vw;
+    flex: none;
+    height: min(56.25vw, 42vh);
   }
-  /* The rail becomes a bottom sheet. */
   .main > aside {
+    order: 1;
+    flex: 1;
+    min-height: 0;
     border-left: 0;
-    border-top: 2px solid var(--border);
-    max-height: 70vh;
-    position: sticky;
-    bottom: 0;
+    border-top: 1px solid var(--border);
+  }
+  .center > section {
+    order: 2;
   }
 }
 .toasts {

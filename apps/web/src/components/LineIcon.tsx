@@ -1,0 +1,26 @@
+/** Small line icons for chrome (header buttons). Pixel art stays for the room itself. */
+const PATHS = {
+  // Arrow leaving a box.
+  share: 'M12 3v12M7.5 7.5 12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',
+  // Sliders.
+  settings: 'M4 7h10M18 7h2M4 17h4M12 17h8M16 4v6M10 14v6',
+  back: 'M15 5l-7 7 7 7',
+} as const;
+
+export function LineIcon({ name, size = 18 }: { name: keyof typeof PATHS; size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={PATHS[name]} />
+    </svg>
+  );
+}

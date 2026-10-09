@@ -23,12 +23,15 @@ export function SpeakerBanner(props: {
   const { me, view } = props;
   if (!me) return null;
   return (
-    <div className={`${s.banner} ${s[view.status]}`} role="status" data-testid="speaker-banner" data-status={view.status}>
+    <div
+      className={`${s.banner} ${s[view.status]}`}
+      role="status"
+      data-testid="speaker-banner"
+      data-status={view.status}
+      title={view.status === 'live' && view.driftMs !== null ? `In sync with the room (±${Math.abs(view.driftMs)} ms)` : undefined}
+    >
       <span className={s.dot} aria-hidden="true" />
-      <span>
-        {view.status === 'paused_elsewhere' ? LABEL.paused_elsewhere : (view.message ?? LABEL[view.status])}
-        {view.status === 'live' && view.driftMs !== null && <span className="muted"> · drift {view.driftMs} ms</span>}
-      </span>
+      <span className={s.label}>{view.status === 'paused_elsewhere' ? LABEL.paused_elsewhere : (view.message ?? LABEL[view.status])}</span>
       {(view.status === 'off' || view.status === 'error') &&
         (props.needsTakeover ? (
           <button className="btn btn-primary" onClick={() => props.onStart(true)} data-testid="move-speaker">

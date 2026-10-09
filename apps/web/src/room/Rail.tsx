@@ -443,7 +443,10 @@ function MySet({ snap, me, notify }: { snap: RoomSnapshot; me: Me | null; notify
                 : `Your “${c.playlist.name}” playlist is unlinked and stays in Spotify unchanged.`)}
           </p>
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn-skip" onClick={() => void run(() => api.call('crate.clear', { params: { slug } })).then(() => setConfirmClear(false))}>
+            <button
+              className="btn btn-danger btn-sm"
+              onClick={() => void run(() => api.call('crate.clear', { params: { slug } })).then(() => setConfirmClear(false))}
+            >
               Clear set
             </button>
             <button className="btn btn-ghost" onClick={() => setConfirmClear(false)}>
