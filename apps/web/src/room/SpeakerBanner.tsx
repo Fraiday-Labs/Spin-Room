@@ -15,6 +15,8 @@ export function SpeakerBanner(props: {
   view: SpeakerView;
   /** The room this speaker plays (named in the Listening menu). */
   room: { slug: string; name: string };
+  /** The room on screen, when it isn't `room`: listed in the menu too. */
+  here?: { slug: string; name: string };
   onStart: () => void;
   onStop: () => void;
   onReclaim: () => void;
@@ -46,7 +48,7 @@ export function SpeakerBanner(props: {
           <span>Connecting…</span>
         </button>
       )}
-      {st === 'live' && <ListeningMenu slug={props.room.slug} roomName={props.room.name} title={`Listening${sync}`} onStop={props.onStop} />}
+      {st === 'live' && <ListeningMenu slug={props.room.slug} roomName={props.room.name} here={props.here} title={`Listening${sync}`} onStop={props.onStop} />}
       {st === 'paused_elsewhere' && (
         <button className={s.pill} onClick={props.onReclaim} title="Spotify is playing on another device">
           <LineIcon name="headphones" size={17} />

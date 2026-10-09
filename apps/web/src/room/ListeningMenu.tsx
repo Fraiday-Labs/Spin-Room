@@ -11,9 +11,21 @@ import s from './ListeningMenu.module.css';
 
 /**
  * "Listening ▾": tap for the rooms you're in that have music on (this one ticked), pick one to
- * move your speaker there in one step, or stop listening.
+ * move your speaker there in one step, or stop listening. `here` (the room on screen) is always listed.
  */
-export function ListeningMenu({ slug, roomName, title, onStop }: { slug: string; roomName: string; title?: string; onStop: () => void }) {
+export function ListeningMenu({
+  slug,
+  roomName,
+  here,
+  title,
+  onStop,
+}: {
+  slug: string;
+  roomName: string;
+  here?: { slug: string; name: string };
+  title?: string;
+  onStop: () => void;
+}) {
   const me = useMe();
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -36,6 +48,7 @@ export function ListeningMenu({ slug, roomName, title, onStop }: { slug: string;
   const rooms: Pick<RoomSummary, 'slug' | 'name' | 'nowPlaying'>[] = playing.some((r) => r.slug === slug)
     ? playing
     : [{ slug, name: roomName, nowPlaying: null }, ...playing];
+  if (here && !rooms.some((r) => r.slug === here.slug)) rooms.push({ slug: here.slug, name: here.name, nowPlaying: null });
 
   useEffect(() => {
     if (!open) return;

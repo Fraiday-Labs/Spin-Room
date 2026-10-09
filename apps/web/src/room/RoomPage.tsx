@@ -6,7 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { LineIcon } from '../components/LineIcon';
 import { Logo } from '../components/Logo';
-import { NowListening } from '../components/NowListening';
+import { NowListening, useListeningElsewhere } from '../components/NowListening';
 import { OverflowMenu, type MenuItem } from '../components/OverflowMenu';
 import { UserMenu } from '../components/UserMenu';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
@@ -77,6 +77,7 @@ export default function RoomPage({ slug }: { slug: string }) {
   });
   const snap = live.snapshot;
   const speaker = useSpeaker(slug, snap?.room.name ?? slug, me.data && !me.data.remoteOnly ? cfg.data?.spotifyMode : undefined, live.conn);
+  const listeningElsewhere = useListeningElsewhere(slug);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const notify = useCallback((text: string) => {
@@ -234,17 +235,19 @@ export default function RoomPage({ slug }: { slug: string }) {
         <h1 className={s.name}>{snap.room.name}</h1>
         {live.status !== 'open' && <span className="badge badge-warn">{live.status === 'reconnecting' ? 'Reconnecting…' : 'Connecting…'}</span>}
         <div className={s.spacer} />
-        {/* Still listening to another room: it shows here, and Listen below switches to this one. */}
-        <NowListening exceptSlug={slug} />
-        <SpeakerBanner
-          me={me.data ?? null}
-          room={{ slug, name: snap.room.name }}
-          view={speaker.view}
-          onStart={() => void speaker.start()}
-          onStop={() => void speaker.controller?.stop()}
-          onReclaim={() => void speaker.controller?.reclaim()}
-          autoFocus={params.get('speaker') === '1'}
-        />
+        {/* Still listening to another room: one Listening ▾ button for it, whose menu switches to this one. */}
+        <NowListening exceptSlug={slug} here={{ slug, name: snap.room.name }} />
+        {!listeningElsewhere && (
+          <SpeakerBanner
+            me={me.data ?? null}
+            room={{ slug, name: snap.room.name }}
+            view={speaker.view}
+            onStart={() => void speaker.start()}
+            onStop={() => void speaker.controller?.stop()}
+            onReclaim={() => void speaker.controller?.reclaim()}
+            autoFocus={params.get('speaker') === '1'}
+          />
+        )}
         {roomMenu.length > 0 && <OverflowMenu label="Room menu" items={roomMenu} vertical testId="room-menu" />}
         {!me.data && (
           <a className="btn btn-spotify" href={signInUrl()}>

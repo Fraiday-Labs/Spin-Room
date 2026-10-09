@@ -696,8 +696,11 @@ test('the Listening menu switches between rooms with music on, in one step', asy
   const aUri = (await player()).uri;
   const bPath = await makeRoom(b, 'Booth Lights');
 
-  // In room B, still hearing A: its menu lists both rooms with what's playing, A ticked.
+  // In room B, still hearing A: one Listening ▾ button (no separate Listen), whose menu lists both
+  // rooms with what's playing, A ticked.
   const bar = page.getByTestId('now-listening');
+  await expect(bar).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Listen', exact: true })).toHaveCount(0);
   await bar.getByRole('button', { name: `Listening to ${a}` }).click();
   const menu = page.getByRole('menu', { name: 'Listening' });
   await expect(menu.getByRole('menuitemradio', { name: new RegExp(a) })).toHaveAttribute('aria-checked', 'true');
