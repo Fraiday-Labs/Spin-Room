@@ -1,7 +1,8 @@
 import type { RoomSnapshot } from '@spinroom/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { CopyButton } from '../components/CopyButton';
+import { useModal } from '../components/useModal';
 import { api, errorMessage } from '../lib/api';
 import s from './ShareDialog.module.css';
 
@@ -10,7 +11,6 @@ import s from './ShareDialog.module.css';
  * anyone with the link in), reset, and one-time invites.
  */
 export function ShareDialog({ snap, canManage, onClose }: { snap: RoomSnapshot; canManage: boolean; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const qc = useQueryClient();
   const slug = snap.room.slug;
   const key = ['share-link', slug];
@@ -18,10 +18,7 @@ export function ShareDialog({ snap, canManage, onClose }: { snap: RoomSnapshot; 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (d && !d.open) d.showModal();
-  }, []);
+  const { close, props } = useModal();
 
   const update = async (fn: () => Promise<{ url: string; linkSharing: boolean }>) => {
     setBusy(true);
@@ -40,12 +37,12 @@ export function ShareDialog({ snap, canManage, onClose }: { snap: RoomSnapshot; 
   const days = Math.round(snap.room.settings.inviteTtlMs / 86_400_000);
 
   return (
-    <dialog ref={ref} className={s.dialog} onClose={onClose} aria-labelledby="share-title" data-testid="share-dialog">
+    <dialog {...props} className={`modal ${s.dialog}`} onClose={onClose} aria-labelledby="share-title" data-testid="share-dialog">
       <div className={s.head}>
         <h2 className="pixel" id="share-title">
           Share “{snap.room.name}”
         </h2>
-        <button className={s.close} onClick={() => ref.current?.close()} aria-label="Close">
+        <button className={s.close} onClick={close} aria-label="Close">
           ✕
         </button>
       </div>
@@ -143,7 +140,7 @@ export function ShareDialog({ snap, canManage, onClose }: { snap: RoomSnapshot; 
 
       {err && <p className="error">{err}</p>}
       <div className={s.actions}>
-        <button className="btn btn-primary" onClick={() => ref.current?.close()}>
+        <button className="btn btn-primary" onClick={close}>
           Done
         </button>
       </div>

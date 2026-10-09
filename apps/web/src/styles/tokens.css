@@ -31,3 +31,12 @@
   --radius: 6px;
   --gap: 12px;
 }
+
+/* Increase contrast: brighter secondary text and edges. */
+@media (prefers-contrast: more) {
+  :root {
+    --text: #ffffff;
+    --text-dim: #e2defa;
+    --border: #8a84c8;
+  }
+}

@@ -4,14 +4,33 @@
   grid-template-rows: auto 1fr auto;
 }
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 10px 16px;
-  border-bottom: 2px solid var(--border);
-  background: linear-gradient(var(--indigo), var(--night));
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  /* Translucent: the page scrolls softly underneath. */
+  background: rgb(14 16 44 / 0.72);
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  backdrop-filter: saturate(160%) blur(18px);
   flex-wrap: wrap;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .header {
+    background: var(--indigo);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+@media (prefers-contrast: more) {
+  .header {
+    background: var(--indigo);
+    border-bottom: 1px solid var(--border);
+  }
 }
 .brand {
   display: flex;

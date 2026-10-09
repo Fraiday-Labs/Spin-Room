@@ -1,8 +1,9 @@
 .dialog {
   background: var(--indigo);
   color: var(--text);
-  border: 2px solid var(--border);
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
   padding: 20px;
   width: min(560px, 92vw);
   display: grid;

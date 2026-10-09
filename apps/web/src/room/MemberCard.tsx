@@ -1,5 +1,6 @@
 import type { Me, Member, RoomSnapshot } from '@spinroom/contracts';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { useModal } from '../components/useModal';
 import { api, errorMessage } from '../lib/api';
 import { AvatarSprite } from './AvatarSprite';
 import s from './MemberCard.module.css';
@@ -18,13 +19,14 @@ export function MemberCard({
   onClose: () => void;
   notify: (m: string) => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  // The card grows out of the avatar that was clicked.
+  const { close, props } = useModal((d, origin) => {
+    if (!origin) return;
+    const box = d.getBoundingClientRect();
+    d.style.transformOrigin = `${origin.x - box.left}px ${origin.y - box.top}px`;
+  });
   const [reporting, setReporting] = useState(false);
   const [reason, setReason] = useState('');
-  useEffect(() => {
-    const d = ref.current;
-    if (d && !d.open) d.showModal();
-  }, []);
   const myRole = snap.me?.role;
   const isMod = myRole === 'owner' || myRole === 'moderator';
   const canModerate = isMod && member.user.id !== me?.id && member.role !== 'owner' && (myRole === 'owner' || member.role !== 'moderator');
@@ -38,7 +40,7 @@ export function MemberCard({
     }
   };
   return (
-    <dialog ref={ref} className={s.card} onClose={onClose} aria-labelledby="member-name">
+    <dialog {...props} className={`modal ${s.card}`} onClose={onClose} aria-labelledby="member-name">
       <div className={s.head}>
         <AvatarSprite avatar={member.user.avatar} state="wave" width={96} />
         <div>
@@ -112,9 +114,9 @@ export function MemberCard({
           </div>
         </div>
       )}
-      <form method="dialog">
-        <button className="btn btn-ghost">Close</button>
-      </form>
+      <button className="btn btn-ghost" style={{ justifySelf: 'start' }} onClick={close}>
+        Close
+      </button>
     </dialog>
   );
 }

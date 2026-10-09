@@ -354,13 +354,18 @@ test('rooms are created from the "Create +" modal', async ({ browser }) => {
   await expect(page.getByRole('heading', { name: 'Open a room' })).toHaveCount(0);
   await expect(page.getByTestId('room-name')).toHaveCount(0);
 
-  // Cancel and Escape both close it without creating anything.
+  // Cancel and Escape both close it without creating anything…
   await page.getByTestId('open-create-room').click();
   await expect(page.getByRole('dialog', { name: 'Create a room' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByTestId('open-create-room').click();
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // …and so does a tap outside it.
+  await page.getByTestId('open-create-room').click();
+  await expect(page.getByRole('dialog', { name: 'Create a room' })).toBeVisible();
+  await page.mouse.click(8, 8);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await page.getByTestId('open-create-room').click();

@@ -25,10 +25,6 @@
 .skip {
   color: var(--cyan);
 }
-.points {
-  color: var(--text-dim);
-  padding-left: 18px;
-}
 .preview {
   width: 100%;
   height: auto;
@@ -40,6 +36,49 @@
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   gap: 12px;
+}
+.list {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--indigo);
+  overflow: hidden;
+}
+.skel {
+  height: 120px;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 8px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.feature {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--indigo);
+  border: 1px solid var(--border);
+}
+.feature h2 {
+  margin: 4px 0 0;
+  font-size: 16px;
+}
+.feature p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.06);
 }
