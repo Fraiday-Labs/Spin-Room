@@ -547,6 +547,8 @@ test('the DJ can skip forward, and go back to the song before', async ({ page })
   await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
   // Nothing before the first song yet.
   await expect(page.getByTestId('previous-spin')).toBeDisabled();
+  // The Spotify logo opens the playing track in Spotify.
+  await expect(page.getByRole('link', { name: 'Open in Spotify' })).toHaveAttribute('href', /^https:\/\/open\.spotify\.com\/track\//);
 
   await page.getByRole('button', { name: 'Skip to the next song' }).click();
   await expect(page.getByTestId('np-title')).toHaveText('Booth Lights');

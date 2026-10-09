@@ -4,11 +4,12 @@ import { PixelIcon } from '../components/PixelIcon';
 import { useNow } from './store';
 import s from './PlayerPanel.module.css';
 
-export function SpotifyMark() {
+/** The Spotify logo, which also opens the track in Spotify (a new tab). */
+export function SpotifyMark({ href }: { href: string }) {
   // Attribution per Spotify's branding guidelines. Swap in the official logo asset from
   // Spotify's brand kit for production (see README → Spotify branding).
   return (
-    <span className={s.spotify} aria-label="Spotify">
+    <a className={s.spotify} href={href} target="_blank" rel="noreferrer" aria-label="Open in Spotify" title="Open in Spotify">
       <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
         <circle cx="12" cy="12" r="12" fill="#1ED760" />
         <path
@@ -20,7 +21,7 @@ export function SpotifyMark() {
         />
       </svg>
       Spotify
-    </span>
+    </a>
   );
 }
 
@@ -105,10 +106,7 @@ export function PlayerPanel(props: {
                 <span className={s.times}>
                   {formatMs(elapsed)} / {formatMs(spin.durationMs)}
                 </span>
-                <SpotifyMark />
-                <a href={`https://open.spotify.com/track/${trackId}`} target="_blank" rel="noreferrer" className={s.open}>
-                  Open in Spotify
-                </a>
+                <SpotifyMark href={`https://open.spotify.com/track/${trackId}`} />
               </div>
             </>
           ) : (
