@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { CreateRoomDialog } from '../components/CreateRoomDialog';
 import { PageSkeleton } from '../components/PageSkeleton';
-import { RoomCard } from '../components/RoomCard';
+import { RoomTable } from '../components/RoomTable';
 import { api, signInUrl, useMe } from '../lib/api';
 import s from './Lobby.module.css';
 
@@ -75,47 +75,33 @@ export default function Lobby() {
       </header>
 
       {live.length > 0 && (
-        <section className="stack" aria-labelledby="live-now">
+        <section className={s.section} aria-labelledby="live-now">
           <h2 id="live-now" className={s.h2}>
             Live now
           </h2>
-          <div className={s.liveGrid}>
-            {live.map((r) => (
-              <RoomCard key={r.id} room={r} variant="live" manage={manage(r)} />
-            ))}
-          </div>
+          <RoomTable rooms={live} label="Live now" manage={manage} />
         </section>
       )}
 
       {(myRest.length > 0 || (!needle && mine.data && myRooms.length === 0)) && (
-        <section className="stack" aria-labelledby="your-rooms">
+        <section className={s.section} aria-labelledby="your-rooms">
           <h2 id="your-rooms" className={s.h2}>
             Your rooms
           </h2>
           {myRooms.length === 0 ? (
             <p className="muted">You haven’t joined any rooms yet. Create one, or hop into a room below.</p>
           ) : (
-            <div className={s.grid}>
-              {myRest.map((r) => (
-                <RoomCard key={r.id} room={r} manage={manage(r)} />
-              ))}
-            </div>
+            <RoomTable rooms={myRest} label="Your rooms" manage={manage} />
           )}
         </section>
       )}
 
       {quiet.length > 0 && (
-        <section className="stack" aria-labelledby="public-rooms">
+        <section className={s.section} aria-labelledby="public-rooms">
           <h2 id="public-rooms" className={s.h2}>
             {live.length ? 'More public rooms' : 'Public rooms'}
           </h2>
-          {quietShown.length > 0 && (
-            <div className={s.list}>
-              {quietShown.map((r) => (
-                <RoomCard key={r.id} room={r} variant="quiet" />
-              ))}
-            </div>
-          )}
+          {quietShown.length > 0 && <RoomTable rooms={quietShown} label={live.length ? 'More public rooms' : 'Public rooms'} />}
           {folded > 0 && (
             <button className="btn btn-ghost btn-sm" style={{ justifySelf: 'start' }} onClick={() => setShowQuiet(true)}>
               Show {folded} more {folded === 1 ? 'room' : 'rooms'}

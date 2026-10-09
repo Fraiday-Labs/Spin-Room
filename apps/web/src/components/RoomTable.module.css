@@ -1,0 +1,250 @@
+/* A calm, roomy table: generous rows, quiet dividers, a soft highlight on hover. */
+.wrap {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--indigo);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.colRoom {
+  width: 34%;
+}
+.colNow {
+  width: 32%;
+}
+.colDj {
+  width: 14%;
+}
+.colPeople {
+  width: 13%;
+}
+.colAct {
+  width: 64px;
+}
+.table th {
+  padding: 14px 24px 12px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.table td {
+  padding: 20px 24px;
+  vertical-align: middle;
+}
+.group + .group .row td {
+  border-top: 1px solid rgb(255 255 255 / 0.07);
+}
+.row {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.row:hover {
+  background: rgb(255 255 255 / 0.035);
+}
+/* Rounded corners on the last row's hover. */
+.group:last-child .row:last-child td:first-child {
+  border-bottom-left-radius: 14px;
+}
+.group:last-child .row:last-child td:last-child {
+  border-bottom-right-radius: 14px;
+}
+.closed {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.room {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.name {
+  font-family: var(--font-pixel);
+  font-weight: 500;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+a.name:hover {
+  color: var(--cyan);
+}
+.desc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+.desc :global(.badge) {
+  flex: none;
+}
+.descText,
+.track,
+.npText > *,
+.npLine {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.np {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.art {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--charcoal);
+}
+.artBlank {
+  display: block;
+  background: radial-gradient(circle at 50% 50%, var(--charcoal) 0 9%, var(--pink) 9.5% 13%, #111 13.5% 64%, transparent 65%), var(--booth);
+}
+.npText {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  font-size: 14px;
+}
+.track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pink);
+  box-shadow: 0 0 0 0 rgb(255 79 163 / 0.6);
+  animation: live 1.8s ease-out infinite;
+}
+@keyframes live {
+  to {
+    box-shadow: 0 0 0 7px rgb(255 79 163 / 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+.muted {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.none {
+  color: var(--text-dim);
+  opacity: 0.5;
+}
+.dj {
+  font-size: 14px;
+  font-weight: 600;
+}
+.people {
+  display: grid;
+  gap: 3px;
+  font-size: 14px;
+}
+
+.actions {
+  text-align: right;
+  overflow: visible;
+}
+.table td.actions {
+  padding-left: 0;
+  padding-right: 16px;
+}
+.actions :global([role='menu']) {
+  text-align: left;
+}
+.closedActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+.chevron {
+  display: inline-flex;
+  color: var(--text-dim);
+  opacity: 0.6;
+  transition:
+    transform 160ms ease,
+    opacity 120ms ease;
+}
+.row:hover .chevron {
+  opacity: 1;
+  transform: translateX(2px);
+}
+.confirmRow td {
+  padding: 0 24px 20px;
+}
+
+.narrowOnly {
+  display: none;
+}
+.npLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* Closed rooms need room for Reopen. */
+@media (min-width: 721px) {
+  .wrap:has(.closedActions) .colAct {
+    width: 190px;
+  }
+}
+
+/* Phones: one column for the room (with what's playing under its name), plus actions. */
+@media (max-width: 720px) {
+  .wideOnly {
+    display: none;
+  }
+  .narrowOnly {
+    display: block;
+  }
+  .colRoom {
+    width: auto;
+  }
+  .colAct {
+    width: 56px;
+  }
+  .wrap:has(.closedActions) .colAct {
+    width: 170px;
+  }
+  .table th {
+    padding: 12px 16px 10px;
+  }
+  .table td {
+    padding: 16px;
+  }
+  .confirmRow td {
+    padding: 0 16px 16px;
+  }
+  .name {
+    font-size: 17px;
+  }
+}

@@ -1,5 +1,9 @@
 .page {
-  gap: 28px;
+  gap: 44px;
+}
+.section {
+  display: grid;
+  gap: 16px;
 }
 .hdr {
   display: flex;
@@ -24,23 +28,8 @@
   min-width: 0;
 }
 .h2 {
-  margin: 0;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 12px;
-}
-.liveGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-  gap: 12px;
-}
-.list {
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--indigo);
-  overflow: hidden;
+  margin: 0 4px;
+  font-size: 20px;
 }
 /* Phones: search and Create share one row under the greeting. */
 @media (max-width: 600px) {

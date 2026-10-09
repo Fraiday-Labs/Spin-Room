@@ -488,7 +488,8 @@ test('the lobby opens on rooms that are playing, with the track and DJ', async (
   const card = live.getByTestId(`room-card-${slug}`);
   await expect(card).toBeVisible();
   await expect(card).toContainText('Neon Tide');
-  await expect(card).toContainText('DJ ');
+  // The DJ's name, in its own column.
+  await expect(card.getByRole('cell', { name: /livedj/i })).toBeVisible();
   // …and only there.
   await expect(guest.getByTestId(`room-card-${slug}`)).toHaveCount(1);
   await card.click();
