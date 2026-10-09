@@ -47,6 +47,9 @@ export class FakePlayer implements PlayerAdapter {
   async setVolume(v: number) {
     this.volume = v;
   }
+  async getVolume() {
+    return this.volume;
+  }
   onLost(cb: () => void) {
     this.lost = cb;
   }

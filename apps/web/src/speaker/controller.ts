@@ -60,6 +60,8 @@ export class SpeakerController {
   private fadeInNext = false;
   /** Bumped to cancel a volume ramp in progress (a new ramp, a volume change, stopping). */
   private rampId = 0;
+  /** The ramp running now (equal to `rampId` while it runs). */
+  private rampRunning = -1;
 
   /** The server's id for this speaker while it's registered (closed on page unload). */
   get id() {
@@ -114,10 +116,12 @@ export class SpeakerController {
         throw e;
       });
       this.speakerId = sp.id;
+      // Let the last room finish fading out before going live: nothing here may play (or set the
+      // volume) while its fade is still turning the shared player down.
+      if (opts.after) await opts.after;
       this.set({ status: 'live' });
       this.loop = this.t.setInterval(() => void this.correct(), TIMING.driftCheckMs);
       this.beat = this.t.setInterval(() => void this.heartbeat(), TIMING.heartbeatMs);
-      if (opts.after) await opts.after;
       // Audio first (fastest join-to-audio), then report in; the heartbeat carries joinToAudioMs.
       if (this.spin) await this.playCurrent();
       await this.heartbeat();
@@ -163,12 +167,33 @@ export class SpeakerController {
   /** Move the player's volume from `from` to `to` over `ms`; a later ramp or volume change cancels it. */
   private async ramp(from: number, to: number, ms: number) {
     const id = ++this.rampId;
+    this.rampRunning = id;
     const steps = 8;
-    for (let i = 1; i <= steps; i++) {
-      await new Promise<void>((r) => this.t.setTimeout(r, ms / steps));
-      if (id !== this.rampId) return;
-      await this.player.setVolume(from + ((to - from) * i) / steps).catch(() => {});
+    try {
+      for (let i = 1; i <= steps; i++) {
+        await new Promise<void>((r) => this.t.setTimeout(r, ms / steps));
+        if (id !== this.rampId) return;
+        await this.player.setVolume(from + ((to - from) * i) / steps).catch(() => {});
+      }
+    } finally {
+      if (this.rampRunning === id) this.rampRunning = -1;
     }
+  }
+
+  /** A fade is moving the volume right now (leave it alone). */
+  private fading() {
+    return !!this.fadeTimer || this.rampRunning === this.rampId;
+  }
+
+  /**
+   * Put the player's volume back where this speaker wants it, unless a fade is running. A fade cut
+   * short (a switch, a skip) must never leave the music playing at zero.
+   */
+  private async restoreVolume() {
+    if (this.fading()) return;
+    const want = this.effectiveVolume();
+    const now = await this.player.getVolume().catch(() => null);
+    if (now === null || Math.abs(now - want) > 0.02) await this.player.setVolume(want).catch(() => {});
   }
 
   private clearTimers() {
@@ -290,9 +315,10 @@ export class SpeakerController {
   /** Drift correction (every 5 s). Every correction is audible, so act only on lasting problems. */
   async correct() {
     if (this.busy || this.view.status !== 'live' || !this.spin || this.spin.pausedAtServerMs) return;
-    if (this.localNow() < this.settleUntil) return;
     this.busy = true;
     try {
+      await this.restoreVolume();
+      if (this.localNow() < this.settleUntil) return;
       const spin = this.spin;
       const expected = spinElapsedMs(spin, this.serverNow());
       if (expected < 0 || expected >= spin.durationMs) return;

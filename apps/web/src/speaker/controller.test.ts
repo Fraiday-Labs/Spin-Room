@@ -168,6 +168,47 @@ describe('SpeakerController', () => {
     expect(b.view.volume).toBe(0.6);
   });
 
+  it('a song change during the switch waits for the old room to fade out, then plays at your volume', async () => {
+    const { c: a, player } = setup();
+    await a.start();
+    await a.setSpin(spin('roomA', Date.now()));
+    await a.setVolume(0.6);
+    const clock = new ServerClock();
+    clock.addSample(0);
+    const api: SpeakerApi = {
+      register: vi.fn(async () => ({ id: 'sp2' })),
+      heartbeat: vi.fn(async () => ({ superseded: false })),
+      close: vi.fn(async () => {}),
+    };
+    const b = new SpeakerController(player, clock, api, { deviceName: 'Spinroom', timers: { setTimeout, clearTimeout, setInterval, clearInterval } as never });
+    await b.setSpin(spin('roomB', Date.now() - 40_000));
+    b.adoptLevels(a.view);
+    const handing = a.handOff(250);
+    const starting = b.start(false, { fadeIn: true, after: handing });
+    // The next room's song changes while the last one is still fading out.
+    await vi.advanceTimersByTimeAsync(100);
+    await b.setSpin(spin('roomB2', Date.now() - 1_000));
+    expect((await player.getState())?.uri).toBe('spotify:track:roomA'); // not cut in mid-fade
+    await vi.advanceTimersByTimeAsync(200);
+    await starting;
+    await vi.advanceTimersByTimeAsync(600);
+    expect((await player.getState())?.uri).toBe('spotify:track:roomB2');
+    expect(player.volume).toBeCloseTo(0.6, 5);
+  });
+
+  it('never leaves the music playing at zero: the next drift check puts the volume back', async () => {
+    const { c, player } = setup();
+    await c.start();
+    await c.setSpin(spin('q', Date.now()));
+    await c.setVolume(0.7);
+    await player.setVolume(0); // e.g. a fade cut short
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(player.volume).toBeCloseTo(0.7, 5);
+    await c.setVolume(0.7, true); // muted on purpose stays muted
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(player.volume).toBe(0);
+  });
+
   it('turning off a speaker that isn’t playing leaves the shared player alone', async () => {
     const { c, player } = setup();
     await player.play('spotify:track:other-room', 0);

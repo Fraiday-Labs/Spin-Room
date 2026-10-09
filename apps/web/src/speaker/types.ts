@@ -19,6 +19,8 @@ export interface PlayerAdapter {
   pause(): Promise<void>;
   getState(): Promise<PlayerState | null>;
   setVolume(v: number): Promise<void>;
+  /** The player's volume right now (0–1), or null if it can't tell. */
+  getVolume(): Promise<number | null>;
   /** Fires when Spotify moved playback to another device or the player dropped. */
   onLost(cb: () => void): void;
   onError(cb: (message: string) => void): void;

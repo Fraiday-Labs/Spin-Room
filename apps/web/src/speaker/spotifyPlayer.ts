@@ -33,6 +33,7 @@ interface SdkPlayer {
   addListener(ev: string, cb: (arg: never) => void): void;
   getCurrentState(): Promise<SdkState | null>;
   setVolume(v: number): Promise<void>;
+  getVolume(): Promise<number>;
   seek(ms: number): Promise<void>;
   pause(): Promise<void>;
   activateElement?(): Promise<void>;
@@ -43,6 +44,8 @@ declare global {
     Spotify?: { Player: new (o: { name: string; getOAuthToken: (cb: (t: string) => void) => void; volume: number }) => SdkPlayer };
   }
 }
+
+type Waiter = { resolve: (deviceId: string) => void; reject: (e: Error) => void };
 
 const SDK_URL = 'https://sdk.scdn.co/spotify-player.js';
 let sdkReady: Promise<void> | null = null;
@@ -102,6 +105,8 @@ export class SpotifyPlayer implements PlayerAdapter {
   /** Connected and ready (Spotify knows this device). */
   private ready = false;
   private connecting: Promise<{ deviceId: string }> | null = null;
+  /** Waiting on the next 'ready' (or a connect error). */
+  private waiters: Waiter[] = [];
 
   /**
    * Connect once and stay connected: every room in this tab shares the player, so switching rooms
@@ -116,22 +121,28 @@ export class SpotifyPlayer implements PlayerAdapter {
     return this.connecting;
   }
 
-  private async open(name: string) {
-    this.player?.disconnect();
-    this.ready = false;
-    await loadSdk();
+  private flushWaiters(f: (w: Waiter) => void) {
+    const ws = this.waiters;
+    this.waiters = [];
+    for (const w of ws) f(w);
+  }
+
+  /**
+   * Create the SDK player once per tab and reconnect that same one after a drop: a second
+   * Spotify.Player in the same page can leave both silent.
+   */
+  private create(name: string) {
     const P = window.Spotify!.Player;
     const player = new P({ name, volume: 1, getOAuthToken: (cb) => void this.getToken().then(cb, (e) => this.errorCb?.(String(e))) });
-    this.player = player;
-    // Must run inside the click handler on some browsers (autoplay policy).
-    await player.activateElement?.();
-    const ready = new Promise<string>((resolve, reject) => {
-      player.addListener('ready', ({ device_id }: { device_id: string }) => resolve(device_id));
-      player.addListener('initialization_error', ({ message }: { message: string }) => reject(new Error(message)));
-      player.addListener('authentication_error', ({ message }: { message: string }) => reject(new Error(`Spotify sign-in problem: ${message}`)));
-      player.addListener('account_error', () => reject(new Error('Spotify Premium is required to play in Spinroom.')));
+    player.addListener('ready', ({ device_id }: { device_id: string }) => {
+      this.deviceId = device_id;
+      this.ready = true;
+      this.flushWaiters((w) => w.resolve(device_id));
     });
-    player.addListener('ready', () => (this.ready = true));
+    const fail = (e: Error) => this.flushWaiters((w) => w.reject(e));
+    player.addListener('initialization_error', ({ message }: { message: string }) => fail(new Error(message)));
+    player.addListener('authentication_error', ({ message }: { message: string }) => fail(new Error(`Spotify sign-in problem: ${message}`)));
+    player.addListener('account_error', () => fail(new Error('Spotify Premium is required to play in Spinroom.')));
     player.addListener('not_ready', () => {
       this.ready = false;
       this.lostCb?.();
@@ -145,6 +156,23 @@ export class SpotifyPlayer implements PlayerAdapter {
       // A null state means this device is no longer the active one (playing elsewhere).
       if (!state && this.expectingUri) this.lostCb?.();
     });
+    return player;
+  }
+
+  private async open(name: string) {
+    this.ready = false;
+    await loadSdk();
+    const reconnect = !!this.player;
+    const player = (this.player ??= this.create(name));
+    // Must run inside the click handler on some browsers (autoplay policy).
+    await player.activateElement?.();
+    const ready = new Promise<string>((resolve, reject) => {
+      this.waiters.push({ resolve, reject });
+      setTimeout(() => reject(new Error('Spotify didn’t answer — try again.')), 20_000);
+    });
+    ready.catch(() => {});
+    // Same player, fresh session: disconnect first so connect() really reconnects and fires 'ready'.
+    if (reconnect) player.disconnect();
     if (!(await player.connect())) throw new Error('Could not connect to Spotify.');
     const deviceId = await ready;
     this.deviceId = deviceId;
@@ -178,6 +206,9 @@ export class SpotifyPlayer implements PlayerAdapter {
   }
   async setVolume(v: number) {
     await this.player?.setVolume(Math.min(1, Math.max(0, v)));
+  }
+  async getVolume() {
+    return (await this.player?.getVolume().catch(() => null)) ?? null;
   }
   onLost(cb: () => void) {
     this.lostCb = cb;
