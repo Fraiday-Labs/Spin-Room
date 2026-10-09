@@ -681,9 +681,19 @@ test('the Listening menu switches between rooms with music on, in one step', asy
   };
   const a = `Hop A ${run}`;
   const b = `Hop B ${run}`;
+  // What the (shared) player in this tab is playing, and how loud.
+  const player = () =>
+    page.evaluate(async () => {
+      const p = (window as unknown as { __speaker: { player: { volume: number; getState(): Promise<{ uri: string | null; paused: boolean } | null> } } })
+        .__speaker.player;
+      const st = await p.getState();
+      return { uri: st && !st.paused ? st.uri : null, volume: p.volume };
+    });
   await makeRoom(a, 'Neon Tide');
   await page.getByRole('button', { name: 'Listen', exact: true }).click();
   await expect(page.getByRole('button', { name: `Listening to ${a}` })).toBeVisible();
+  await expect.poll(async () => (await player()).uri).toMatch(/^spotify:track:/);
+  const aUri = (await player()).uri;
   const bPath = await makeRoom(b, 'Booth Lights');
 
   // In room B, still hearing A: its menu lists both rooms with what's playing, A ticked.
@@ -706,7 +716,15 @@ test('the Listening menu switches between rooms with music on, in one step', asy
     )
     .toBe(false);
 
-  // From another page, switch back to A.
+  // B's song takes over on the same player, right after A fades out.
+  await expect.poll(async () => (await player()).uri).not.toBe(aUri);
+  const bUri = (await player()).uri;
+  expect(bUri).toMatch(/^spotify:track:/);
+  // Turn it down a little: the level follows you to the next room.
+  await page.getByLabel('Local volume').fill('0.4');
+  await expect.poll(async () => (await player()).volume).toBeCloseTo(0.4, 5);
+
+  // From another page, switch back to A (its page isn't open): A's song plays, at your level.
   await page.getByRole('link', { name: 'Spinroom home' }).click();
   await page
     .getByTestId('now-listening')
@@ -718,6 +736,8 @@ test('the Listening menu switches between rooms with music on, in one step', asy
     .click();
   await expect(page.getByTestId('now-listening')).toContainText(a);
   await expect(page.getByTestId('now-listening').getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  await expect.poll(async () => (await player()).uri).toBe(aUri);
+  await expect.poll(async () => (await player()).volume).toBeCloseTo(0.4, 5);
   await page.goto(bPath);
   await expect(page.getByRole('button', { name: 'Listen', exact: true })).toBeVisible();
 });

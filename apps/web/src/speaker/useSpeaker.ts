@@ -6,7 +6,7 @@ import { SpeakerController } from './controller';
 import { FakePlayer } from './fakePlayer';
 import { listening, registerRoomSpeaker, startListening } from './session';
 import { SpotifyPlayer } from './spotifyPlayer';
-import type { SpeakerView } from './types';
+import type { PlayerAdapter, SpeakerView } from './types';
 
 export { serverClock, syncClock } from './clock';
 
@@ -18,8 +18,18 @@ async function spotifyToken(): Promise<string> {
 
 const OFF_VIEW: SpeakerView = { status: 'off', message: null, driftMs: null, volume: 1, muted: false };
 
-export function createSpeaker(slug: string, mode: 'real' | 'fake', deviceName: () => string) {
-  const player = mode === 'fake' ? new FakePlayer() : new SpotifyPlayer(spotifyToken);
+/**
+ * One player per tab, shared by every room's speaker: it stays connected to Spotify, so switching
+ * rooms (or Listen again after Stop) doesn't wait for a new connection.
+ */
+let shared: { mode: 'real' | 'fake'; player: PlayerAdapter } | null = null;
+function sharedPlayer(mode: 'real' | 'fake') {
+  if (shared?.mode !== mode) shared = { mode, player: mode === 'fake' ? new FakePlayer() : new SpotifyPlayer(spotifyToken) };
+  return shared.player;
+}
+
+export function createSpeaker(slug: string, mode: 'real' | 'fake') {
+  const player = sharedPlayer(mode);
   return new SpeakerController(
     player,
     serverClock,
@@ -31,25 +41,22 @@ export function createSpeaker(slug: string, mode: 'real' | 'fake', deviceName: (
         await api.call('speakers.close', { params: { id } });
       },
     },
-    {
-      get deviceName() {
-        return deviceName();
-      },
-    },
+    // The name Spotify shows for this browser in its device list (one device for every room).
+    { deviceName: 'Spinroom' },
   );
 }
 
 /** The speaker for a room page: the one already playing in this tab if it's this room's, else a new one. */
 export function useSpeaker(slug: string, roomName: string, spotifyMode: 'real' | 'fake' | undefined, conn: RoomConn) {
-  // The device name is read when the speaker starts. Keep it out of the controller's identity:
-  // recreating the controller when the room's name loads (or changes) would drop the live spin.
+  // Keep the room's name out of the controller's identity: recreating the controller when the
+  // name loads (or changes) would drop the live spin.
   const nameRef = useRef(roomName);
   nameRef.current = roomName;
   const controller = useMemo(() => {
     if (!spotifyMode) return null;
     const cur = listening.get();
     if (cur?.slug === slug) return cur.controller;
-    return createSpeaker(slug, spotifyMode, () => `Spinroom — ${nameRef.current}`);
+    return createSpeaker(slug, spotifyMode);
   }, [slug, spotifyMode]);
 
   const view = useSyncExternalStore<SpeakerView>(

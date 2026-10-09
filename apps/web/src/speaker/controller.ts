@@ -56,6 +56,10 @@ export class SpeakerController {
   private settleUntil = 0;
   /** Consecutive checks that found the player paused, empty or on another track. */
   private offTrackChecks = 0;
+  /** Fade the next play in (switching rooms), rather than starting at full volume. */
+  private fadeInNext = false;
+  /** Bumped to cancel a volume ramp in progress (a new ramp, a volume change, stopping). */
+  private rampId = 0;
 
   /** The server's id for this speaker while it's registered (closed on page unload). */
   get id() {
@@ -90,10 +94,14 @@ export class SpeakerController {
     for (const l of this.listeners) l(this.view);
   }
 
-  /** Call from the "Start speaker" click. */
-  async start(takeover = false) {
+  /**
+   * Call from the "Start speaker" click. When switching rooms, `fadeIn` fades the first song in and
+   * `after` (the old room fading out) is awaited just before it plays, while connecting runs alongside.
+   */
+  async start(takeover = false, opts: { fadeIn?: boolean; after?: Promise<unknown> } = {}) {
     if (this.view.status === 'live' || this.view.status === 'starting') return;
     this.startedClickAt = this.localNow();
+    this.fadeInNext = !!opts.fadeIn;
     this.set({ status: 'starting', message: null });
     try {
       this.player.onLost(() => this.handleLost());
@@ -109,6 +117,7 @@ export class SpeakerController {
       this.set({ status: 'live' });
       this.loop = this.t.setInterval(() => void this.correct(), TIMING.driftCheckMs);
       this.beat = this.t.setInterval(() => void this.heartbeat(), TIMING.heartbeatMs);
+      if (opts.after) await opts.after;
       // Audio first (fastest join-to-audio), then report in; the heartbeat carries joinToAudioMs.
       if (this.spin) await this.playCurrent();
       await this.heartbeat();
@@ -118,20 +127,52 @@ export class SpeakerController {
     }
   }
 
+  /**
+   * Turn this speaker off. The player stays connected (it's shared by every room in this tab, and
+   * reconnecting to Spotify takes seconds); it's paused only if this speaker was the one playing.
+   */
   async stop(message: string | null = null) {
+    const wasOn = this.view.status !== 'off';
     this.clearTimers();
-    try {
-      await this.player.pause();
-    } catch {
-      /* ignore */
-    }
-    this.player.disconnect();
+    if (wasOn) await this.player.pause().catch(() => {});
     if (this.speakerId) await this.api.close(this.speakerId).catch(() => {});
     this.speakerId = null;
     this.set({ status: 'off', message, driftMs: null });
   }
 
+  /**
+   * Hand the player to another room's speaker: fade out over `fadeMs` and step off, without pausing
+   * (the next room's song replaces this one on the same player, so there's no gap or click).
+   */
+  async handOff(fadeMs = 250) {
+    if (this.view.status === 'off') return;
+    this.clearTimers();
+    const id = this.speakerId;
+    this.speakerId = null;
+    const from = this.effectiveVolume();
+    this.set({ status: 'off', message: null, driftMs: null });
+    if (id) void this.api.close(id).catch(() => {});
+    await this.ramp(from, 0, fadeMs);
+  }
+
+  /** Take on another speaker's volume and mute (switching rooms keeps your levels). */
+  adoptLevels(v: Pick<SpeakerView, 'volume' | 'muted'>) {
+    this.set({ volume: v.volume, muted: v.muted });
+  }
+
+  /** Move the player's volume from `from` to `to` over `ms`; a later ramp or volume change cancels it. */
+  private async ramp(from: number, to: number, ms: number) {
+    const id = ++this.rampId;
+    const steps = 8;
+    for (let i = 1; i <= steps; i++) {
+      await new Promise<void>((r) => this.t.setTimeout(r, ms / steps));
+      if (id !== this.rampId) return;
+      await this.player.setVolume(from + ((to - from) * i) / steps).catch(() => {});
+    }
+  }
+
   private clearTimers() {
+    this.rampId++;
     if (this.loop) this.t.clearInterval(this.loop);
     if (this.beat) this.t.clearInterval(this.beat);
     if (this.pending) this.t.clearTimeout(this.pending);
@@ -191,6 +232,7 @@ export class SpeakerController {
   }
 
   async setVolume(volume: number, muted = this.view.muted) {
+    this.rampId++;
     this.set({ volume, muted });
     if (!this.fadeTimer) await this.player.setVolume(this.effectiveVolume()).catch(() => {});
   }
@@ -223,9 +265,13 @@ export class SpeakerController {
       this.pending = this.t.setTimeout(() => void this.playCurrent(), -pos);
       return;
     }
-    await this.player.setVolume(this.effectiveVolume()).catch(() => {});
+    // Switching rooms: start silent and fade in, after the last room faded out.
+    const fade = this.fadeInNext;
+    this.fadeInNext = false;
+    await this.player.setVolume(fade ? 0 : this.effectiveVolume()).catch(() => {});
     try {
       await this.player.play(spin.track.uri, pos);
+      if (fade) void this.ramp(0, this.effectiveVolume(), 500);
       this.settle();
       // Playing again: an earlier hiccup's message no longer applies.
       if (this.view.message && this.view.status === 'live') this.set({ message: null });

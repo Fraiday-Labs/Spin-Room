@@ -17,6 +17,7 @@ interface Active extends Listening {
   conn: RoomConn;
   release: () => void;
   offEvents: () => void;
+  offState: () => void;
   offView: () => void;
 }
 
@@ -51,6 +52,7 @@ function end() {
   if (!a) return;
   active = null;
   a.offEvents();
+  a.offState();
   a.offView();
   a.release();
   changed();
@@ -62,30 +64,39 @@ function end() {
  * the speaker until it's turned off.
  */
 export async function startListening(slug: string, roomName: string, controller: SpeakerController, conn: RoomConn) {
+  // Switching rooms: the old one fades out on the shared player while this one connects, then
+  // this one fades in at the same volume. No pause, no reconnect, no Stop / Listen.
+  let handing: Promise<void> | undefined;
   if (active && active.controller !== controller) {
     const prev = active.controller;
     end();
-    await prev.stop();
+    controller.adoptLevels(prev.view);
+    handing = prev.handOff(250);
   }
   if (!active) {
     const release = acquireRoom(conn);
-    const offEvents = conn.store.onEvent((ev, snap) => {
+    const offEvents = conn.store.onEvent((ev) => {
       if (ev.type === 'spin.ended') void controller.endSpin(ev.spinId, ev.fadeMs);
       else if (ev.type === 'user.notice' && ev.kind === 'speaker_moved') void controller.heartbeat();
-      else if (snap) void controller.setSpin(snap.currentSpin);
       // The owner closed or deleted the room: nothing left to hear.
       if (ev.type === 'room.closed') void controller.stop();
+    });
+    // The room's state, including its first snapshot when the room wasn't open yet (which arrives
+    // without an event) and resyncs: the speaker always follows the current song.
+    const offState = conn.store.subscribe(() => {
+      const snap = conn.store.state.snapshot;
+      if (snap) void controller.setSpin(snap.currentSpin);
     });
     // Turned off (Stop, moved to another tab, signed out…): the session ends.
     const offView = controller.subscribe((v) => {
       if (v.status === 'off' && active?.controller === controller) end();
     });
-    active = { slug, roomName, controller, conn, release, offEvents, offView };
+    active = { slug, roomName, controller, conn, release, offEvents, offState, offView };
     changed();
   }
   const snap = conn.store.state.snapshot;
   if (snap) await controller.setSpin(snap.currentSpin);
-  await controller.start();
+  await controller.start(false, { fadeIn: !!handing, after: handing });
 }
 
 /** Speakers of the room pages currently open, so switching to that room reuses the page's own. */

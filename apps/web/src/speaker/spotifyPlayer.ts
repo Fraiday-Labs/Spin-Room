@@ -99,7 +99,26 @@ export class SpotifyPlayer implements PlayerAdapter {
     throw new Error('Spotify is busy — retrying soon');
   }
 
+  /** Connected and ready (Spotify knows this device). */
+  private ready = false;
+  private connecting: Promise<{ deviceId: string }> | null = null;
+
+  /**
+   * Connect once and stay connected: every room in this tab shares the player, so switching rooms
+   * skips Spotify's 1–3 s connect. Later calls (each a click) only unlock audio again.
+   */
   async connect(name: string) {
+    if (this.player && this.deviceId && this.ready) {
+      await this.player.activateElement?.();
+      return { deviceId: this.deviceId };
+    }
+    this.connecting ??= this.open(name).finally(() => (this.connecting = null));
+    return this.connecting;
+  }
+
+  private async open(name: string) {
+    this.player?.disconnect();
+    this.ready = false;
     await loadSdk();
     const P = window.Spotify!.Player;
     const player = new P({ name, volume: 1, getOAuthToken: (cb) => void this.getToken().then(cb, (e) => this.errorCb?.(String(e))) });
@@ -112,7 +131,11 @@ export class SpotifyPlayer implements PlayerAdapter {
       player.addListener('authentication_error', ({ message }: { message: string }) => reject(new Error(`Spotify sign-in problem: ${message}`)));
       player.addListener('account_error', () => reject(new Error('Spotify Premium is required to play in Spinroom.')));
     });
-    player.addListener('not_ready', () => this.lostCb?.());
+    player.addListener('ready', () => (this.ready = true));
+    player.addListener('not_ready', () => {
+      this.ready = false;
+      this.lostCb?.();
+    });
     // "No list was loaded" only means a pause or seek reached an empty player: nothing to tell anyone.
     player.addListener('playback_error', ({ message }: { message: string }) => {
       if (!/no list was loaded/i.test(message)) this.errorCb?.(message);
@@ -123,8 +146,10 @@ export class SpotifyPlayer implements PlayerAdapter {
       if (!state && this.expectingUri) this.lostCb?.();
     });
     if (!(await player.connect())) throw new Error('Could not connect to Spotify.');
-    this.deviceId = await ready;
-    return { deviceId: this.deviceId };
+    const deviceId = await ready;
+    this.deviceId = deviceId;
+    this.ready = true;
+    return { deviceId };
   }
 
   async play(uri: string, positionMs: number) {
@@ -162,6 +187,7 @@ export class SpotifyPlayer implements PlayerAdapter {
   }
   disconnect() {
     this.expectingUri = null;
+    this.ready = false;
     this.player?.disconnect();
   }
 }

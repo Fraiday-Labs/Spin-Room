@@ -135,6 +135,46 @@ describe('SpeakerController', () => {
     expect((await player.getState())?.uri ?? null).toBeNull();
   });
 
+  it('hands the shared player to another room: fades out, then the next room fades in at the same volume, no pause', async () => {
+    const { c: a, player } = setup();
+    await a.start();
+    await a.setSpin(spin('roomA', Date.now()));
+    await a.setVolume(0.6);
+    await vi.advanceTimersByTimeAsync(5000);
+    // The next room's speaker on the same player (as switching rooms does).
+    const clock = new ServerClock();
+    clock.addSample(0);
+    const api: SpeakerApi = {
+      register: vi.fn(async () => ({ id: 'sp2' })),
+      heartbeat: vi.fn(async () => ({ superseded: false })),
+      close: vi.fn(async () => {}),
+    };
+    const b = new SpeakerController(player, clock, api, { deviceName: 'Spinroom', timers: { setTimeout, clearTimeout, setInterval, clearInterval } as never });
+    await b.setSpin(spin('roomB', Date.now() - 40_000));
+    b.adoptLevels(a.view);
+    const pause = vi.spyOn(player, 'pause');
+    const handing = a.handOff(250);
+    const starting = b.start(false, { fadeIn: true, after: handing });
+    await vi.advanceTimersByTimeAsync(300);
+    await starting;
+    expect(a.view.status).toBe('off');
+    expect(pause).not.toHaveBeenCalled();
+    const st = await player.getState();
+    expect(st?.uri).toBe('spotify:track:roomB');
+    expect(st!.positionMs).toBeCloseTo(40_000, -3);
+    expect(player.volume).toBeLessThan(0.6); // fading in…
+    await vi.advanceTimersByTimeAsync(600);
+    expect(player.volume).toBeCloseTo(0.6, 5); // …to the volume you had
+    expect(b.view.volume).toBe(0.6);
+  });
+
+  it('turning off a speaker that isn’t playing leaves the shared player alone', async () => {
+    const { c, player } = setup();
+    await player.play('spotify:track:other-room', 0);
+    await c.stop();
+    expect((await player.getState())!.paused).toBe(false);
+  });
+
   it('heartbeats every 15 s with position and audibility', async () => {
     const { c, beats } = setup();
     await c.start();

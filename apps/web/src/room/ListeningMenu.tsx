@@ -70,7 +70,7 @@ export function ListeningMenu({ slug, roomName, title, onStop }: { slug: string;
     try {
       await api.call('rooms.join', { params: { slug: r.slug }, body: {} });
       await switchListening(r.slug, r.name, () => ({
-        controller: createSpeaker(r.slug, mode, () => `Spinroom — ${r.name}`),
+        controller: createSpeaker(r.slug, mode),
         conn: roomConn(r.slug, userId),
       }));
     } catch (e) {
