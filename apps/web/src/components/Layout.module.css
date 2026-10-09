@@ -17,7 +17,7 @@
   background: rgb(14 16 44 / 0.72);
   -webkit-backdrop-filter: saturate(160%) blur(18px);
   backdrop-filter: saturate(160%) blur(18px);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 @media (prefers-reduced-transparency: reduce) {
   .header {
@@ -33,6 +33,7 @@
   }
 }
 .brand {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -43,9 +44,10 @@
 }
 .nav {
   display: flex;
+  min-width: 0;
   gap: 16px;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .nav a {
   color: var(--text);

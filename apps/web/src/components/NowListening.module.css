@@ -1,0 +1,30 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.room {
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-pixel);
+  font-size: 15px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+.room:hover {
+  color: var(--text);
+}
+@media (max-width: 720px) {
+  .room {
+    max-width: 120px;
+  }
+}
+@media (max-width: 480px) {
+  .room {
+    display: none;
+  }
+}

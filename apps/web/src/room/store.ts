@@ -1,8 +1,8 @@
 import type { RoomEvent, RoomSnapshot } from '@spinroom/contracts';
 import { LiveRoom, type LiveStatus } from '@spinroom/sdk';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { liveRoomUrl } from '../lib/api';
-import { serverClock } from '../speaker/useSpeaker';
+import { serverClock } from '../speaker/clock';
 
 export interface LiveState {
   snapshot: RoomSnapshot | null;
@@ -12,8 +12,10 @@ export interface LiveState {
 }
 
 /** Small external store for the live room (no state library needed). */
+const INITIAL: LiveState = { snapshot: null, status: 'connecting', error: null, lastEvent: null };
+
 class RoomStore {
-  state: LiveState = { snapshot: null, status: 'connecting', error: null, lastEvent: null };
+  state: LiveState = INITIAL;
   private subs = new Set<() => void>();
   private eventSubs = new Set<(e: RoomEvent, s: RoomSnapshot | null) => void>();
   set(patch: Partial<LiveState>) {
@@ -37,13 +39,38 @@ class RoomStore {
   }
 }
 
-export function useLiveRoom(slug: string, myUserId: string | null | undefined, enabled: boolean) {
-  const [store] = useState(() => new RoomStore());
-  const live = useRef<LiveRoom | null>(null);
-  useEffect(() => {
-    if (!enabled) return;
-    const room = new LiveRoom({
-      url: () => liveRoomUrl(slug, !!myUserId),
+/**
+ * One live connection per room, shared by whoever needs it: the room page, and your speaker while
+ * it plays (so music keeps going on other pages). It opens with the first user and closes with
+ * the last.
+ */
+export interface RoomConn {
+  key: string;
+  slug: string;
+  userId: string | null;
+  store: RoomStore;
+  live: LiveRoom | null;
+  refs: number;
+}
+const conns = new Map<string, RoomConn>();
+
+export function roomConn(slug: string, userId: string | null): RoomConn {
+  const key = `${slug}|${userId ?? ''}`;
+  let c = conns.get(key);
+  if (!c) {
+    c = { key, slug, userId, store: new RoomStore(), live: null, refs: 0 };
+    conns.set(key, c);
+  }
+  return c;
+}
+
+/** Hold the room's live connection open; call the returned function to let go. */
+export function acquireRoom(c: RoomConn): () => void {
+  c.refs++;
+  if (!c.live) {
+    const store = c.store;
+    c.live = new LiveRoom({
+      url: () => liveRoomUrl(c.slug, !!c.userId),
       connect: (u) => {
         const ws = new WebSocket(u);
         ws.addEventListener('message', (m) => {
@@ -57,7 +84,7 @@ export function useLiveRoom(slug: string, myUserId: string | null | undefined, e
         });
         return ws as never;
       },
-      myUserId: myUserId ?? null,
+      myUserId: c.userId,
       onSnapshot: (s) => store.set({ snapshot: s, error: null }),
       onEvent: (e, s) => {
         store.set({ lastEvent: e });
@@ -66,11 +93,27 @@ export function useLiveRoom(slug: string, myUserId: string | null | undefined, e
       onStatus: (status) => store.set({ status }),
       onPong: (_rtt, offset) => serverClock.addSample(offset),
     });
-    live.current = room;
-    return () => room.close();
-  }, [slug, myUserId, enabled, store]);
-  const state = useSyncExternalStore(store.subscribe, () => store.state);
-  return { ...state, store, resync: () => live.current?.resync(), patch: (fn: (s: RoomSnapshot) => RoomSnapshot) => live.current?.patch(fn) };
+  }
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    c.refs--;
+    if (c.refs > 0) return;
+    c.live?.close();
+    c.live = null;
+    c.store.set(INITIAL);
+  };
+}
+
+export function useLiveRoom(slug: string, myUserId: string | null | undefined, enabled: boolean) {
+  const conn = useMemo(() => roomConn(slug, myUserId ?? null), [slug, myUserId]);
+  useEffect(() => {
+    if (!enabled) return;
+    return acquireRoom(conn);
+  }, [conn, enabled]);
+  const state = useSyncExternalStore(conn.store.subscribe, () => conn.store.state);
+  return { ...state, conn, store: conn.store, resync: () => conn.live?.resync(), patch: (fn: (s: RoomSnapshot) => RoomSnapshot) => conn.live?.patch(fn) };
 }
 
 /** Re-render every `ms` (for progress bars and countdowns). */

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'wouter';
 import { useMe } from '../lib/api';
 import { Logo } from './Logo';
+import { NowListening } from './NowListening';
 import { UserMenu } from './UserMenu';
 import s from './Layout.module.css';
 
@@ -15,6 +16,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <span>Spinroom</span>
         </Link>
         <nav className={s.nav} aria-label="Main">
+          {me.data && <NowListening />}
           {me.data ? (
             <UserMenu me={me.data} />
           ) : (

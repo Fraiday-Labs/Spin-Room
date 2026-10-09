@@ -598,3 +598,59 @@ test('the speaker stops and starts again cleanly, and a second tab takes it over
   await other.getByRole('button', { name: 'Listen' }).click();
   await expect(other.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
 });
+
+test('music keeps playing on other pages, with Listening in the top bar', async ({ page }) => {
+  await signInViaUi(page, uid('wanderer'));
+  await page.getByTestId('open-create-room').click();
+  const name = `Wander ${run}`;
+  await page.getByTestId('room-name').fill(name);
+  await page.getByTestId('create-room').click();
+  await expect(page).toHaveURL(/\/r\/wander-/);
+  const roomPath = new URL(page.url()).pathname;
+  for (const t of ['Neon Tide', 'Booth Lights']) await addTrack(page, t);
+  await page.getByRole('tab', { name: 'DJ queue' }).click();
+  await page.getByTestId('queue-toggle').click();
+  await expect(page.getByTestId('np-title')).toHaveText('Neon Tide');
+  await page.getByRole('button', { name: 'Listen' }).click();
+  await expect(page.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  const playing = () =>
+    page.evaluate(async () => {
+      const sp = (window as unknown as { __speaker: { player: { getState(): Promise<{ uri: string | null; paused: boolean } | null> } } }).__speaker;
+      const st = await sp.player.getState();
+      return st && !st.paused ? st.uri : null;
+    });
+  const neon = await playing();
+  expect(neon).toMatch(/^spotify:track:/);
+
+  // Off to the lobby (and then the profile): still playing, with the room and Listening up top.
+  await page.getByRole('link', { name: 'Spinroom home' }).click();
+  await expect(page).toHaveURL(/\/lobby/);
+  const bar = page.getByTestId('now-listening');
+  await expect(bar).toContainText(name);
+  await expect(bar.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  await page.getByTestId('user-menu').click();
+  await page.getByRole('menuitem', { name: 'Profile' }).click();
+  await expect(page).toHaveURL(/\/profile/);
+  await expect(bar.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+  expect(await playing()).toBe(neon);
+
+  // The room carries on while we're away: the DJ skips from another tab, and this tab follows.
+  const other = await page.context().newPage();
+  await other.goto(roomPath);
+  await other.getByRole('button', { name: 'Skip to the next song' }).click();
+  await expect(other.getByTestId('np-title')).toHaveText('Booth Lights');
+  await expect.poll(playing).not.toBe(neon);
+  await other.close();
+
+  // Back to the room by its name: the same speaker, still listening.
+  await bar.getByRole('link', { name }).click();
+  await expect(page).toHaveURL(new RegExp(roomPath));
+  await expect(page.getByTestId('now-listening')).toHaveCount(0);
+  await expect(page.getByTestId('speaker-banner')).toHaveAttribute('data-status', 'live');
+
+  // Stopping from the top bar on another page ends it.
+  await page.getByRole('link', { name: 'Spinroom home' }).click();
+  await page.getByTestId('now-listening').getByRole('button', { name: 'Listening — stop' }).click();
+  await expect(page.getByTestId('now-listening')).toHaveCount(0);
+  expect(await playing()).toBeNull();
+});

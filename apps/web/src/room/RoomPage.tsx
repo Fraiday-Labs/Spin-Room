@@ -6,6 +6,7 @@ import { Link, useLocation } from 'wouter';
 import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { LineIcon } from '../components/LineIcon';
 import { Logo } from '../components/Logo';
+import { NowListening } from '../components/NowListening';
 import { OverflowMenu, type MenuItem } from '../components/OverflowMenu';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { useSpeaker } from '../speaker/useSpeaker';
@@ -74,7 +75,7 @@ export default function RoomPage({ slug }: { slug: string }) {
     retry: false,
   });
   const snap = live.snapshot;
-  const speaker = useSpeaker(slug, snap?.room.name ?? slug, me.data && !me.data.remoteOnly ? cfg.data?.spotifyMode : undefined);
+  const speaker = useSpeaker(slug, snap?.room.name ?? slug, me.data && !me.data.remoteOnly ? cfg.data?.spotifyMode : undefined, live.conn);
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const notify = useCallback((text: string) => {
@@ -89,12 +90,10 @@ export default function RoomPage({ slug }: { slug: string }) {
   const [queueBusy, setQueueBusy] = useState(false);
   const chatInput = useRef<HTMLInputElement>(null);
 
-  // Feed live events to the speaker, toasts and the screen-reader live region.
-  const speakerRef = useRef(speaker);
-  speakerRef.current = speaker;
+  // Live events to toasts and the screen-reader live region. (The speaker gets them from its
+  // listening session, which also keeps them coming on other pages.)
   useEffect(() => {
     return live.store.onEvent((ev: RoomEvent, current) => {
-      speakerRef.current.onRoom(current, ev);
       if (ev.type === 'spin.started' && current) {
         const dj = current.members.find((m) => m.user.id === ev.spin.djUserId)?.user.displayName ?? 'the DJ';
         setAnnounce(`Now playing ${ev.spin.track.title} by ${ev.spin.track.artists.join(', ')}, DJ ${dj}.`);
@@ -108,12 +107,6 @@ export default function RoomPage({ slug }: { slug: string }) {
       }
     });
   }, [live.store, userId, notify, navigate]);
-  // Hand the current spin to the speaker, including when the speaker is created after the room
-  // loaded (auth config arriving later, e.g. a first visit from a share or Slack link).
-  useEffect(() => {
-    if (snap) speaker.onRoom(snap, null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap?.currentSpin?.id, speaker.controller]);
 
   const vote = useCallback(
     async (value: VoteValue | null) => {
@@ -240,6 +233,8 @@ export default function RoomPage({ slug }: { slug: string }) {
         <h1 className={s.name}>{snap.room.name}</h1>
         {live.status !== 'open' && <span className="badge badge-warn">{live.status === 'reconnecting' ? 'Reconnecting…' : 'Connecting…'}</span>}
         <div className={s.spacer} />
+        {/* Still listening to another room: it shows here, and Listen below switches to this one. */}
+        <NowListening exceptSlug={slug} />
         <SpeakerBanner
           me={me.data ?? null}
           view={speaker.view}
