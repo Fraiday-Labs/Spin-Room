@@ -1,15 +1,28 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { LineIcon } from './LineIcon';
 import s from './OverflowMenu.module.css';
 
 export interface MenuItem {
   label: string;
   danger?: boolean;
+  icon?: ReactNode;
+  testId?: string;
   onSelect: () => void;
 }
 
 /** A "⋯" button with a short menu of less common actions. Escape, outside clicks and picking close it. */
-export function OverflowMenu({ label, items }: { label: string; items: MenuItem[] }) {
+export function OverflowMenu({
+  label,
+  items,
+  vertical = false,
+  testId,
+}: {
+  label: string;
+  items: MenuItem[];
+  /** ⋮ instead of ⋯ (header menus). */
+  vertical?: boolean;
+  testId?: string;
+}) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
@@ -49,6 +62,7 @@ export function OverflowMenu({ label, items }: { label: string; items: MenuItem[
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
+        data-testid={testId}
         onClick={(e) => {
           // Cards are links: the menu must not navigate.
           e.preventDefault();
@@ -56,7 +70,7 @@ export function OverflowMenu({ label, items }: { label: string; items: MenuItem[
           setOpen((o) => !o);
         }}
       >
-        <LineIcon name="more" />
+        <LineIcon name={vertical ? 'moreVertical' : 'more'} size={vertical ? 20 : 18} />
       </button>
       {open && (
         <div className={s.menu} role="menu" id={id} aria-label={label} ref={list} onKeyDown={onKey}>
@@ -66,6 +80,7 @@ export function OverflowMenu({ label, items }: { label: string; items: MenuItem[
               type="button"
               role="menuitem"
               className={`${s.item} ${it.danger ? s.danger : ''}`}
+              data-testid={it.testId}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -73,6 +88,7 @@ export function OverflowMenu({ label, items }: { label: string; items: MenuItem[
                 it.onSelect();
               }}
             >
+              {it.icon && <span className={s.icon}>{it.icon}</span>}
               {it.label}
             </button>
           ))}

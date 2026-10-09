@@ -12,6 +12,7 @@ test.describe('Journey 1 + 2: create, invite, join and DJ', () => {
     await page.getByLabel('Who can join').selectOption('invite_only');
     await page.getByTestId('create-room').click();
     await expect(page).toHaveURL(/\/r\/friday-/);
+    await page.getByTestId('room-menu').click();
     await page.getByTestId('share-room').click();
     await page.getByRole('button', { name: 'Create a one-time invite' }).click();
     const inviteUrl = (await page.locator('code', { hasText: '/invite/' }).textContent())!;
@@ -130,10 +131,15 @@ test('owners close, reopen and delete rooms, and listeners are told', async ({ p
   // A friend is listening when the owner closes the room.
   const friend = await newUserPage(browser, uid('guest'));
   await friend.goto(roomPath);
-  await expect(friend.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+  // Members get Share in the ⋮ menu, but not Settings.
+  await friend.getByTestId('room-menu').click();
+  await expect(friend.getByRole('menuitem', { name: 'Share' })).toBeVisible();
+  await expect(friend.getByRole('menuitem', { name: 'Settings' })).toHaveCount(0);
+  await friend.keyboard.press('Escape');
   await expect(friend.getByRole('tab', { name: 'DJ queue' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByTestId('room-menu').click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Close room' }).click();
   await page.getByRole('alert').getByRole('button', { name: 'Close room' }).click();
   await expect(page).toHaveURL(/\/lobby/);
@@ -327,11 +333,13 @@ test('a site admin can open settings in, and delete, a room someone else owns', 
   const member = await newUserPage(browser, uid('member'));
   await member.goto(`/r/${slug}`);
   await expect(member.getByTestId('stage')).toBeVisible();
-  await expect(member.getByRole('link', { name: 'Settings' })).toHaveCount(0);
+  await member.getByTestId('room-menu').click();
+  await expect(member.getByRole('menuitem', { name: 'Settings' })).toHaveCount(0);
 
   await signInViaUi(page, 'e2e-site-admin');
   await page.goto(`/r/${slug}`);
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await page.getByTestId('room-menu').click();
+  await page.getByRole('menuitem', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Room settings' })).toBeVisible();
   await page.goto('/lobby');
   const card = page.getByTestId(`room-card-${slug}`);
@@ -398,6 +406,7 @@ test('"Anyone with the link" lets someone straight into an invite-only room, eve
   await expect(owner).toHaveURL(/\/r\/linky-/);
   const roomPath = new URL(owner.url()).pathname;
 
+  await owner.getByTestId('room-menu').click();
   await owner.getByTestId('share-room').click();
   const dialog = owner.getByRole('dialog', { name: /Share/ });
   await expect(dialog.getByLabel('General access')).toHaveValue('restricted');
@@ -463,6 +472,7 @@ test('on a phone, the thumbs are on screen without scrolling and the header is o
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.getByTestId('vote-hype')).toBeInViewport();
   await expect(page.getByTestId('vote-skip')).toBeInViewport();
+  await expect(page.locator('header').first().getByRole('link', { name: 'Spinroom home' })).toBeVisible();
   const header = await page.locator('header').first().boundingBox();
   expect(header!.height).toBeLessThan(64);
 });

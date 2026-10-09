@@ -15,6 +15,25 @@
   flex-wrap: nowrap;
   min-width: 0;
 }
+/* The Spinroom logo, top left as on every page. */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 2px 4px;
+  color: var(--text);
+  text-decoration: none;
+  font-family: var(--font-pixel);
+  font-size: 22px;
+}
+.divider {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 4px;
+  background: var(--border);
+}
 .back {
   flex: none;
 }
@@ -26,9 +45,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.hdrBtn {
-  flex: none;
-}
 @media (max-width: 720px) {
   .header {
     gap: 6px;
@@ -39,10 +55,6 @@
   }
   .wide {
     display: none;
-  }
-  .hdrBtn {
-    min-width: 40px;
-    padding: 8px;
   }
 }
 .spacer {

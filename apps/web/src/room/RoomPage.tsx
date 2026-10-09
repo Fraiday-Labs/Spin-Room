@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { ErrorBoundary, PanelError } from '../components/ErrorBoundary';
 import { LineIcon } from '../components/LineIcon';
+import { Logo } from '../components/Logo';
+import { OverflowMenu, type MenuItem } from '../components/OverflowMenu';
 import { api, errorMessage, signInUrl, useMe } from '../lib/api';
 import { useSpeaker } from '../speaker/useSpeaker';
 import { MemberCard } from './MemberCard';
@@ -218,9 +220,20 @@ export default function RoomPage({ slug }: { slug: string }) {
   const djName = snap.currentSpin ? (snap.members.find((m) => m.user.id === snap.currentSpin!.djUserId)?.user.displayName ?? null) : null;
   const voteDisabled = !me.data ? 'Sign in to vote' : snap.currentSpin?.djUserId === me.data.id ? 'You’re the DJ' : null;
 
+  // Share and Settings live in the ⋮ menu, keeping the top bar clean.
+  const roomMenu: MenuItem[] = [
+    ...(me.data ? [{ label: 'Share', icon: <LineIcon name="share" />, testId: 'share-room', onSelect: () => setSharing(true) }] : []),
+    ...(isMod ? [{ label: 'Settings', icon: <LineIcon name="settings" />, testId: 'room-settings', onSelect: () => navigate(`/r/${slug}/settings`) }] : []),
+  ];
+
   return (
     <div className={s.page}>
       <header className={s.header}>
+        <Link href={me.data ? '/lobby' : '/'} className={s.brand} aria-label="Spinroom home">
+          <Logo />
+          <span className={s.wide}>Spinroom</span>
+        </Link>
+        <span className={s.divider} aria-hidden="true" />
         <Link href="/lobby" className={`btn btn-ghost btn-icon ${s.back}`} aria-label="Back to rooms">
           <LineIcon name="back" size={20} />
         </Link>
@@ -236,18 +249,7 @@ export default function RoomPage({ slug }: { slug: string }) {
           onReclaim={() => void speaker.controller?.reclaim()}
           autoFocus={params.get('speaker') === '1'}
         />
-        {me.data && (
-          <button className={`btn ${s.hdrBtn}`} onClick={() => setSharing(true)} data-testid="share-room" aria-label="Share">
-            <LineIcon name="share" />
-            <span className={s.wide}>Share</span>
-          </button>
-        )}
-        {isMod && (
-          <Link href={`/r/${slug}/settings`} className={`btn btn-ghost ${s.hdrBtn}`} aria-label="Settings">
-            <LineIcon name="settings" />
-            <span className={s.wide}>Settings</span>
-          </Link>
-        )}
+        {roomMenu.length > 0 && <OverflowMenu label="Room menu" items={roomMenu} vertical testId="room-menu" />}
         {!me.data && (
           <a className="btn btn-spotify" href={signInUrl()}>
             Sign in to join

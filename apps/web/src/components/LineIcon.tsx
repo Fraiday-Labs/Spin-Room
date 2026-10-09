@@ -7,6 +7,8 @@ const PATHS = {
   back: 'M15 5l-7 7 7 7',
   // Three dots: more actions.
   more: 'M5 12h.01M12 12h.01M19 12h.01',
+  // Three dots, stacked: a menu.
+  moreVertical: 'M12 5h.01M12 12h.01M12 19h.01',
   forward: 'M9 5l7 7-7 7',
 } as const;
 
@@ -18,7 +20,7 @@ export function LineIcon({ name, size = 18 }: { name: keyof typeof PATHS; size?:
       height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth={name === 'more' ? 3.5 : 2}
+      strokeWidth={name === 'more' || name === 'moreVertical' ? 3.5 : 2}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
